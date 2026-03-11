@@ -272,7 +272,7 @@ const App = () => {
       >
         <div className="kpi-watermark"><Icon size={90} color={col.hex} /></div>
         <div className="kpi-top">
-          <div className="kpi-icon-box"><Icon size={26} color={col.hex} /></div>
+          <div className="kpi-icon-box"><Icon size={40} color={col.hex} /></div>
           {trend && (
             <span className={`kpi-badge ${isNeutral ? 'kpi-badge-neutral' : isPositive ? 'kpi-badge-up' : 'kpi-badge-down'}`}>{trend}</span>
           )}
@@ -288,7 +288,7 @@ const App = () => {
     const col = sectionColorMap[color] || sectionColorMap['text-teal-500'];
     return (
       <div className="section-header" style={{ '--sr': col.r, '--sg': col.g, '--sb': col.b }}>
-        <div className="section-icon"><Icon size={18} color={col.hex} /></div>
+        <div className="section-icon"><Icon size={22} color={col.hex} /></div>
         <div>
           <h2 className="section-title">{title}</h2>
           {subtitle && <p className="section-subtitle">{subtitle}</p>}

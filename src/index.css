@@ -472,20 +472,20 @@ html:not(.dark) .content-area { background: #f1f5f9; }
   margin-bottom: 14px;
 }
 .kpi-icon-box {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: rgba(var(--r,13),var(--g,148),var(--b,136),0.1);
-  border: 1.5px solid rgba(var(--r,13),var(--g,148),var(--b,136),0.22);
+  background: rgba(var(--r,13),var(--g,148),var(--b,136),0.15);
+  border: 2px solid rgba(var(--r,13),var(--g,148),var(--b,136),0.35);
 }
 .dark .kpi-icon-box {
-  background: rgba(var(--r,13),var(--g,148),var(--b,136),0.15);
-  border-color: rgba(var(--r,13),var(--g,148),var(--b,136),0.3);
-  box-shadow: 0 0 14px rgba(var(--r,13),var(--g,148),var(--b,136),0.15);
+  background: rgba(var(--r,13),var(--g,148),var(--b,136),0.22);
+  border-color: rgba(var(--r,13),var(--g,148),var(--b,136),0.45);
+  box-shadow: 0 0 20px rgba(var(--r,13),var(--g,148),var(--b,136),0.25);
 }
 .kpi-badge {
   font-size: 10px;
