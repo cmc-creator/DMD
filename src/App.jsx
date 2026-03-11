@@ -1,4 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { items as wixDataItems } from '@wix/data';
+import { createClient, OAuthStrategy } from '@wix/sdk';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
@@ -91,8 +93,8 @@ const App = () => {
       { key: 'pageId',      label: 'Facebook Page ID',  placeholder: '123456789012345',                hint: 'Facebook Page → About → Page ID'                                },
     ],
     'Wix Analytics': [
-      { key: 'apiKey',  label: 'Wix API Key', placeholder: 'Your Wix API key', type: 'password', hint: 'Wix Dashboard → Dev Mode → API Keys'          },
-      { key: 'siteId',  label: 'Site ID',     placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', hint: 'Wix Dashboard URL segment after /dashboard/' },
+      { key: 'clientId',   label: 'OAuth Client ID',  placeholder: '7ed57615-xxxx-xxxx-xxxx-xxxxxxxxxxxx', type: 'password', hint: 'Wix Headless Settings → OAuth Apps → Client ID'            },
+      { key: 'collection', label: 'Data Collection',  placeholder: 'Events/Categories',                                hint: 'Wix Data collection to query (e.g. Events/Categories)'  },
     ],
     'Mailchimp': [
       { key: 'apiKey',  label: 'API Key',     placeholder: 'xxxxxxxxxxxxxxxx-us1', type: 'password', hint: 'Mailchimp → Account → Extras → API Keys' },
@@ -121,6 +123,28 @@ const App = () => {
   };
 
   // ── Live data fetch helpers ───────────────────────────────────────────────────
+  const fetchWixData = async (creds) => {
+    const { clientId, collection } = creds;
+    if (!clientId) return { success: false, error: 'Missing OAuth Client ID' };
+    try {
+      const wixClient = createClient({
+        modules: { items: wixDataItems },
+        auth: OAuthStrategy({ clientId }),
+      });
+      const result = await wixClient.items.query(collection || 'Events/Categories').find();
+      return {
+        success: true,
+        data: {
+          totalItems: result.items.length,
+          collection: collection || 'Events/Categories',
+          itemIds: result.items.slice(0, 5).map(i => i.data?._id).filter(Boolean),
+        },
+      };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  };
+
   const fetchMetaPageData = async (creds) => {
     const { accessToken, pageId } = creds;
     if (!accessToken || !pageId) return { success: false, error: 'Missing access token or page ID' };
@@ -150,6 +174,7 @@ const App = () => {
     try {
       if (name === 'Meta Business Suite') result = await fetchMetaPageData(creds);
       else if (name === 'Meta Ads Manager') result = await fetchMetaAdsData(creds);
+      else if (name === 'Wix Analytics') result = await fetchWixData(creds);
       // Other platforms require a server-side proxy — mark synced but no live payload
       if (result.success) {
         if (result.data && Object.keys(result.data).length > 0) setLiveData(d => ({ ...d, [name]: result.data }));
@@ -175,6 +200,7 @@ const App = () => {
     let testResult = { success: true, data: {} };
     if (name === 'Meta Business Suite') testResult = await fetchMetaPageData(formData);
     else if (name === 'Meta Ads Manager') testResult = await fetchMetaAdsData(formData);
+    else if (name === 'Wix Analytics') testResult = await fetchWixData(formData);
     setConnectTesting(false);
     if (!testResult.success) { setConnectError(`Connection failed: ${testResult.error}`); return; }
     const syncTime = new Date().toLocaleString();
