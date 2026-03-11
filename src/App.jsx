@@ -274,9 +274,9 @@ const App = () => {
         tabIndex={onClick ? 0 : undefined}
         onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
       >
-        <div className="kpi-watermark"><Icon size={90} color={col.hex} /></div>
+        <div className="kpi-watermark"><Icon size={70} color={col.hex} /></div>
         <div className="kpi-top">
-          <div className="kpi-icon-box"><Icon size={40} color={col.hex} /></div>
+          <div className="kpi-icon-box"><Icon size={26} color={col.hex} /></div>
           {trend && (
             <span className={`kpi-badge ${isNeutral ? 'kpi-badge-neutral' : isPositive ? 'kpi-badge-up' : 'kpi-badge-down'}`}>{trend}</span>
           )}
@@ -444,13 +444,13 @@ const App = () => {
 {activeTab === 'overview' && (
           <>
             {/* Top KPI Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Google Rating"     value={metrics.googleScore}    trend={metrics.googleTrend} icon={Star}        color="bg-amber-500"   sub="Review Cleanup Performance" onClick={() => setActiveTab('reviews')} />
               <StatCard title="Monthly Sessions"  value={metrics.wixSessions}    trend={null}                icon={Layout}      color="bg-teal-600"    sub="Wix Website Traffic"        onClick={() => setActiveTab('seo')} />
               <StatCard title="Avg Read Time"     value={metrics.avgReadTime}    trend={null}                icon={Clock}       color="bg-emerald-600" sub="Blog & Education Retention"  onClick={() => setActiveTab('seo')} />
               <StatCard title="Omnichannel Reach" value="🔗"                      trend={null}                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"        onClick={() => setActiveTab('social')} />
               </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Total Leads"       value={metrics.totalLeads}     trend={metrics.leadsGrowth} icon={Target}      color="bg-rose-500"    sub="Monthly Lead Volume"         onClick={() => setActiveTab('pipeline')} />
               <StatCard title="Cost Per Lead"     value={metrics.costPerLead}    trend={null}                icon={TrendingDown} color="bg-indigo-600" sub="Blended Paid Acquisition"    onClick={() => setActiveTab('ads')} />
               <StatCard title="Site Conversion"   value={metrics.siteConversion} trend={null}                icon={MousePointer} color="bg-teal-600"   sub="Visitor to Lead Rate"         onClick={() => setActiveTab('seo')} />
@@ -630,7 +630,7 @@ const App = () => {
         {/* ══════════════════ SOCIAL ══════════════════ */}
         {activeTab === 'social' && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               {socialAnalytics.map(s => (
                 <div key={s.platform} className={`${card} p-5 rounded-2xl`}>
                   <div className="h-10 w-10 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: s.color + '25' }}>
@@ -694,7 +694,7 @@ const App = () => {
         {/* ══════════════════ SEO & CONTENT ══════════════════ */}
         {activeTab === 'seo' && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Organic Growth"  value="+24%"              trend="+24%" icon={TrendingUp} color="bg-teal-600"   sub="Statewide SEO Lift"   />
               <StatCard title="Avg Position"    value="4.5"               trend="+2.1" icon={Search}     color="bg-blue-600"   sub="Google SERP Average"  />
               <StatCard title="Blog Posts / Mo" value={metrics.blogVelocity} trend="+4" icon={FileText}  color="bg-purple-600" sub="Monthly Production"   />
@@ -773,7 +773,7 @@ const App = () => {
         {/* ══════════════════ PAID ADS ══════════════════ */}
         {activeTab === 'ads' && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Total Ad Spend"    value="�"      trend={null}     icon={Target}      color="bg-indigo-600" sub="Monthly Budget"      />
               <StatCard title="Total Leads"       value="�"      trend={null}     icon={Users}       color="bg-teal-600"  sub="From Paid Channels" />
               <StatCard title="Avg CPL"           value="�"      trend={null}      icon={TrendingDown} color="bg-blue-600" sub="Cost Per Lead" />
@@ -827,7 +827,7 @@ const App = () => {
         {/* ══════════════════ EMAIL ══════════════════ */}
         {activeTab === 'email' && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Avg Open Rate"     value={metrics.emailOpenRate} trend={null}  icon={Mail}        color="bg-teal-600"   sub="All Campaigns"      />
               <StatCard title="Total Subscribers" value="�"                    trend={null}  icon={Users}       color="bg-purple-600" sub="Active List Size"   />
               <StatCard title="Click Rate"        value="�"                    trend={null}  icon={MousePointer}color="bg-emerald-600"sub="Avg CTR"            />
@@ -1019,7 +1019,7 @@ const App = () => {
         {/* ══════════════════ CLIENT ROI ══════════════════ */}
         {activeTab === 'roi' && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Est. Revenue Potential" value="�"      trend={null}         icon={DollarSign} color="bg-teal-600"   sub="Based on avg value / lead"     />
               <StatCard title="Total Mktg Spend"       value="�"      trend={null}          icon={Target}     color="bg-indigo-600" sub="Monthly All Channels"        />
               <StatCard title="Blended ROI"            value="�"      trend={null}          icon={TrendingUp} color="bg-emerald-600" sub="Revenue / Spend Ratio"       />
@@ -1150,7 +1150,7 @@ const App = () => {
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               {[
                 { label: 'Scheduled',     value: contentItems.filter(c=>c.status==='scheduled').length, color: 'text-teal-500'   },
                 { label: 'In Draft',      value: contentItems.filter(c=>c.status==='draft').length,     color: 'text-amber-500'  },
@@ -1188,7 +1188,7 @@ const App = () => {
         {/* ══════════════════ REVIEWS ══════════════════ */}
         {activeTab === 'reviews' && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Current Rating"  value="4.2 ?" trend="+0.8"  icon={Star}        color="bg-amber-500"   sub="Google Business Profile" />
               <StatCard title="Total Reviews"   value="�"     trend={null}  icon={MessageSquare}color="bg-teal-600"   sub="All Time"               />
               <StatCard title="Promoters Ready" value="�"     trend={null}  icon={ThumbsUp}    color="bg-emerald-600" sub="Awaiting Outreach"      />
@@ -1287,32 +1287,32 @@ const App = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
               {integrations.map(intg => (
-                <div key={intg.name} className={`${card} p-6 rounded-[2rem] ${!intg.connected ? 'opacity-70' : ''}`}>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-3 rounded-xl ${intg.connected ? 'bg-teal-50 dark:bg-teal-900/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                        <intg.icon size={20} className={intg.connected ? intg.color : subtl} />
+                <div key={intg.name} className={`${card} p-5 rounded-[1.5rem] ${!intg.connected ? 'opacity-70' : ''}`}>
+                  <div className="flex items-start justify-between gap-2 mb-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`p-2.5 rounded-xl flex-shrink-0 ${intg.connected ? 'bg-teal-50 dark:bg-teal-900/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                        <intg.icon size={18} className={intg.connected ? intg.color : subtl} />
                       </div>
-                      <div>
-                        <div className={`font-black text-sm ${txt}`}>{intg.name}</div>
-                        <div className={`text-[13px] ${subtl}`}>{intg.sub}</div>
+                      <div className="min-w-0">
+                        <div className={`font-black text-sm truncate ${txt}`}>{intg.name}</div>
+                        <div className={`text-[12px] truncate ${subtl}`}>{intg.sub}</div>
                       </div>
                     </div>
-                    <span className={`flex items-center gap-1.5 text-[13px] font-black px-2 py-1 rounded-full ${intg.connected ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
+                    <span className={`flex-shrink-0 flex items-center gap-1 text-[11px] font-black px-2 py-1 rounded-full whitespace-nowrap ${intg.connected ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
                       {intg.connected ? <RefreshCw size={10} /> : <WifiOff size={10} />}
                       {intg.connected ? 'Connected' : 'Setup Required'}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-2 mb-4">
+                  <div className="flex flex-wrap gap-1.5 mb-4">
                     {intg.metrics.map(m => (
-                      <span key={m} className={`text-[13px] font-bold px-2 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 ${intg.connected ? 'text-teal-600 dark:text-teal-400' : subtl}`}>{m}</span>
+                      <span key={m} className={`text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-50 dark:bg-slate-800 ${intg.connected ? 'text-teal-600 dark:text-teal-400' : subtl}`}>{m}</span>
                     ))}
                   </div>
-                  <div className={`flex items-center justify-between text-[13px] ${subtl} border-t ${brd} pt-3`}>
-                    <span>Last sync: {intg.lastSync}</span>
+                  <div className={`flex items-center justify-between text-[12px] ${subtl} border-t ${brd} pt-3`}>
+                    <span className="truncate mr-2">Last sync: {intg.lastSync}</span>
                     {intg.connected
-                      ? <button className="text-teal-500 hover:text-teal-400 font-black flex items-center gap-1"><RefreshCw size={10} /> Sync Now</button>
-                      : <button className="text-amber-500 hover:text-amber-400 font-black flex items-center gap-1"><Plug size={10} /> Connect</button>}
+                      ? <button className="flex-shrink-0 text-teal-500 hover:text-teal-400 font-black flex items-center gap-1"><RefreshCw size={10} /> Sync Now</button>
+                      : <button className="flex-shrink-0 text-amber-500 hover:text-amber-400 font-black flex items-center gap-1"><Plug size={10} /> Connect</button>}
                   </div>
                 </div>
               ))}
@@ -1344,7 +1344,7 @@ const App = () => {
         {/* ------------------ DATA IMPORT ------------------ */}
         {activeTab === 'import' && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               {[
                 { label: 'Data Sources',  value: '10',  color: 'text-teal-500',    icon: Plug      },
                 { label: 'Auto Syncing',  value: '0',   color: 'text-emerald-500', icon: RefreshCw },
