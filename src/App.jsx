@@ -109,8 +109,8 @@ const App = () => {
       { key: 'adAccountId', label: 'Ad Account ID', placeholder: 'act_123456789',                   hint: 'Ads Manager → Account Settings → prepend "act_" to your ID' },
     ],
     'TikTok for Business': [
-      { key: 'accessToken',  label: 'Access Token',   placeholder: 'Your TikTok access token',  type: 'password', hint: 'business.tiktok.com → App → Long-Term Access Token' },
-      { key: 'advertiserId', label: 'Advertiser ID',  placeholder: 'Your advertiser ID',                          hint: 'TikTok Ads Manager → Account Settings → Advertiser ID'     },
+      { key: 'accessToken', label: 'User Access Token', placeholder: 'act.xxxxxxxxxxxxxxxxxx', type: 'password', hint: 'developers.tiktok.com → My Apps → your app → Auth & Permissions → Generate User Access Token' },
+      { key: 'openId',      label: 'Open ID (optional)', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',          hint: 'Returned by TikTok OAuth flow alongside the access token — leave blank to skip'           },
     ],
     'Sintra AI': [
       { key: 'apiKey',      label: 'API Key',       placeholder: 'Your Sintra API key',  type: 'password', hint: 'Sintra Dashboard → Settings → API Keys'    },
@@ -157,6 +157,62 @@ const App = () => {
     }
   };
 
+  const fetchTikTokData = async (creds) => {
+    const { accessToken } = creds;
+    if (!accessToken) return { success: false, error: 'Missing User Access Token' };
+    try {
+      // TikTok v2 user info
+      const userRes = await fetch(
+        'https://open.tiktokapis.com/v2/user/info/?fields=display_name,follower_count,following_count,video_count,likes_count',
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const userData = await userRes.json();
+      if (userData.error?.code && userData.error.code !== 'ok') {
+        return { success: false, error: userData.error.message || userData.error.code };
+      }
+      // TikTok v2 recent video list
+      const videoRes = await fetch(
+        'https://open.tiktokapis.com/v2/video/list/?fields=id,title,view_count,like_count,comment_count,share_count',
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ max_count: 10 }),
+        }
+      );
+      const videoData = await videoRes.json();
+      const videos = videoData.data?.videos || [];
+      const totalViews    = videos.reduce((s, v) => s + (v.view_count    || 0), 0);
+      const totalLikes    = videos.reduce((s, v) => s + (v.like_count    || 0), 0);
+      const totalComments = videos.reduce((s, v) => s + (v.comment_count || 0), 0);
+      const totalShares   = videos.reduce((s, v) => s + (v.share_count   || 0), 0);
+      return {
+        success: true,
+        data: {
+          displayName:  userData.data?.user?.display_name,
+          followers:    userData.data?.user?.follower_count,
+          videoCount:   userData.data?.user?.video_count,
+          totalLikes:   userData.data?.user?.likes_count,
+          recentPosts:  videos.length,
+          recentViews:  totalViews,
+          recentLikes:  totalLikes,
+          recentComments: totalComments,
+          recentShares:   totalShares,
+          videos: videos.slice(0, 5),
+        },
+      };
+    } catch (e) {
+      // CORS block from browser = save creds, show proxy note
+      if (e.message?.includes('fetch') || e.message?.includes('CORS') || e.message?.includes('Failed to fetch')) {
+        return {
+          success: true,
+          data: { connected: true },
+          warning: 'TikTok API requires a backend proxy for browser access. Credentials saved — data will populate once proxy is configured.',
+        };
+      }
+      return { success: false, error: e.message };
+    }
+  };
+
   const fetchMetaPageData = async (creds) => {
     const { accessToken, pageId } = creds;
     if (!accessToken || !pageId) return { success: false, error: 'Missing access token or page ID' };
@@ -187,6 +243,7 @@ const App = () => {
       if (name === 'Meta Business Suite') result = await fetchMetaPageData(creds);
       else if (name === 'Meta Ads Manager') result = await fetchMetaAdsData(creds);
       else if (name === 'Wix Analytics') result = await fetchWixData(creds);
+      else if (name === 'TikTok for Business') result = await fetchTikTokData(creds);
       // Other platforms require a server-side proxy — mark synced but no live payload
       if (result.success) {
         if (result.data && Object.keys(result.data).length > 0) setLiveData(d => ({ ...d, [name]: result.data }));
@@ -214,6 +271,7 @@ const App = () => {
     if (name === 'Meta Business Suite') testResult = await fetchMetaPageData(formData);
     else if (name === 'Meta Ads Manager') testResult = await fetchMetaAdsData(formData);
     else if (name === 'Wix Analytics') testResult = await fetchWixData(formData);
+    else if (name === 'TikTok for Business') testResult = await fetchTikTokData(formData);
     setConnectTesting(false);
     if (!testResult.success) { setConnectError(`Connection failed: ${testResult.error}`); return; }
     if (testResult.warning) { setConnectError(`⚠️ ${testResult.warning}`); }
@@ -427,7 +485,7 @@ const App = () => {
     { name: 'Mailchimp',           sub: 'Email Campaigns',         icon: Mail,       color: 'text-yellow-500', metrics: ['Subscribers', 'Open Rate', 'Click Rate', 'Campaigns']     },
     { name: 'Google Ads',          sub: 'Paid Search Campaigns',   icon: Target,     color: 'text-indigo-500', metrics: ['Impressions', 'Clicks', 'CPC', 'Conversions']             },
     { name: 'Meta Ads Manager',    sub: 'FB & IG Paid Campaigns',  icon: Megaphone,  color: 'text-blue-400',   metrics: ['Ad Spend', 'Reach', 'CPM', 'ROAS']                        },
-    { name: 'TikTok for Business', sub: 'TikTok Analytics',        icon: PlayCircle, color: 'text-pink-400',   metrics: ['Video Views', 'Followers', 'Engagement', 'Spend']         },
+    { name: 'TikTok for Business', sub: 'Organic Posts & Content',  icon: PlayCircle, color: 'text-pink-400',   metrics: ['Video Views', 'Followers', 'Likes', 'Comments']           },
     { name: 'Sintra AI',           sub: 'AI Marketing Automation', icon: Bot,        color: 'text-purple-500', metrics: ['Campaigns', 'Reports', 'Insights', 'Automations']         },
     { name: 'MarkyAI',             sub: 'AI Content & Scheduling', icon: Zap,        color: 'text-pink-500',   metrics: ['Content Posts', 'Scheduling', 'Analytics', 'AI Writes']  },
   ];
@@ -1963,8 +2021,8 @@ const App = () => {
                     : 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400'
                 }`}>{connectError}</div>
               )}
-              {/* Note for non-Meta, non-Wix platforms */}
-              {!['Meta Business Suite','Meta Ads Manager','Wix Analytics'].includes(connectModal) && (
+              {/* Note for non-Meta, non-Wix, non-TikTok platforms */}
+              {!['Meta Business Suite','Meta Ads Manager','Wix Analytics','TikTok for Business'].includes(connectModal) && (
                 <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-[12px] text-blue-600 dark:text-blue-400">
                   Credentials are saved locally. Live data sync for this platform requires the backend API proxy to be configured by your developer.
                 </div>
