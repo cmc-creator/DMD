@@ -11,7 +11,7 @@ import {
   Target, Award, Bell, TrendingDown, Sun, Moon, Printer,
   Calendar, DollarSign, Plug, Trophy, Heart, WifiOff,
   RefreshCw, Pencil, Send, Zap, BadgeCheck, ShieldCheck, Megaphone,
-  ChevronLeft,
+  ChevronLeft, Upload, Plus, Download, ExternalLink, Bot, X,
 } from 'lucide-react';
 
 // â”€â”€â”€ Shared style helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -59,6 +59,10 @@ const App = () => {
   const [darkMode, setDarkMode]                 = useState(true);
   const [calFilter, setCalFilter]               = useState('All');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showAddPost, setShowAddPost]           = useState(false);
+  const [importMode, setImportMode]             = useState('upload');
+  const [importDataType, setImportDataType]     = useState('Social Metrics');
+  const [newPost, setNewPost]                   = useState({ title: '', platform: 'Facebook', date: '', type: 'Social', status: 'scheduled', notes: '' });
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -195,7 +199,20 @@ const App = () => {
   ];
 
   // â”€â”€ Content Calendar data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const contentItems = [];
+  const [contentItems, setContentItems] = useState([
+    { title: 'Mental Health Awareness Post',       platform: 'Facebook, Instagram', date: 'Mon 3',  type: 'Social', status: 'scheduled', notes: 'Focus on stigma reduction'          },
+    { title: '5 Signs You Need Support (TikTok)',  platform: 'TikTok',              date: 'Tue 4',  type: 'TikTok', status: 'filming',   notes: 'Short-form, 60s max'                },
+    { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: 'Wed 5',  type: 'Blog',   status: 'draft',     notes: '1,200 words · SEO optimized'        },
+    { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: 'Thu 6',  type: 'Email',  status: 'scheduled', notes: 'All subscribers · 3pm send time'    },
+    { title: 'Success Story Spotlight',            platform: 'LinkedIn',            date: 'Fri 7',  type: 'Social', status: 'idea',      notes: 'Patient testimonial (anonymized)'   },
+    { title: 'Weekend Wellness Tip',               platform: 'Instagram',           date: 'Sat 8',  type: 'Social', status: 'scheduled', notes: '5 breathing exercises for calm'     },
+    { title: 'Staff Introduction Video',           platform: 'TikTok, Instagram',   date: 'Mon 10', type: 'TikTok', status: 'filming',   notes: 'Behind the scenes series'           },
+    { title: 'SEO Blog: Finding a Therapist AZ',   platform: 'Website',             date: 'Thu 13', type: 'Blog',   status: 'idea',      notes: 'Target: therapist near me Arizona'  },
+    { title: 'Monthly Patient Outreach Email',     platform: 'Mailchimp',           date: 'Fri 14', type: 'Email',  status: 'scheduled', notes: 'Re-engagement campaign'             },
+    { title: 'Recovery Awareness Post',            platform: 'Facebook, LinkedIn',  date: 'Mon 17', type: 'Social', status: 'scheduled', notes: 'Link to latest blog article'        },
+    { title: 'TikTok Q&A: Common Questions',       platform: 'TikTok',              date: 'Wed 19', type: 'TikTok', status: 'idea',      notes: '3-part Q&A series'                 },
+    { title: 'Ad Creative: New Patient Special',   platform: 'Meta Ads',            date: 'Thu 20', type: 'Social', status: 'draft',     notes: 'A/B test 2 creative variants'      },
+  ]);
 
   const calendarTypes = ['All', 'Blog', 'Social', 'TikTok', 'Email'];
   const filteredContent = calFilter === 'All' ? contentItems : contentItems.filter(c => c.type === calFilter);
@@ -231,8 +248,17 @@ const App = () => {
     { name: 'Mailchimp',           sub: 'Email Campaigns',        icon: Mail,       connected: false, lastSync: 'Not connected', color: 'text-yellow-500', metrics: ['Setup Required'] },
     { name: 'Google Ads',          sub: 'Paid Search Campaigns',  icon: Target,     connected: false, lastSync: 'Not connected', color: 'text-indigo-500', metrics: ['Setup Required'] },
     { name: 'Meta Ads Manager',    sub: 'FB & IG Paid Campaigns', icon: Megaphone,  connected: false, lastSync: 'Not connected', color: 'text-blue-400',   metrics: ['Setup Required'] },
-    { name: 'TikTok for Business', sub: 'TikTok Analytics',       icon: PlayCircle, connected: false, lastSync: 'Not connected', color: 'text-pink-400',   metrics: ['Setup Required'] },
+    { name: 'TikTok for Business', sub: 'TikTok Analytics',        icon: PlayCircle, connected: false, lastSync: 'Not connected', color: 'text-pink-400',   metrics: ['Setup Required'] },
+    { name: 'Sintra AI',           sub: 'AI Marketing Automation', icon: Bot,        connected: false, lastSync: 'Not connected', color: 'text-purple-500', metrics: ['Campaigns', 'Reports', 'Insights'] },
+    { name: 'MarkyAI',             sub: 'AI Content & Scheduling', icon: Zap,        connected: false, lastSync: 'Not connected', color: 'text-pink-500',   metrics: ['Content', 'Scheduling', 'Analytics'] },
   ];
+
+  const handleAddPost = () => {
+    if (!newPost.title || !newPost.date) return;
+    setContentItems(prev => [...prev, { ...newPost }]);
+    setNewPost({ title: '', platform: 'Facebook', date: '', type: 'Social', status: 'scheduled', notes: '' });
+    setShowAddPost(false);
+  };
 
   // â”€â”€ Helper Components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const StatCard = ({ title, value, trend, icon: Icon, color, sub, trendPositive }) => {
@@ -246,7 +272,7 @@ const App = () => {
       >
         <div className="kpi-watermark"><Icon size={90} color={col.hex} /></div>
         <div className="kpi-top">
-          <div className="kpi-icon-box"><Icon size={20} color={col.hex} /></div>
+          <div className="kpi-icon-box"><Icon size={26} color={col.hex} /></div>
           {trend && (
             <span className={`kpi-badge ${isNeutral ? 'kpi-badge-neutral' : isPositive ? 'kpi-badge-up' : 'kpi-badge-down'}`}>{trend}</span>
           )}
@@ -301,6 +327,8 @@ const App = () => {
     { id: 'calendar',     label: 'Calendar',      icon: Calendar    },
     { id: 'reviews',      label: 'Reviews',       icon: Star        },
     { id: 'integrations', label: 'Integrations',  icon: Plug        },
+    { id: 'import',       label: 'Data Import',   icon: Upload      },
+    { id: 'ai-tools',     label: 'AI Tools',      icon: Bot         },
   ];
 
   // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -383,13 +411,13 @@ const App = () => {
               {tabs.find(t => t.id === activeTab)?.label ?? 'Dashboard'}
             </div>
             <div className="topbar-breadcrumb">
-              Destiny Springs Healthcare &middot; Digital Marketing &amp; Business Development Portal &middot; March 2026
+              Destiny Springs Healthcare &middot; Digital Marketing &amp; Business Development Portal
             </div>
           </div>
           <div className="topbar-right">
             <div className="topbar-date">
               <Calendar size={11} />
-              <span>March 2026</span>
+              <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
             </div>
             <div className="topbar-live">
               <div className="live-dot" />
@@ -908,7 +936,7 @@ const App = () => {
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight">My Digital Marketing Achievements</h2>
                 <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing · Social Media · Website Management · Blog Writing · SEO · Paid Ads</p>
-                <p className="text-teal-200 text-xs mt-2 italic">Reporting Period: Oct 2025 – Mar 2026 · Destiny Springs Healthcare</p>
+                <p className="text-teal-200 text-xs mt-2 italic">Ongoing · Destiny Springs Healthcare</p>
               </div>
               <div className="ml-auto shrink-0 text-right hidden md:block">
                 <div className="text-4xl font-black text-amber-300">312</div>
@@ -1064,14 +1092,60 @@ const App = () => {
         {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• CONTENT CALENDAR â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'calendar' && (
           <>
-            <div className="flex gap-2 mb-6 flex-wrap">
-              {calendarTypes.map(f => (
-                <button key={f} onClick={() => setCalFilter(f)}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${calFilter===f ? 'bg-teal-600 text-white shadow-md' : `${card} ${muted} hover:border-teal-400 hover:text-teal-500`}`}>
-                  {f}
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+              <div className="flex gap-2 flex-wrap">
+                {calendarTypes.map(f => (
+                  <button key={f} onClick={() => setCalFilter(f)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${calFilter===f ? 'bg-teal-600 text-white shadow-md' : `${card} ${muted} hover:border-teal-400 hover:text-teal-500`}`}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setShowAddPost(s => !s)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all shadow-lg shadow-teal-900/30">
+                <Plus size={14} /> Schedule Post
+              </button>
             </div>
+            {showAddPost && (
+              <div className={`${card} p-6 rounded-[2rem] mb-6`} style={{ borderColor: 'rgba(13,148,136,0.35)' }}>
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className={`text-base font-black ${txt}`}>Schedule New Content</h3>
+                  <button onClick={() => setShowAddPost(false)} className={`${muted} hover:text-rose-500 transition-colors`}><X size={18} /></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+                  {[
+                    { label: 'Title',    key: 'title',    type: 'text',   placeholder: 'e.g. Mental Health Awareness Post' },
+                    { label: 'Platform', key: 'platform', type: 'select', opts: ['Facebook','Instagram','LinkedIn','TikTok','Mailchimp','Website','TikTok, Instagram','Facebook, LinkedIn','Meta Ads'] },
+                    { label: 'Date',     key: 'date',     type: 'text',   placeholder: 'e.g. Mon 24' },
+                    { label: 'Type',     key: 'type',     type: 'select', opts: ['Social','Blog','TikTok','Email'] },
+                    { label: 'Status',   key: 'status',   type: 'select', opts: ['scheduled','draft','filming','idea'] },
+                    { label: 'Notes',    key: 'notes',    type: 'text',   placeholder: 'Brief description or details...' },
+                  ].map(f => (
+                    <div key={f.key}>
+                      <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                      {f.type === 'select'
+                        ? <select value={newPost[f.key]} onChange={e => setNewPost(p => ({...p, [f.key]: e.target.value}))}
+                            className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500 transition-colors`}>
+                            {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        : <input type="text" value={newPost[f.key]} onChange={e => setNewPost(p => ({...p, [f.key]: e.target.value}))} placeholder={f.placeholder}
+                            className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500 transition-colors placeholder:text-slate-400`} />
+                      }
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={handleAddPost}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">
+                    <Plus size={13} /> Add to Calendar
+                  </button>
+                  <button onClick={() => setShowAddPost(false)}
+                    className={`px-6 py-2.5 ${card} ${muted} rounded-xl text-sm font-black hover:text-teal-500 transition-all border`}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {[
                 { label: 'Scheduled',     value: contentItems.filter(c=>c.status==='scheduled').length, color: 'text-teal-500'   },
@@ -1086,7 +1160,7 @@ const App = () => {
               ))}
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="March 2026 · Upcoming Posts & Deadlines" />
+              <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="Upcoming Posts &amp; Deadlines" />
               <div className="space-y-3">
                 {filteredContent.map((item, i) => (
                   <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
@@ -1263,13 +1337,368 @@ const App = () => {
           </>
         )}
 
+        {/* ══════════════════ DATA IMPORT ══════════════════ */}
+        {activeTab === 'import' && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              {[
+                { label: 'Data Sources',  value: '10',  color: 'text-teal-500',    icon: Plug      },
+                { label: 'Auto Syncing',  value: '0',   color: 'text-emerald-500', icon: RefreshCw },
+                { label: 'Pending Setup', value: '10',  color: 'text-amber-500',   icon: Clock     },
+                { label: 'Manual Entries',value: '—',   color: 'text-purple-500',  icon: Upload    },
+              ].map(s => (
+                <div key={s.label} className={`${card} p-5 rounded-2xl text-center`}>
+                  <s.icon size={22} className={`${s.color} mx-auto mb-2`} />
+                  <div className={`text-3xl font-black ${txt} mb-1`}>{s.value}</div>
+                  <div className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+              <SectionHeader icon={Upload} color="text-teal-500" title="Import Data" subtitle="Upload files, paste CSV, or enter data manually" />
+              <div className="flex gap-2 mb-6">
+                {[['upload','↑ File Upload'],['paste','⊙ Paste CSV'],['manual','✏ Manual Entry']].map(([m, label]) => (
+                  <button key={m} onClick={() => setImportMode(m)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${importMode===m ? 'bg-teal-600 text-white' : `bg-slate-100 dark:bg-slate-800 ${muted} hover:text-teal-500`}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {importMode === 'upload' && (
+                <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-12 text-center hover:border-teal-500 dark:hover:border-teal-500 transition-colors cursor-pointer group">
+                  <Upload size={36} className={`${muted} group-hover:text-teal-500 mx-auto mb-3 transition-colors`} />
+                  <p className={`text-sm font-black ${txt} mb-1`}>Drop your CSV, XLSX, or JSON file here</p>
+                  <p className={`text-xs ${subtl} mb-5`}>Supports Google Analytics exports, Meta Business Suite, Mailchimp CSV, and any standard format</p>
+                  <div className="flex gap-3 justify-center flex-wrap">
+                    <button className="px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">Browse Files</button>
+                    <button className={`px-6 py-2.5 ${card} ${muted} rounded-xl text-sm font-black border hover:text-teal-500 transition-all`}><Download size={13} className="inline mr-1.5" />Download Template</button>
+                  </div>
+                  <div className="flex gap-2 justify-center mt-5 flex-wrap">
+                    {['Google Analytics', 'Meta Business', 'Mailchimp', 'Google Ads', 'TikTok', 'Generic CSV'].map(fmt => (
+                      <span key={fmt} className={`text-[10px] font-black px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 ${muted}`}>{fmt}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {importMode === 'paste' && (
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className={`text-xs font-black ${muted} uppercase tracking-wider`}>Paste CSV or JSON Data</label>
+                    <select className={`text-xs p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 ${txt} focus:outline-none`}>
+                      {['Social Metrics','SEO Rankings','Ad Spend','Email Stats','Reviews'].map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+                  <textarea className={`w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} font-mono h-44 resize-none focus:outline-none focus:border-teal-500 mb-4`}
+                    placeholder={'month,sessions,leads,reach\nJan,1200,45,8500\nFeb,1350,52,9200\nMar,1580,61,10400'} />
+                  <button className="px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">Parse &amp; Import</button>
+                </div>
+              )}
+
+              {importMode === 'manual' && (
+                <div>
+                  <div className="flex gap-2 mb-5 flex-wrap">
+                    {['Social Metrics','SEO Rankings','Ad Spend','Email Stats','Reviews'].map(dt => (
+                      <button key={dt} onClick={() => setImportDataType(dt)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${importDataType===dt ? 'bg-teal-600 text-white' : `bg-slate-100 dark:bg-slate-800 ${muted} hover:text-teal-500`}`}>
+                        {dt}
+                      </button>
+                    ))}
+                  </div>
+                  {importDataType === 'Social Metrics' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[
+                        { label: 'Platform',           type: 'select', opts: ['Facebook','Instagram','LinkedIn','TikTok','Twitter/X'] },
+                        { label: 'Reporting Month',    type: 'month'  },
+                        { label: 'Followers',          type: 'number', ph: '0' },
+                        { label: 'Monthly Reach',      type: 'number', ph: '0' },
+                        { label: 'Impressions',        type: 'number', ph: '0' },
+                        { label: 'Engagement Rate %',  type: 'number', ph: '0.0' },
+                        { label: 'Link Clicks',        type: 'number', ph: '0' },
+                        { label: 'Posts Published',    type: 'number', ph: '0' },
+                      ].map(f => (
+                        <div key={f.label}>
+                          <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                          {f.type === 'select'
+                            ? <select className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
+                            : <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
+                          }
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {importDataType === 'SEO Rankings' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[
+                        { label: 'Keyword',            type: 'text',   ph: 'e.g. healthcare Arizona' },
+                        { label: 'Current Rank',       type: 'number', ph: '1–100' },
+                        { label: 'Previous Rank',      type: 'number', ph: '1–100' },
+                        { label: 'Monthly Search Vol', type: 'number', ph: '0' },
+                        { label: 'Impressions',        type: 'number', ph: '0' },
+                        { label: 'Clicks',             type: 'number', ph: '0' },
+                        { label: 'CTR %',              type: 'number', ph: '0.0' },
+                        { label: 'Reporting Month',    type: 'month'  },
+                      ].map(f => (
+                        <div key={f.label}>
+                          <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                          <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {importDataType === 'Ad Spend' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[
+                        { label: 'Ad Platform',        type: 'select', opts: ['Google Ads','Meta Ads','LinkedIn Ads','TikTok Ads'] },
+                        { label: 'Reporting Month',    type: 'month'  },
+                        { label: 'Total Spend ($)',     type: 'number', ph: '0.00' },
+                        { label: 'Impressions',        type: 'number', ph: '0' },
+                        { label: 'Clicks',             type: 'number', ph: '0' },
+                        { label: 'Conversions / Leads',type: 'number', ph: '0' },
+                        { label: 'Cost Per Lead ($)',   type: 'number', ph: '0.00' },
+                        { label: 'ROAS',               type: 'number', ph: '0.0' },
+                      ].map(f => (
+                        <div key={f.label}>
+                          <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                          {f.type === 'select'
+                            ? <select className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
+                            : <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
+                          }
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {importDataType === 'Email Stats' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[
+                        { label: 'Campaign Name',      type: 'text',   ph: 'e.g. April Newsletter' },
+                        { label: 'Send Date',          type: 'date'   },
+                        { label: 'Total Sent',         type: 'number', ph: '0' },
+                        { label: 'Opened',             type: 'number', ph: '0' },
+                        { label: 'Clicked',            type: 'number', ph: '0' },
+                        { label: 'Unsubscribed',       type: 'number', ph: '0' },
+                        { label: 'Conversions',        type: 'number', ph: '0' },
+                        { label: 'Revenue Attributed', type: 'number', ph: '0.00' },
+                      ].map(f => (
+                        <div key={f.label}>
+                          <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                          <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {importDataType === 'Reviews' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {[
+                        { label: 'Reviewer Name',      type: 'text',   ph: 'e.g. J. Smith', half: false },
+                        { label: 'Rating (1–5)',        type: 'number', ph: '5', half: false },
+                        { label: 'Review Date',        type: 'date',    half: false },
+                        { label: 'Platform',           type: 'select', opts: ['Google','Yelp','Healthgrades','Facebook'], half: false },
+                        { label: 'Review Text',        type: 'textarea',ph: 'Paste review content here...', half: true },
+                      ].map(f => (
+                        <div key={f.label} className={f.half ? 'md:col-span-2' : ''}>
+                          <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                          {f.type === 'select'
+                            ? <select className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
+                            : f.type === 'textarea'
+                            ? <textarea placeholder={f.ph} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-24 resize-none focus:outline-none focus:border-teal-500`} />
+                            : <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
+                          }
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button className="mt-5 flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">
+                    <Plus size={13} /> Save Entry
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+              <SectionHeader icon={Zap} color="text-amber-500" title="Automation Feeds" subtitle="Live data flowing in from connected integrations" />
+              <div className="space-y-3">
+                {[
+                  { name: 'Google Analytics 4',     icon: BarChart3,  color: 'text-orange-500', metric: 'Sessions, Bounce Rate, Goals, Conversions' },
+                  { name: 'Google Search Console',  icon: Search,     color: 'text-teal-500',   metric: 'Rankings, Impressions, CTR, Avg Position'  },
+                  { name: 'Meta Business Suite',    icon: Share2,     color: 'text-blue-500',   metric: 'Reach, Impressions, Engagement, Followers'  },
+                  { name: 'Google Ads',             icon: Target,     color: 'text-indigo-500', metric: 'Spend, Impressions, Clicks, Leads, CPL'     },
+                  { name: 'Meta Ads Manager',       icon: Megaphone,  color: 'text-blue-400',   metric: 'Spend, Reach, Leads, CPC, ROAS'             },
+                  { name: 'Mailchimp',              icon: Mail,       color: 'text-yellow-500', metric: 'Opens, Clicks, Subscribers, Unsubscribes'   },
+                  { name: 'Sintra AI',              icon: Bot,        color: 'text-purple-500', metric: 'Campaign Reports, AI Insights, Automation Logs' },
+                  { name: 'MarkyAI',                icon: Zap,        color: 'text-pink-500',   metric: 'Content Performance, Reach, Scheduling'      },
+                  { name: 'Wix Analytics',          icon: Globe,      color: 'text-emerald-500',metric: 'Traffic, Conversions, Form Submissions'      },
+                  { name: 'TikTok for Business',    icon: PlayCircle, color: 'text-pink-400',   metric: 'Views, Followers, Engagement, Watch Time'   },
+                ].map(feed => (
+                  <div key={feed.name} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
+                    <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 shrink-0">
+                      <feed.icon size={15} className={feed.color} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold ${txt}`}>{feed.name}</p>
+                      <p className={`text-[10px] ${subtl} truncate`}>{feed.metric}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-[9px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Setup Required</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
+              <SectionHeader icon={Clock} color="text-slate-500" title="Import History" subtitle="Recent uploads and manual data entries" />
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Download size={36} className={`${subtl} mb-3`} />
+                <p className={`text-sm font-bold ${txt} mb-1`}>No imports yet</p>
+                <p className={`text-xs ${subtl} max-w-sm`}>Your data import history will appear here once you begin uploading files or entering data manually above.</p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ══════════════════ AI TOOLS ══════════════════ */}
+        {activeTab === 'ai-tools' && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {/* Sintra AI */}
+              <div className={`${card} p-8 rounded-[2.5rem]`}>
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center shadow-lg shrink-0">
+                    <Bot size={28} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`text-xl font-black ${txt}`}>Sintra AI</h3>
+                    <p className={`text-xs ${subtl}`}>AI Marketing Automation Platform</p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Connect Required</span>
+                </div>
+                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>Sintra AI automates your digital marketing workflows — from social post generation to SEO optimization and ad copy. Connect your account to sync campaign data and run AI-powered automations directly from this dashboard.</p>
+                <div className="space-y-2 mb-6">
+                  {[
+                    'Automated social media post generation',
+                    'AI-powered SEO content briefs',
+                    'Campaign performance insights & recommendations',
+                    'Multi-platform publishing automation',
+                    'Marketing workflow automation & scheduling',
+                  ].map(f => (
+                    <div key={f} className="flex items-center gap-2.5">
+                      <CheckCircle size={13} className="text-teal-500 shrink-0" />
+                      <span className={`text-xs font-medium ${txt2}`}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-3 flex-wrap">
+                  <a href="https://sintra.ai" target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-black hover:bg-purple-500 transition-all">
+                    <ExternalLink size={13} /> Open Sintra AI
+                  </a>
+                  <button className={`flex items-center gap-2 px-5 py-2.5 ${card} ${muted} rounded-xl text-sm font-black hover:text-teal-500 transition-all border`}>
+                    <Plug size={13} /> Configure API
+                  </button>
+                </div>
+              </div>
+
+              {/* MarkyAI */}
+              <div className={`${card} p-8 rounded-[2.5rem]`}>
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-pink-600 to-rose-600 flex items-center justify-center shadow-lg shrink-0">
+                    <Zap size={28} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`text-xl font-black ${txt}`}>MarkyAI</h3>
+                    <p className={`text-xs ${subtl}`}>AI Content Creation &amp; Social Scheduling</p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Connect Required</span>
+                </div>
+                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>MarkyAI generates high-quality marketing content including social posts, captions, hashtags, and ad copy. Connect to automate your content calendar and push performance data directly into this dashboard.</p>
+                <div className="space-y-2 mb-6">
+                  {[
+                    'AI caption & hashtag generation for all platforms',
+                    'Brand-voice trained content templates',
+                    'Healthcare-compliant content guidelines',
+                    'Bulk content schedule & approval workflow',
+                    'Performance feedback loop & content scoring',
+                  ].map(f => (
+                    <div key={f} className="flex items-center gap-2.5">
+                      <CheckCircle size={13} className="text-teal-500 shrink-0" />
+                      <span className={`text-xs font-medium ${txt2}`}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-3 flex-wrap">
+                  <a href="https://marky.ai" target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-pink-600 text-white rounded-xl text-sm font-black hover:bg-pink-500 transition-all">
+                    <ExternalLink size={13} /> Open MarkyAI
+                  </a>
+                  <button className={`flex items-center gap-2 px-5 py-2.5 ${card} ${muted} rounded-xl text-sm font-black hover:text-teal-500 transition-all border`}>
+                    <Plug size={13} /> Configure API
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+              <SectionHeader icon={Bot} color="text-purple-500" title="AI Content Generator" subtitle="Generate marketing content · Connect Sintra AI or MarkyAI to enable" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+                {[
+                  { label: 'Content Type', opts: ['Social Post','Blog Brief','Email Subject Line','Ad Copy','TikTok Script','Caption + Hashtags'] },
+                  { label: 'Platform',     opts: ['Facebook','Instagram','LinkedIn','TikTok','Email','Website Blog'] },
+                  { label: 'Tone',         opts: ['Professional','Empathetic','Informational','Motivational','Conversational','Urgent'] },
+                ].map(f => (
+                  <div key={f.label}>
+                    <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                    <select disabled className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none opacity-60 cursor-not-allowed`}>
+                      {f.opts.map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <div className="mb-5">
+                <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>Topic / Brief</label>
+                <textarea disabled className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-24 resize-none focus:outline-none opacity-60 cursor-not-allowed`}
+                  placeholder="e.g. Mental health awareness week post — focus on reducing stigma in Arizona healthcare..." />
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button disabled className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-black opacity-50 cursor-not-allowed">
+                  <Bot size={14} /> Generate Content
+                </button>
+                <span className={`text-xs ${subtl} italic`}>Connect Sintra AI or MarkyAI to enable AI content generation</span>
+              </div>
+            </div>
+
+            <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
+              <SectionHeader icon={Zap} color="text-amber-500" title="AI Performance Insights" subtitle="Machine-learned recommendations for campaign optimization" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {[
+                  { title: 'Best Posting Time',        desc: 'Connect social data to get AI-powered optimal post scheduling recommendations per platform and audience.',       icon: Clock,     color: 'text-teal-500',    bg: 'bg-teal-50 dark:bg-teal-900/10 border-teal-200 dark:border-teal-800'     },
+                  { title: 'Content Recommendations',  desc: 'AI will analyze your top-performing content and suggest new topics based on audience behavior and trends.',      icon: FileText,  color: 'text-purple-500',  bg: 'bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' },
+                  { title: 'Campaign Optimization',    desc: 'Connect ad data for AI-driven bid adjustments, audience targeting, and creative A/B testing recommendations.',   icon: Target,    color: 'text-indigo-500',  bg: 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800'  },
+                  { title: 'Sentiment Analysis',       desc: 'AI monitors review sentiment across Google, Yelp, and Healthgrades and alerts you to reputation threats.',       icon: MessageSquare, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800'  },
+                  { title: 'SEO Opportunity Score',    desc: 'Identifies high-value keyword gaps vs. competitors in the AZ healthcare space and prioritizes blog topics.',     icon: Search,    color: 'text-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800'         },
+                  { title: 'Lead Scoring Automation',  desc: 'Score and rank inbound leads by conversion likelihood using behavioral signals and historical campaign data.',    icon: Users,     color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800' },
+                ].map(item => (
+                  <div key={item.title} className={`p-5 rounded-2xl border ${item.bg}`}>
+                    <item.icon size={20} className={`${item.color} mb-3`} />
+                    <h4 className={`text-sm font-black ${txt} mb-2`}>{item.title}</h4>
+                    <p className={`text-xs ${subtl} leading-relaxed mb-3`}>{item.desc}</p>
+                    <span className="text-[10px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Awaiting Connection</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Footer */}
         <div className={`mt-12 pt-6 border-t ${brd} flex flex-col md:flex-row justify-between items-center gap-3 no-print`}>
           <div className="flex items-center gap-2">
             <Heart size={13} className="text-teal-500 fill-teal-500" />
             <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare · Digital Marketing Portal</span>
           </div>
-          <span className={`text-[10px] ${subtl} uppercase tracking-wider`}>Powered by DMD · March 10, 2026</span>
+          <span className={`text-[10px] ${subtl} uppercase tracking-wider`}>Powered by DMD &middot; Destiny Springs Healthcare</span>
         </div>
 
         </main>
