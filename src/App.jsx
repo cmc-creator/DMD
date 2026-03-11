@@ -45,191 +45,125 @@ const App = () => {
 
   // â”€â”€ Core KPI Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const metrics = {
-    googleScore: '4.2',
-    googleTrend: '+0.8',
-    nps: 29,
-    promoters: '48.1%',
-    socialPostsMonthly: 90,
-    blogVelocity: '12',
-    tiktokVelocity: '8',
-    videoViews: '18.2k',
-    seoStatewideGrowth: '+24%',
-    avgReadTime: '2m 14s',
-    siteConversion: '4.1%',
-    wixSessions: '42,800',
-    wixBounceRate: '34%',
-    emailOpenRate: '28.4%',
-    costPerLead: '$14.20',
-    totalLeads: 312,
-    leadsGrowth: '+22%',
+    googleScore: '—',
+    googleTrend: null,
+    nps: '—',
+    promoters: '—',
+    socialPostsMonthly: '—',
+    blogVelocity: '—',
+    tiktokVelocity: '—',
+    videoViews: '—',
+    seoStatewideGrowth: '—',
+    avgReadTime: '—',
+    siteConversion: '—',
+    wixSessions: '—',
+    wixBounceRate: '—',
+    emailOpenRate: '—',
+    costPerLead: '—',
+    totalLeads: '—',
+    leadsGrowth: null,
   };
 
   // â”€â”€ Monthly Trend (6 months) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const monthlyTrend = [
-    { month: 'Oct', sessions: 28400, leads: 198, reach: 28000, score: 3.4 },
-    { month: 'Nov', sessions: 31200, leads: 224, reach: 31500, score: 3.6 },
-    { month: 'Dec', sessions: 33800, leads: 247, reach: 35200, score: 3.8 },
-    { month: 'Jan', sessions: 36900, leads: 268, reach: 38400, score: 4.0 },
-    { month: 'Feb', sessions: 39500, leads: 289, reach: 41800, score: 4.1 },
-    { month: 'Mar', sessions: 42800, leads: 312, reach: 44700, score: 4.2 },
-  ];
+  const monthlyTrend = [];
 
   // â”€â”€ Social Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const socialAnalytics = [
-    { platform: 'Facebook', reach: 12500, engagement: 840, clicks: 320, followers: 4820, color: '#1877F2' },
-    { platform: 'Instagram', reach: 9800, engagement: 1450, clicks: 210, followers: 3610, color: '#E4405F' },
-    { platform: 'LinkedIn', reach: 4200, engagement: 510, clicks: 440, followers: 1890, color: '#0A66C2' },
-    { platform: 'TikTok', reach: 18200, engagement: 3200, clicks: 180, followers: 2940, color: '#00f2ea' },
+    { platform: 'Facebook',  reach: 0, engagement: 0, clicks: 0, followers: 0, color: '#1877F2' },
+    { platform: 'Instagram', reach: 0, engagement: 0, clicks: 0, followers: 0, color: '#E4405F' },
+    { platform: 'LinkedIn',  reach: 0, engagement: 0, clicks: 0, followers: 0, color: '#0A66C2' },
+    { platform: 'TikTok',    reach: 0, engagement: 0, clicks: 0, followers: 0, color: '#00f2ea' },
   ];
 
   // â”€â”€ Weekly Engagement Trend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const weeklyEngagement = [
-    { week: 'W1', facebook: 180, instagram: 310, linkedin: 95, tiktok: 640 },
-    { week: 'W2', facebook: 210, instagram: 340, linkedin: 120, tiktok: 780 },
-    { week: 'W3', facebook: 195, instagram: 360, linkedin: 110, tiktok: 820 },
-    { week: 'W4', facebook: 255, instagram: 440, linkedin: 185, tiktok: 960 },
-  ];
+  const weeklyEngagement = [];
 
   // â”€â”€ Wix Traffic Sources â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const wixSources = [
-    { name: 'Organic Search', value: 45, color: '#0d9488' },
-    { name: 'Social Media',   value: 30, color: '#8b5cf6' },
-    { name: 'Direct',         value: 15, color: '#10b981' },
-    { name: 'Referral',       value: 10, color: '#f59e0b' },
+    { name: 'Organic Search', value: 0, color: '#0d9488' },
+    { name: 'Social Media',   value: 0, color: '#8b5cf6' },
+    { name: 'Direct',         value: 0, color: '#10b981' },
+    { name: 'Referral',       value: 0, color: '#f59e0b' },
   ];
 
   // â”€â”€ AZ Regional Traffic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const regionalTraffic = [
-    { city: 'Phoenix', traffic: 45 },
-    { city: 'Tucson', traffic: 22 },
-    { city: 'Mesa / Gilbert', traffic: 15 },
-    { city: 'Scottsdale', traffic: 10 },
-    { city: 'Rest of AZ', traffic: 8 },
+    { city: 'Phoenix',        traffic: 0 },
+    { city: 'Tucson',         traffic: 0 },
+    { city: 'Mesa / Gilbert', traffic: 0 },
+    { city: 'Scottsdale',     traffic: 0 },
+    { city: 'Rest of AZ',     traffic: 0 },
   ];
 
   // â”€â”€ Website Video Tracing / UX Depth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const pathData = [
-    { name: 'Home', dropoff: 5, stay: 95 },
-    { name: 'Specialized Care', dropoff: 15, stay: 85 },
-    { name: 'Assessments', dropoff: 22, stay: 78 },
-    { name: 'Contact / Discharge', dropoff: 10, stay: 90 },
-  ];
+  const pathData = [];
 
   // â”€â”€ SEO Keyword Rankings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const seoKeywords = [
-    { keyword: 'AZ behavioral health', rank: 3, change: +2, volume: 1900 },
-    { keyword: 'mental health Arizona', rank: 5, change: +4, volume: 2400 },
-    { keyword: 'outpatient treatment Phx', rank: 2, change: +1, volume: 880 },
-    { keyword: 'substance abuse Arizona', rank: 7, change: +5, volume: 1600 },
-    { keyword: 'IOP program Tucson', rank: 4, change: +3, volume: 720 },
-    { keyword: 'dual diagnosis AZ', rank: 6, change: +2, volume: 590 },
-  ];
+  const seoKeywords = [];
 
   // â”€â”€ Blog Performance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const blogPosts = [
-    { title: 'Understanding IOP Levels of Care', views: 3840, readTime: '3m 12s', shares: 47 },
-    { title: '5 Signs You Need Behavioral Support', views: 2920, readTime: '2m 48s', shares: 62 },
-    { title: 'Arizona Dual Diagnosis Guide', views: 2410, readTime: '4m 05s', shares: 38 },
-    { title: 'Breaking the Stigma in Rural AZ', views: 1980, readTime: '2m 31s', shares: 54 },
-    { title: 'What to Expect: First 30 Days', views: 1640, readTime: '3m 44s', shares: 29 },
-  ];
+  const blogPosts = [];
 
   // â”€â”€ Email Campaign Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const emailCampaigns = [
-    { campaign: 'Welcome Series', sent: 840, opened: 241, clicked: 98, converted: 24 },
-    { campaign: 'Monthly Newsletter', sent: 2140, opened: 598, clicked: 187, converted: 41 },
-    { campaign: 'Resource Downloads', sent: 620, opened: 196, clicked: 112, converted: 38 },
-    { campaign: 'Re-Engagement', sent: 480, opened: 118, clicked: 52, converted: 16 },
-  ];
+  const emailCampaigns = [];
 
   // â”€â”€ Ad Performance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const adPerformance = [
-    { channel: 'Google Ads', spend: 1200, impressions: 48000, clicks: 1920, leads: 96, cpl: 12.50 },
-    { channel: 'Meta Ads', spend: 800, impressions: 62000, clicks: 1550, leads: 74, cpl: 10.81 },
-    { channel: 'LinkedIn Ads', spend: 600, impressions: 18000, clicks: 540, leads: 38, cpl: 15.79 },
-  ];
+  const adPerformance = [];
 
   // â”€â”€ NPS Breakdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const npsData = [
-    { name: 'Promoters', value: 48, color: '#10b981' },
-    { name: 'Passives', value: 33, color: '#f59e0b' },
-    { name: 'Detractors', value: 19, color: '#ef4444' },
+    { name: 'Promoters',  value: 0, color: '#10b981' },
+    { name: 'Passives',   value: 0, color: '#f59e0b' },
+    { name: 'Detractors', value: 0, color: '#ef4444' },
   ];
 
   // â”€â”€ Upcoming Tasks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const pipeline = [
-    { task: 'Google Review Outreach â€“ 17 promoters', due: 'Mar 12', priority: 'high' },
-    { task: 'Publish 3 Blog Posts (IOP, Dual Dx, Rural AZ)', due: 'Mar 14', priority: 'medium' },
-    { task: 'TikTok Series: "Day in the Life"', due: 'Mar 15', priority: 'medium' },
-    { task: 'Email Campaign: Spring Awareness Month', due: 'Mar 18', priority: 'high' },
-    { task: 'LinkedIn Thought Leadership â€“ CEO Article', due: 'Mar 20', priority: 'low' },
-    { task: 'Wix Landing Page A/B Test Launch', due: 'Mar 22', priority: 'medium' },
-  ];
+  const pipeline = [];
 
   // â”€â”€ My Achievements data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const myStats = [
-    { label: 'Blogs Written',    value: 47,  icon: FileText,  color: 'text-purple-500', target: 50  },
-    { label: 'TikToks Produced', value: 38,  icon: PlayCircle,color: 'text-pink-500',   target: 40  },
-    { label: 'Social Posts',     value: 270, icon: Share2,    color: 'text-blue-500',   target: 270 },
-    { label: 'Email Campaigns',  value: 12,  icon: Mail,      color: 'text-teal-500',   target: 12  },
-    { label: 'Website Updates',  value: 24,  icon: Globe,     color: 'text-emerald-500',target: 24  },
-    { label: 'Reviews Managed',  value: 156, icon: Star,      color: 'text-amber-500',  target: 150 },
+    { label: 'Blogs Written',    value: 0, icon: FileText,  color: 'text-purple-500', target: 0 },
+    { label: 'TikToks Produced', value: 0, icon: PlayCircle,color: 'text-pink-500',   target: 0 },
+    { label: 'Social Posts',     value: 0, icon: Share2,    color: 'text-blue-500',   target: 0 },
+    { label: 'Email Campaigns',  value: 0, icon: Mail,      color: 'text-teal-500',   target: 0 },
+    { label: 'Website Updates',  value: 0, icon: Globe,     color: 'text-emerald-500',target: 0 },
+    { label: 'Reviews Managed',  value: 0, icon: Star,      color: 'text-amber-500',  target: 0 },
   ];
 
   const milestones = [
-    { title: 'Content Machine',    desc: '47 blogs published',        icon: FileText,  earned: true,  date: 'Feb 2026'  },
-    { title: 'TikTok Trailblazer', desc: '18k+ video views',          icon: PlayCircle,earned: true,  date: 'Mar 2026'  },
-    { title: 'SEO Climber',        desc: 'Top 5 on 3 AZ keywords',    icon: Search,    earned: true,  date: 'Jan 2026'  },
-    { title: 'Lead Magnet',        desc: '312 leads generated',       icon: Target,    earned: true,  date: 'Mar 2026'  },
-    { title: 'Review Reviver',     desc: 'Rating: 3.4 â†’ 4.2 â­',     icon: Star,      earned: true,  date: 'Mar 2026'  },
-    { title: '5-Star Elite',       desc: 'Maintain 4.5+ avg 60 days', icon: Award,     earned: false, date: 'Upcoming'  },
-    { title: 'Viral Moment',       desc: '50k+ video views / month',  icon: Zap,       earned: false, date: 'Upcoming'  },
-    { title: 'Growth Architect',   desc: '500+ monthly leads',        icon: TrendingUp,earned: false, date: 'Upcoming'  },
+    { title: 'Content Machine',    desc: 'Publish milestone blogs',         icon: FileText,  earned: false, date: 'Upcoming' },
+    { title: 'TikTok Trailblazer', desc: 'Reach video view milestone',      icon: PlayCircle,earned: false, date: 'Upcoming' },
+    { title: 'SEO Climber',        desc: 'Rank top 5 on target keywords',   icon: Search,    earned: false, date: 'Upcoming' },
+    { title: 'Lead Magnet',        desc: 'Hit monthly lead goal',           icon: Target,    earned: false, date: 'Upcoming' },
+    { title: 'Review Reviver',     desc: 'Improve Google rating',           icon: Star,      earned: false, date: 'Upcoming' },
+    { title: '5-Star Elite',       desc: 'Maintain 4.5+ avg 60 days',      icon: Award,     earned: false, date: 'Upcoming' },
+    { title: 'Viral Moment',       desc: '50k+ video views / month',       icon: Zap,       earned: false, date: 'Upcoming' },
+    { title: 'Growth Architect',   desc: '500+ monthly leads',             icon: TrendingUp,earned: false, date: 'Upcoming' },
   ];
 
   const skillRadar = [
-    { skill: 'SEO',          score: 90 },
-    { skill: 'Social Media', score: 95 },
-    { skill: 'Content',      score: 92 },
-    { skill: 'Email Mktg',   score: 85 },
-    { skill: 'Paid Ads',     score: 78 },
-    { skill: 'Web Design',   score: 82 },
-    { skill: 'Analytics',    score: 88 },
-    { skill: 'Video',        score: 80 },
+    { skill: 'SEO',          score: 0 },
+    { skill: 'Social Media', score: 0 },
+    { skill: 'Content',      score: 0 },
+    { skill: 'Email Mktg',   score: 0 },
+    { skill: 'Paid Ads',     score: 0 },
+    { skill: 'Web Design',   score: 0 },
+    { skill: 'Analytics',    score: 0 },
+    { skill: 'Video',        score: 0 },
   ];
 
   // â”€â”€ Client ROI data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const roiSpend = [
-    { month: 'Oct', spend: 3200, revenue: 22400 },
-    { month: 'Nov', spend: 3400, revenue: 26800 },
-    { month: 'Dec', spend: 3600, revenue: 29600 },
-    { month: 'Jan', spend: 4000, revenue: 32200 },
-    { month: 'Feb', spend: 4200, revenue: 38400 },
-    { month: 'Mar', spend: 4200, revenue: 44700 },
-  ];
+  const roiSpend = [];
 
   const roiChannels = [
-    { channel: 'Organic SEO',  leads: 140, cpl: '$0',     roi: 'âˆž',       color: '#0d9488' },
-    { channel: 'Social Media', leads: 72,  cpl: '$11.11', roi: '9,700%',  color: '#8b5cf6' },
-    { channel: 'Google Ads',   leads: 96,  cpl: '$12.50', roi: '8,500%',  color: '#3b82f6' },
-    { channel: 'Email',        leads: 119, cpl: '$1.40',  roi: '78,000%', color: '#10b981' },
+    { channel: 'Organic SEO',  leads: 0, cpl: '—', roi: '—', color: '#0d9488' },
+    { channel: 'Social Media', leads: 0, cpl: '—', roi: '—', color: '#8b5cf6' },
+    { channel: 'Google Ads',   leads: 0, cpl: '—', roi: '—', color: '#3b82f6' },
+    { channel: 'Email',        leads: 0, cpl: '—', roi: '—', color: '#10b981' },
   ];
 
   // â”€â”€ Content Calendar data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const contentItems = [
-    { date: 'Mar 12', type: 'Blog',   title: 'Spring Mental Health Awareness',        status: 'draft',     platform: 'Wix Blog'  },
-    { date: 'Mar 12', type: 'Social', title: 'Recovery Quote â€“ "You Are Not Alone"',  status: 'scheduled', platform: 'FB / IG'   },
-    { date: 'Mar 13', type: 'Social', title: 'Staff Spotlight: Clinical Director',    status: 'scheduled', platform: 'LinkedIn'  },
-    { date: 'Mar 14', type: 'TikTok', title: 'Day in the Life at Destiny Springs',    status: 'filming',   platform: 'TikTok'    },
-    { date: 'Mar 14', type: 'Blog',   title: 'Understanding IOP vs. PHP',             status: 'draft',     platform: 'Wix Blog'  },
-    { date: 'Mar 15', type: 'Email',  title: 'Spring Awareness Newsletter',           status: 'draft',     platform: 'Mailchimp' },
-    { date: 'Mar 17', type: 'Social', title: 'Client Success Story #4',               status: 'draft',     platform: 'FB / IG'   },
-    { date: 'Mar 18', type: 'TikTok', title: 'Myth-Busting: "Rehab is for Quitters"', status: 'idea',      platform: 'TikTok'    },
-    { date: 'Mar 19', type: 'Blog',   title: 'What to Ask in a Behavioral Intake',    status: 'scheduled', platform: 'Wix Blog'  },
-    { date: 'Mar 20', type: 'Social', title: 'LinkedIn CEO Thought Leadership',       status: 'draft',     platform: 'LinkedIn'  },
-    { date: 'Mar 21', type: 'Email',  title: 'Resource Download: Coping Guide',       status: 'idea',      platform: 'Mailchimp' },
-    { date: 'Mar 22', type: 'TikTok', title: 'Breathing Exercise Tutorial',           status: 'scheduled', platform: 'TikTok'    },
-  ];
+  const contentItems = [];
 
   const calendarTypes = ['All', 'Blog', 'Social', 'TikTok', 'Email'];
   const filteredContent = calFilter === 'All' ? contentItems : contentItems.filter(c => c.type === calFilter);
@@ -250,42 +184,22 @@ const App = () => {
   };
 
   // â”€â”€ Review Management data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const recentReviews = [
-    { author: 'Sarah M.',    rating: 5, text: 'The staff was incredibly supportive. My whole family noticed how much better I became.',      date: 'Mar 9', responded: true  },
-    { author: 'James R.',    rating: 4, text: 'Great care and kind staff. The IOP program helped me build real tools for lasting recovery.',  date: 'Mar 7', responded: true  },
-    { author: 'Maria G.',    rating: 5, text: 'Changed my life completely. The counselors genuinely cared about my progress every step.',    date: 'Mar 6', responded: false },
-    { author: 'T. Williams', rating: 3, text: 'Decent experience. Intake process was slow but care was good once started.',                  date: 'Mar 4', responded: true  },
-    { author: 'Eric L.',     rating: 5, text: 'Best decision I ever made. Holistic approach and personalized care plan were exactly right.',  date: 'Mar 1', responded: false },
-  ];
+  const recentReviews = [];
 
-  const reviewTrend = [
-    { month: 'Oct', rating: 3.4, reviews: 8  },
-    { month: 'Nov', rating: 3.6, reviews: 11 },
-    { month: 'Dec', rating: 3.8, reviews: 14 },
-    { month: 'Jan', rating: 4.0, reviews: 18 },
-    { month: 'Feb', rating: 4.1, reviews: 22 },
-    { month: 'Mar', rating: 4.2, reviews: 26 },
-  ];
+  const reviewTrend = [];
 
-  const promoters = [
-    { name: 'Sarah M.',   status: 'contacted', nps: 10 },
-    { name: 'James R.',   status: 'reviewed',  nps: 9  },
-    { name: 'Eric L.',    status: 'pending',   nps: 10 },
-    { name: 'Maria G.',   status: 'pending',   nps: 10 },
-    { name: 'Darrell K.', status: 'contacted', nps: 9  },
-    { name: 'Priya S.',   status: 'pending',   nps: 10 },
-  ];
+  const promoters = [];
 
   // â”€â”€ Integrations data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const integrations = [
-    { name: 'Google Analytics',    sub: 'GA4 + Search Console',    icon: BarChart3,  connected: true,  lastSync: '2 min ago',   color: 'text-orange-500', metrics: ['42.8k Sessions', '+18% MoM', '34% Bounce']      },
-    { name: 'Google Business',     sub: 'Reviews & Rating Feed',   icon: Star,       connected: true,  lastSync: '5 min ago',   color: 'text-amber-500',  metrics: ['4.2 â˜… Rating', '99 Reviews', '+26 This Month']  },
-    { name: 'Meta Business Suite', sub: 'Facebook & Instagram',    icon: Share2,     connected: true,  lastSync: '12 min ago',  color: 'text-blue-500',   metrics: ['22.3k Reach', '2,290 Engagements', '530 Clicks'] },
-    { name: 'Wix Analytics',       sub: 'Website Traffic & CVR',   icon: Globe,      connected: true,  lastSync: '1 min ago',   color: 'text-teal-500',   metrics: ['42,800 Sessions', '4.1% CVR', '2m 14s Avg Time'] },
-    { name: 'Mailchimp',           sub: 'Email Campaigns',         icon: Mail,       connected: true,  lastSync: '30 min ago',  color: 'text-yellow-500', metrics: ['3,080 Subscribers', '28.4% Open', '11.4% CTR']  },
-    { name: 'Google Ads',          sub: 'Paid Search Campaigns',   icon: Target,     connected: true,  lastSync: '10 min ago',  color: 'text-indigo-500', metrics: ['$1,200 Spend', '96 Leads', '$12.50 CPL']         },
-    { name: 'Meta Ads Manager',    sub: 'FB & IG Paid Campaigns',  icon: Megaphone,  connected: false, lastSync: 'Not connected',color: 'text-blue-400',   metrics: ['Setup Required']                                  },
-    { name: 'TikTok for Business', sub: 'TikTok Analytics',        icon: PlayCircle, connected: false, lastSync: 'Not connected',color: 'text-pink-400',   metrics: ['Setup Required']                                  },
+    { name: 'Google Analytics',    sub: 'GA4 + Search Console',   icon: BarChart3,  connected: false, lastSync: 'Not connected', color: 'text-orange-500', metrics: ['Setup Required'] },
+    { name: 'Google Business',     sub: 'Reviews & Rating Feed',  icon: Star,       connected: false, lastSync: 'Not connected', color: 'text-amber-500',  metrics: ['Setup Required'] },
+    { name: 'Meta Business Suite', sub: 'Facebook & Instagram',   icon: Share2,     connected: false, lastSync: 'Not connected', color: 'text-blue-500',   metrics: ['Setup Required'] },
+    { name: 'Wix Analytics',       sub: 'Website Traffic & CVR',  icon: Globe,      connected: false, lastSync: 'Not connected', color: 'text-teal-500',   metrics: ['Setup Required'] },
+    { name: 'Mailchimp',           sub: 'Email Campaigns',        icon: Mail,       connected: false, lastSync: 'Not connected', color: 'text-yellow-500', metrics: ['Setup Required'] },
+    { name: 'Google Ads',          sub: 'Paid Search Campaigns',  icon: Target,     connected: false, lastSync: 'Not connected', color: 'text-indigo-500', metrics: ['Setup Required'] },
+    { name: 'Meta Ads Manager',    sub: 'FB & IG Paid Campaigns', icon: Megaphone,  connected: false, lastSync: 'Not connected', color: 'text-blue-400',   metrics: ['Setup Required'] },
+    { name: 'TikTok for Business', sub: 'TikTok Analytics',       icon: PlayCircle, connected: false, lastSync: 'Not connected', color: 'text-pink-400',   metrics: ['Setup Required'] },
   ];
 
   // â”€â”€ Helper Components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -420,15 +334,15 @@ const App = () => {
             {/* Top KPI Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <StatCard title="Google Rating"     value={metrics.googleScore}    trend={metrics.googleTrend} icon={Star}        color="bg-amber-500"   sub="Review Cleanup Performance" />
-              <StatCard title="Monthly Sessions"  value={metrics.wixSessions}    trend="+18%"                icon={Layout}      color="bg-teal-600"    sub="Wix Website Traffic"       />
-              <StatCard title="Avg Read Time"     value={metrics.avgReadTime}    trend="+12s"                icon={Clock}       color="bg-emerald-600" sub="Blog & Education Retention" />
-              <StatCard title="Omnichannel Reach" value="44.7k"                  trend="+32%"                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"       />
+              <StatCard title="Monthly Sessions"  value={metrics.wixSessions}    trend={null}                icon={Layout}      color="bg-teal-600"    sub="Wix Website Traffic"       />
+              <StatCard title="Avg Read Time"     value={metrics.avgReadTime}    trend={null}                icon={Clock}       color="bg-emerald-600" sub="Blog & Education Retention" />
+              <StatCard title="Omnichannel Reach" value="—"                      trend={null}                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"       />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <StatCard title="Total Leads"       value={metrics.totalLeads}     trend={metrics.leadsGrowth} icon={Target}      color="bg-rose-500"    sub="Monthly Lead Volume"        />
-              <StatCard title="Cost Per Lead"     value={metrics.costPerLead}    trend="-8%"  trendPositive  icon={TrendingDown} color="bg-indigo-600" sub="Blended Paid Acquisition"   />
-              <StatCard title="Site Conversion"   value={metrics.siteConversion} trend="+0.4%"               icon={MousePointer} color="bg-teal-600"   sub="Visitor â†’ Lead Rate"        />
-              <StatCard title="NPS Score"         value={metrics.nps}            trend="+4"                  icon={ThumbsUp}    color="bg-amber-600"   sub="Net Promoter Score"         />
+              <StatCard title="Cost Per Lead"     value={metrics.costPerLead}    trend={null}                icon={TrendingDown} color="bg-indigo-600" sub="Blended Paid Acquisition"   />
+              <StatCard title="Site Conversion"   value={metrics.siteConversion} trend={null}                icon={MousePointer} color="bg-teal-600"   sub="Visitor â†’ Lead Rate"        />
+              <StatCard title="NPS Score"         value={metrics.nps}            trend={null}                icon={ThumbsUp}    color="bg-amber-600"   sub="Net Promoter Score"         />
             </div>
 
             {/* 6-Month Trend */}
@@ -576,14 +490,14 @@ const App = () => {
                 <div className="p-3 bg-white/10 rounded-2xl"><CheckCircle className="text-teal-400" size={32} /></div>
                 <div>
                   <h3 className="text-xl font-black uppercase tracking-tight">Google Review Pipeline</h3>
-                  <p className="text-slate-400 text-sm">17 Direct Promoters identified for immediate 5-star follow-up.</p>
+                  <p className="text-slate-400 text-sm">Promoters identified via NPS will appear here for 5-star outreach.</p>
                 </div>
               </div>
               <div className="flex gap-2">
                 {[1,2,3,4].map(i => (
                   <div key={i} className="h-10 w-10 rounded-full border-2 border-slate-800 bg-slate-700 flex items-center justify-center text-[10px] font-black">User</div>
                 ))}
-                <div className="h-10 w-10 rounded-full bg-teal-600 border-2 border-slate-800 flex items-center justify-center text-[10px] font-black">+13</div>
+                <div className="h-10 w-10 rounded-full bg-teal-600 border-2 border-slate-800 flex items-center justify-center text-[10px] font-black">0</div>
               </div>
             </div>
           </>
@@ -728,10 +642,10 @@ const App = () => {
         {activeTab === 'ads' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <StatCard title="Total Ad Spend"    value="$2,600" trend="+$200"    icon={Target}      color="bg-indigo-600" sub="Monthly Budget"      />
-              <StatCard title="Total Leads"       value="208"    trend="+18%"     icon={Users}       color="bg-teal-600"  sub="From Paid Channels" />
-              <StatCard title="Avg CPL"           value="$12.50" trend="-8%"  trendPositive icon={TrendingDown} color="bg-blue-600" sub="Cost Per Lead" />
-              <StatCard title="Total Impressions" value="128k"   trend="+24%"     icon={Eye}         color="bg-amber-600" sub="Paid Visibility"     />
+              <StatCard title="Total Ad Spend"    value="—"      trend={null}     icon={Target}      color="bg-indigo-600" sub="Monthly Budget"      />
+              <StatCard title="Total Leads"       value="—"      trend={null}     icon={Users}       color="bg-teal-600"  sub="From Paid Channels" />
+              <StatCard title="Avg CPL"           value="—"      trend={null}      icon={TrendingDown} color="bg-blue-600" sub="Cost Per Lead" />
+              <StatCard title="Total Impressions" value="—"      trend={null}     icon={Eye}         color="bg-amber-600" sub="Paid Visibility"     />
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={BarChart3} color="text-indigo-500" title="Paid Channel Performance" subtitle="Google, Meta & LinkedIn Ads" />
@@ -782,10 +696,10 @@ const App = () => {
         {activeTab === 'email' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <StatCard title="Avg Open Rate"     value={metrics.emailOpenRate} trend="+3.2%" icon={Mail}        color="bg-teal-600"   sub="All Campaigns"      />
-              <StatCard title="Total Subscribers" value="3,080"                 trend="+140"  icon={Users}       color="bg-purple-600" sub="Active List Size"   />
-              <StatCard title="Click Rate"        value="11.4%"                 trend="+1.8%" icon={MousePointer}color="bg-emerald-600"sub="Avg CTR"            />
-              <StatCard title="Conversions"       value="119"                   trend="+22%"  icon={CheckCircle} color="bg-amber-600"  sub="Email-Attributed"  />
+              <StatCard title="Avg Open Rate"     value={metrics.emailOpenRate} trend={null}  icon={Mail}        color="bg-teal-600"   sub="All Campaigns"      />
+              <StatCard title="Total Subscribers" value="—"                    trend={null}  icon={Users}       color="bg-purple-600" sub="Active List Size"   />
+              <StatCard title="Click Rate"        value="—"                    trend={null}  icon={MousePointer}color="bg-emerald-600"sub="Avg CTR"            />
+              <StatCard title="Conversions"       value="—"                    trend={null}  icon={CheckCircle} color="bg-amber-600"  sub="Email-Attributed"  />
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Mail} color="text-teal-500" title="Email Campaign Performance" subtitle="Sends, Opens, Clicks & Conversions" />
@@ -871,14 +785,14 @@ const App = () => {
                 <div className="p-3 bg-white/10 rounded-2xl"><CheckCircle className="text-teal-400" size={32} /></div>
                 <div>
                   <h3 className="text-xl font-black uppercase tracking-tight">Google Review Pipeline</h3>
-                  <p className="text-slate-400 text-sm">17 Direct Promoters identified for immediate 5-star follow-up.</p>
+                  <p className="text-slate-400 text-sm">Promoters identified via NPS will appear here for 5-star outreach.</p>
                 </div>
               </div>
               <div className="flex gap-2">
                 {[1,2,3,4].map(i => (
                   <div key={i} className="h-10 w-10 rounded-full border-2 border-slate-800 bg-slate-700 flex items-center justify-center text-[10px] font-black">User</div>
                 ))}
-                <div className="h-10 w-10 rounded-full bg-teal-600 border-2 border-slate-800 flex items-center justify-center text-[10px] font-black">+13</div>
+                <div className="h-10 w-10 rounded-full bg-teal-600 border-2 border-slate-800 flex items-center justify-center text-[10px] font-black">0</div>
               </div>
             </div>
           </>
@@ -974,10 +888,10 @@ const App = () => {
         {activeTab === 'roi' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <StatCard title="Est. Revenue Potential" value="$374k"  trend="+$44k"       icon={DollarSign} color="bg-teal-600"   sub="Based on $1,200 / lead"     />
-              <StatCard title="Total Mktg Spend"       value="$4,200" trend="+$200"        icon={Target}     color="bg-indigo-600" sub="Monthly All Channels"        />
-              <StatCard title="Blended ROI"            value="8,800%" trend="+1,200%"      icon={TrendingUp} color="bg-emerald-600"sub="Revenue / Spend Ratio"       />
-              <StatCard title="Agency Cost Savings"    value="$18k"   trend="vs. $22k/mo"  icon={ShieldCheck}color="bg-amber-600"  sub="vs. Full Agency Retainer"    />
+              <StatCard title="Est. Revenue Potential" value="—"      trend={null}         icon={DollarSign} color="bg-teal-600"   sub="Based on avg value / lead"     />
+              <StatCard title="Total Mktg Spend"       value="—"      trend={null}          icon={Target}     color="bg-indigo-600" sub="Monthly All Channels"        />
+              <StatCard title="Blended ROI"            value="—"      trend={null}          icon={TrendingUp} color="bg-emerald-600" sub="Revenue / Spend Ratio"       />
+              <StatCard title="Agency Cost Savings"    value="—"      trend={null}          icon={ShieldCheck} color="bg-amber-600"  sub="vs. Full Agency Retainer"    />
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
@@ -1032,9 +946,9 @@ const App = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[
-                { label: 'Total Leads Ã— $1,200 Avg Value', value: '$374,400', icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
-                { label: 'Total Marketing Investment',      value: '$25,200',  icon: Target,     color: 'text-indigo-500',  sub: '6-month blended spend (Octâ€“Mar)'     },
-                { label: 'Return on Investment',            value: '1,386%',   icon: TrendingUp, color: 'text-emerald-500', sub: 'Revenue potential / marketing spend'  },
+                { label: 'Total Leads x Avg Lead Value',        value: '—',    icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
+                { label: 'Total Marketing Investment',      value: '—',    icon: Target,     color: 'text-indigo-500',  sub: 'Blended spend across all channels'   },
+                { label: 'Return on Investment',            value: '—',    icon: TrendingUp, color: 'text-emerald-500', sub: 'Revenue potential / marketing spend'  },
               ].map(s => (
                 <div key={s.label} className={`${card} p-6 rounded-2xl text-center`}>
                   <s.icon size={28} className={`${s.color} mx-auto mb-3`} />
@@ -1098,9 +1012,9 @@ const App = () => {
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <StatCard title="Current Rating"  value="4.2 â˜…" trend="+0.8"  icon={Star}        color="bg-amber-500"   sub="Google Business Profile" />
-              <StatCard title="Total Reviews"   value="99"     trend="+26"   icon={MessageSquare}color="bg-teal-600"   sub="All Time"               />
-              <StatCard title="Promoters Ready" value="17"     trend="+5"    icon={ThumbsUp}    color="bg-emerald-600"sub="Awaiting Outreach"      />
-              <StatCard title="Response Rate"   value="82%"    trend="+12%"  icon={Send}        color="bg-purple-600" sub="Reviews Responded To"   />
+              <StatCard title="Total Reviews"   value="—"     trend={null}  icon={MessageSquare}color="bg-teal-600"   sub="All Time"               />
+              <StatCard title="Promoters Ready" value="—"     trend={null}  icon={ThumbsUp}    color="bg-emerald-600" sub="Awaiting Outreach"      />
+              <StatCard title="Response Rate"   value="—"     trend={null}  icon={Send}        color="bg-purple-600" sub="Reviews Responded To"   />
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
