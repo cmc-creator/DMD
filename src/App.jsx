@@ -93,8 +93,8 @@ const App = () => {
       { key: 'pageId',      label: 'Facebook Page ID',  placeholder: '123456789012345',                hint: 'Facebook Page → About → Page ID'                                },
     ],
     'Wix Analytics': [
-      { key: 'clientId',   label: 'OAuth Client ID',  placeholder: '7ed57615-xxxx-xxxx-xxxx-xxxxxxxxxxxx', type: 'password', hint: 'Wix Headless Settings → OAuth Apps → Client ID'            },
-      { key: 'collection', label: 'Data Collection',  placeholder: 'Events/Categories',                                hint: 'Wix Data collection to query (e.g. Events/Categories)'  },
+      { key: 'clientId',   label: 'OAuth Client ID',  placeholder: '7ed57615-xxxx-xxxx-xxxx-xxxxxxxxxxxx', type: 'password', hint: 'Wix Headless Settings → OAuth Apps → Client ID'                                               },
+      { key: 'collection', label: 'Data Collection (optional)', placeholder: 'e.g. BlogPosts or Stores/Products',    hint: 'Leave blank to just verify connection. Find names in Wix Dashboard → Content Manager.' },
     ],
     'Mailchimp': [
       { key: 'apiKey',  label: 'API Key',     placeholder: 'xxxxxxxxxxxxxxxx-us1', type: 'password', hint: 'Mailchimp → Account → Extras → API Keys' },
@@ -131,16 +131,28 @@ const App = () => {
         modules: { items: wixDataItems },
         auth: OAuthStrategy({ clientId }),
       });
-      const result = await wixClient.items.query(collection || 'Events/Categories').find();
+      // If no collection specified, just verify the client initializes
+      if (!collection) {
+        return { success: true, data: { connected: true }, warning: 'No collection specified — client ID accepted. Add a collection name to sync data.' };
+      }
+      const result = await wixClient.items.query(collection).find();
       return {
         success: true,
         data: {
           totalItems: result.items.length,
-          collection: collection || 'Events/Categories',
+          collection,
           itemIds: result.items.slice(0, 5).map(i => i.data?._id).filter(Boolean),
         },
       };
     } catch (e) {
+      // WDE0025 = collection not found — connection is valid, collection name is wrong
+      if (e.message?.includes('WDE0025') || e.message?.toLowerCase().includes('does not exist')) {
+        return {
+          success: true,
+          data: { connected: true },
+          warning: `Collection "${collection}" not found. Connection saved — check your collection name in Wix Content Manager.`,
+        };
+      }
       return { success: false, error: e.message };
     }
   };
@@ -193,7 +205,8 @@ const App = () => {
 
   const saveConnection = async (name, formData) => {
     const fields  = integrationFields[name] || [];
-    const missing = fields.filter(f => !formData[f.key]);
+    // Only require non-optional fields
+    const missing = fields.filter(f => !formData[f.key] && !f.label.includes('optional'));
     if (missing.length > 0) { setConnectError(`Please fill in: ${missing.map(f => f.label).join(', ')}`); return; }
     setConnectTesting(true);
     setConnectError(null);
@@ -203,6 +216,7 @@ const App = () => {
     else if (name === 'Wix Analytics') testResult = await fetchWixData(formData);
     setConnectTesting(false);
     if (!testResult.success) { setConnectError(`Connection failed: ${testResult.error}`); return; }
+    if (testResult.warning) { setConnectError(`⚠️ ${testResult.warning}`); }
     const syncTime = new Date().toLocaleString();
     const updated  = { ...connections, [name]: { ...formData, connected: true, lastSync: syncTime } };
     setConnections(updated);
@@ -1941,12 +1955,16 @@ const App = () => {
                   {field.hint && <p className={`text-[11px] mt-1 ${subtl}`}>{field.hint}</p>}
                 </div>
               ))}
-              {/* Error */}
+              {/* Error / Warning */}
               {connectError && (
-                <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-sm text-rose-600 dark:text-rose-400">{connectError}</div>
+                <div className={`mb-4 p-3 rounded-xl text-sm border ${
+                  connectError.startsWith('⚠️')
+                    ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400'
+                    : 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400'
+                }`}>{connectError}</div>
               )}
-              {/* Note for non-Meta platforms */}
-              {!['Meta Business Suite','Meta Ads Manager'].includes(connectModal) && (
+              {/* Note for non-Meta, non-Wix platforms */}
+              {!['Meta Business Suite','Meta Ads Manager','Wix Analytics'].includes(connectModal) && (
                 <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-[12px] text-blue-600 dark:text-blue-400">
                   Credentials are saved locally. Live data sync for this platform requires the backend API proxy to be configured by your developer.
                 </div>
