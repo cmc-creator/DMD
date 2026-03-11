@@ -63,11 +63,150 @@ const App = () => {
   const [importMode, setImportMode]             = useState('upload');
   const [importDataType, setImportDataType]     = useState('Social Metrics');
   const [newPost, setNewPost]                   = useState({ title: '', platform: 'Facebook', date: '', type: 'Social', status: 'scheduled', notes: '' });
+  const [connections, setConnections]           = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_connections') || '{}'); } catch { return {}; } });
+  const [connectModal, setConnectModal]         = useState(null);
+  const [connectFormData, setConnectFormData]   = useState({});
+  const [connectTesting, setConnectTesting]     = useState(false);
+  const [connectError, setConnectError]         = useState(null);
+  const [syncStatus, setSyncStatus]             = useState({});
+  const [liveData, setLiveData]                 = useState({});
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
     else          document.documentElement.classList.remove('dark');
   }, [darkMode]);
+
+  // ── Integration fields config (per-service credential forms) ─────────────────
+  const integrationFields = {
+    'Google Analytics':    [
+      { key: 'propertyId', label: 'GA4 Property ID',             placeholder: 'G-XXXXXXXXXX or numeric ID',   hint: 'GA Admin → Property Settings → Property ID'                                        },
+      { key: 'apiSecret',  label: 'Measurement Protocol Secret', placeholder: 'Your API secret', type: 'password', hint: 'GA Admin → Data Streams → Measurement Protocol → API Secrets'              },
+    ],
+    'Google Business': [
+      { key: 'placeId', label: 'Google Place ID', placeholder: 'ChIJxxxxxxxxxxxxxxxx',  hint: 'Google Maps → Share → place ID in embed URL'                           },
+      { key: 'apiKey',  label: 'Places API Key',  placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'console.cloud.google.com → APIs → Credentials' },
+    ],
+    'Meta Business Suite': [
+      { key: 'accessToken', label: 'Page Access Token', placeholder: 'EAAxxxxxxxx…', type: 'password', hint: 'developers.facebook.com → Graph API Explorer → Generate Token' },
+      { key: 'pageId',      label: 'Facebook Page ID',  placeholder: '123456789012345',                hint: 'Facebook Page → About → Page ID'                                },
+    ],
+    'Wix Analytics': [
+      { key: 'apiKey',  label: 'Wix API Key', placeholder: 'Your Wix API key', type: 'password', hint: 'Wix Dashboard → Dev Mode → API Keys'          },
+      { key: 'siteId',  label: 'Site ID',     placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', hint: 'Wix Dashboard URL segment after /dashboard/' },
+    ],
+    'Mailchimp': [
+      { key: 'apiKey',  label: 'API Key',     placeholder: 'xxxxxxxxxxxxxxxx-us1', type: 'password', hint: 'Mailchimp → Account → Extras → API Keys' },
+      { key: 'listId',  label: 'Audience ID', placeholder: 'xxxxxxxxxx',                             hint: 'Audience → Settings → Audience ID'        },
+    ],
+    'Google Ads': [
+      { key: 'customerId', label: 'Customer ID',     placeholder: 'xxx-xxx-xxxx',   hint: 'Top-right corner of Google Ads dashboard'                           },
+      { key: 'devToken',   label: 'Developer Token', placeholder: 'Your dev token', hint: 'Tools → API Center → Developer Token', type: 'password'            },
+    ],
+    'Meta Ads Manager': [
+      { key: 'accessToken', label: 'Access Token',  placeholder: 'EAAxxxxxxxx…',  type: 'password', hint: 'developers.facebook.com → Access Token Tool'                },
+      { key: 'adAccountId', label: 'Ad Account ID', placeholder: 'act_123456789',                   hint: 'Ads Manager → Account Settings → prepend "act_" to your ID' },
+    ],
+    'TikTok for Business': [
+      { key: 'accessToken',  label: 'Access Token',   placeholder: 'Your TikTok access token',  type: 'password', hint: 'business.tiktok.com → App → Long-Term Access Token' },
+      { key: 'advertiserId', label: 'Advertiser ID',  placeholder: 'Your advertiser ID',                          hint: 'TikTok Ads Manager → Account Settings → Advertiser ID'     },
+    ],
+    'Sintra AI': [
+      { key: 'apiKey',      label: 'API Key',       placeholder: 'Your Sintra API key',  type: 'password', hint: 'Sintra Dashboard → Settings → API Keys'    },
+      { key: 'workspaceId', label: 'Workspace ID',  placeholder: 'ws_xxxxxxxxxx',                          hint: 'Sintra → Workspace → Settings → ID'         },
+    ],
+    'MarkyAI': [
+      { key: 'apiKey',  label: 'API Key',  placeholder: 'Your MarkyAI API key',  type: 'password', hint: 'MarkyAI → Account → API Access'         },
+      { key: 'brandId', label: 'Brand ID', placeholder: 'Your brand ID',                           hint: 'MarkyAI → Brand → Settings → Brand ID'  },
+    ],
+  };
+
+  // ── Live data fetch helpers ───────────────────────────────────────────────────
+  const fetchMetaPageData = async (creds) => {
+    const { accessToken, pageId } = creds;
+    if (!accessToken || !pageId) return { success: false, error: 'Missing access token or page ID' };
+    try {
+      const res  = await fetch(`https://graph.facebook.com/v18.0/${pageId}?fields=fan_count,followers_count,name&access_token=${encodeURIComponent(accessToken)}`);
+      const data = await res.json();
+      if (data.error) return { success: false, error: data.error.message };
+      return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+  };
+
+  const fetchMetaAdsData = async (creds) => {
+    const { accessToken, adAccountId } = creds;
+    if (!accessToken || !adAccountId) return { success: false, error: 'Missing credentials' };
+    try {
+      const res  = await fetch(`https://graph.facebook.com/v18.0/${adAccountId}?fields=name,currency,account_status&access_token=${encodeURIComponent(accessToken)}`);
+      const data = await res.json();
+      if (data.error) return { success: false, error: data.error.message };
+      return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+  };
+
+  const syncIntegrationWithCreds = async (name, creds) => {
+    if (!creds?.connected) return;
+    setSyncStatus(s => ({ ...s, [name]: 'syncing' }));
+    let result = { success: true, data: {} };
+    try {
+      if (name === 'Meta Business Suite') result = await fetchMetaPageData(creds);
+      else if (name === 'Meta Ads Manager') result = await fetchMetaAdsData(creds);
+      // Other platforms require a server-side proxy — mark synced but no live payload
+      if (result.success) {
+        if (result.data && Object.keys(result.data).length > 0) setLiveData(d => ({ ...d, [name]: result.data }));
+        const syncTime = new Date().toLocaleString();
+        setSyncStatus(s => ({ ...s, [name]: 'ok' }));
+        setConnections(c => {
+          const updated = { ...c, [name]: { ...c[name], lastSync: syncTime } };
+          localStorage.setItem('dmd_connections', JSON.stringify(updated));
+          return updated;
+        });
+      } else {
+        setSyncStatus(s => ({ ...s, [name]: 'error' }));
+      }
+    } catch { setSyncStatus(s => ({ ...s, [name]: 'error' })); }
+  };
+
+  const saveConnection = async (name, formData) => {
+    const fields  = integrationFields[name] || [];
+    const missing = fields.filter(f => !formData[f.key]);
+    if (missing.length > 0) { setConnectError(`Please fill in: ${missing.map(f => f.label).join(', ')}`); return; }
+    setConnectTesting(true);
+    setConnectError(null);
+    let testResult = { success: true, data: {} };
+    if (name === 'Meta Business Suite') testResult = await fetchMetaPageData(formData);
+    else if (name === 'Meta Ads Manager') testResult = await fetchMetaAdsData(formData);
+    setConnectTesting(false);
+    if (!testResult.success) { setConnectError(`Connection failed: ${testResult.error}`); return; }
+    const syncTime = new Date().toLocaleString();
+    const updated  = { ...connections, [name]: { ...formData, connected: true, lastSync: syncTime } };
+    setConnections(updated);
+    localStorage.setItem('dmd_connections', JSON.stringify(updated));
+    if (testResult.data && Object.keys(testResult.data).length > 0) setLiveData(d => ({ ...d, [name]: testResult.data }));
+    setSyncStatus(s => ({ ...s, [name]: 'ok' }));
+    setConnectModal(null);
+    setConnectFormData({});
+    setConnectError(null);
+  };
+
+  const disconnectIntegration = (name) => {
+    const updated = { ...connections };
+    delete updated[name];
+    setConnections(updated);
+    localStorage.setItem('dmd_connections', JSON.stringify(updated));
+    setLiveData(d  => { const n = { ...d }; delete n[name]; return n; });
+    setSyncStatus(s => { const n = { ...s }; delete n[name]; return n; });
+  };
+
+  // Auto-sync all connected integrations on load, then every 5 min
+  useEffect(() => {
+    const saved = (() => { try { return JSON.parse(localStorage.getItem('dmd_connections') || '{}'); } catch { return {}; } })();
+    Object.entries(saved).filter(([, v]) => v?.connected).forEach(([n, creds]) => syncIntegrationWithCreds(n, creds));
+    const interval = setInterval(() => {
+      const cur = (() => { try { return JSON.parse(localStorage.getItem('dmd_connections') || '{}'); } catch { return {}; } })();
+      Object.entries(cur).filter(([, v]) => v?.connected).forEach(([n, creds]) => syncIntegrationWithCreds(n, creds));
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chart theme ─────────────────────────────────────────────────────────────
   const grid     = darkMode ? '#1e293b' : '#f1f5f9';
@@ -240,18 +379,23 @@ const App = () => {
   const promoters = [];
 
   // ── Integrations data ───────────────────────────────────────────────────────
-  const integrations = [
-    { name: 'Google Analytics',    sub: 'GA4 + Search Console',   icon: BarChart3,  connected: false, lastSync: 'Not connected', color: 'text-orange-500', metrics: ['Setup Required'] },
-    { name: 'Google Business',     sub: 'Reviews & Rating Feed',  icon: Star,       connected: false, lastSync: 'Not connected', color: 'text-amber-500',  metrics: ['Setup Required'] },
-    { name: 'Meta Business Suite', sub: 'Facebook & Instagram',   icon: Share2,     connected: false, lastSync: 'Not connected', color: 'text-blue-500',   metrics: ['Setup Required'] },
-    { name: 'Wix Analytics',       sub: 'Website Traffic & CVR',  icon: Globe,      connected: false, lastSync: 'Not connected', color: 'text-teal-500',   metrics: ['Setup Required'] },
-    { name: 'Mailchimp',           sub: 'Email Campaigns',        icon: Mail,       connected: false, lastSync: 'Not connected', color: 'text-yellow-500', metrics: ['Setup Required'] },
-    { name: 'Google Ads',          sub: 'Paid Search Campaigns',  icon: Target,     connected: false, lastSync: 'Not connected', color: 'text-indigo-500', metrics: ['Setup Required'] },
-    { name: 'Meta Ads Manager',    sub: 'FB & IG Paid Campaigns', icon: Megaphone,  connected: false, lastSync: 'Not connected', color: 'text-blue-400',   metrics: ['Setup Required'] },
-    { name: 'TikTok for Business', sub: 'TikTok Analytics',        icon: PlayCircle, connected: false, lastSync: 'Not connected', color: 'text-pink-400',   metrics: ['Setup Required'] },
-    { name: 'Sintra AI',           sub: 'AI Marketing Automation', icon: Bot,        connected: false, lastSync: 'Not connected', color: 'text-purple-500', metrics: ['Campaigns', 'Reports', 'Insights'] },
-    { name: 'MarkyAI',             sub: 'AI Content & Scheduling', icon: Zap,        connected: false, lastSync: 'Not connected', color: 'text-pink-500',   metrics: ['Content', 'Scheduling', 'Analytics'] },
+  const integrationsBase = [
+    { name: 'Google Analytics',    sub: 'GA4 + Search Console',    icon: BarChart3,  color: 'text-orange-500', metrics: ['Sessions', 'Bounce Rate', 'Conversions', 'Keywords']       },
+    { name: 'Google Business',     sub: 'Reviews & Rating Feed',   icon: Star,       color: 'text-amber-500',  metrics: ['Rating', 'Reviews', 'Searches', 'Direction Requests']     },
+    { name: 'Meta Business Suite', sub: 'Facebook & Instagram',    icon: Share2,     color: 'text-blue-500',   metrics: ['Page Fans', 'Reach', 'Engagement', 'Impressions']         },
+    { name: 'Wix Analytics',       sub: 'Website Traffic & CVR',   icon: Globe,      color: 'text-teal-500',   metrics: ['Sessions', 'Bounce Rate', 'Top Pages', 'Conversions']     },
+    { name: 'Mailchimp',           sub: 'Email Campaigns',         icon: Mail,       color: 'text-yellow-500', metrics: ['Subscribers', 'Open Rate', 'Click Rate', 'Campaigns']     },
+    { name: 'Google Ads',          sub: 'Paid Search Campaigns',   icon: Target,     color: 'text-indigo-500', metrics: ['Impressions', 'Clicks', 'CPC', 'Conversions']             },
+    { name: 'Meta Ads Manager',    sub: 'FB & IG Paid Campaigns',  icon: Megaphone,  color: 'text-blue-400',   metrics: ['Ad Spend', 'Reach', 'CPM', 'ROAS']                        },
+    { name: 'TikTok for Business', sub: 'TikTok Analytics',        icon: PlayCircle, color: 'text-pink-400',   metrics: ['Video Views', 'Followers', 'Engagement', 'Spend']         },
+    { name: 'Sintra AI',           sub: 'AI Marketing Automation', icon: Bot,        color: 'text-purple-500', metrics: ['Campaigns', 'Reports', 'Insights', 'Automations']         },
+    { name: 'MarkyAI',             sub: 'AI Content & Scheduling', icon: Zap,        color: 'text-pink-500',   metrics: ['Content Posts', 'Scheduling', 'Analytics', 'AI Writes']  },
   ];
+  const integrations = integrationsBase.map(i => ({
+    ...i,
+    connected: !!connections[i.name]?.connected,
+    lastSync:  connections[i.name]?.lastSync || 'Not connected',
+  }));
 
   const handleAddPost = () => {
     if (!newPost.title || !newPost.date) return;
@@ -1304,15 +1448,42 @@ const App = () => {
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mb-4">
-                    {intg.metrics.map(m => (
-                      <span key={m} className={`text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-50 dark:bg-slate-800 ${intg.connected ? 'text-teal-600 dark:text-teal-400' : subtl}`}>{m}</span>
-                    ))}
+                    {(intg.connected && liveData[intg.name] && Object.keys(liveData[intg.name]).filter(k => !['id','name'].includes(k)).length > 0)
+                      ? Object.entries(liveData[intg.name])
+                          .filter(([k]) => !['id', 'name'].includes(k))
+                          .slice(0, 4)
+                          .map(([k, v]) => (
+                            <span key={k} className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400">
+                              {k.replace(/_/g,' ')}: <strong>{String(v)}</strong>
+                            </span>
+                          ))
+                      : intg.metrics.map(m => (
+                          <span key={m} className={`text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-50 dark:bg-slate-800 ${intg.connected ? 'text-teal-600 dark:text-teal-400' : subtl}`}>{m}</span>
+                        ))
+                    }
                   </div>
                   <div className={`flex items-center justify-between text-[12px] ${subtl} border-t ${brd} pt-3`}>
                     <span className="truncate mr-2">Last sync: {intg.lastSync}</span>
-                    {intg.connected
-                      ? <button className="flex-shrink-0 text-teal-500 hover:text-teal-400 font-black flex items-center gap-1"><RefreshCw size={10} /> Sync Now</button>
-                      : <button className="flex-shrink-0 text-amber-500 hover:text-amber-400 font-black flex items-center gap-1"><Plug size={10} /> Connect</button>}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {intg.connected && (
+                        <button onClick={() => disconnectIntegration(intg.name)} className="text-rose-400 hover:text-rose-300 font-black flex items-center gap-1 text-[11px]">
+                          <WifiOff size={10} /> Disconnect
+                        </button>
+                      )}
+                      {intg.connected
+                        ? <button onClick={() => syncIntegrationWithCreds(intg.name, connections[intg.name])} className="text-teal-500 hover:text-teal-400 font-black flex items-center gap-1">
+                            {syncStatus[intg.name] === 'syncing'
+                              ? <RefreshCw size={10} className="animate-spin" />
+                              : syncStatus[intg.name] === 'error'
+                              ? <X size={10} className="text-rose-500" />
+                              : <RefreshCw size={10} />}
+                            {syncStatus[intg.name] === 'syncing' ? 'Syncing…' : syncStatus[intg.name] === 'error' ? 'Retry' : 'Sync Now'}
+                          </button>
+                        : <button onClick={() => { setConnectModal(intg.name); setConnectFormData(connections[intg.name] || {}); setConnectError(null); }} className="text-amber-500 hover:text-amber-400 font-black flex items-center gap-1">
+                            <Plug size={10} /> Connect
+                          </button>
+                      }
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1707,6 +1878,70 @@ const App = () => {
 
         </main>
       </div>
+
+      {/* ══ CONNECT MODAL ══════════════════════════════════════════════════════ */}
+      {connectModal && (() => {
+        const intg   = integrations.find(i => i.name === connectModal);
+        const fields = integrationFields[connectModal] || [];
+        if (!intg) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+               onClick={() => { setConnectModal(null); setConnectError(null); }}>
+            <div className={`${card} w-full max-w-md rounded-2xl p-6 shadow-2xl`} onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-900/30">
+                    <intg.icon size={20} className={intg.color} />
+                  </div>
+                  <div>
+                    <h3 className={`font-black text-base ${txt}`}>Connect {intg.name}</h3>
+                    <p className={`text-[12px] ${subtl}`}>{intg.sub}</p>
+                  </div>
+                </div>
+                <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`${muted} hover:text-rose-500 transition-colors`}><X size={18} /></button>
+              </div>
+              {/* Fields */}
+              {fields.map(field => (
+                <div key={field.key} className="mb-4">
+                  <label className={`block text-[12px] font-black ${txt2} uppercase tracking-wider mb-1.5`}>{field.label}</label>
+                  <input
+                    type={field.type || 'text'}
+                    placeholder={field.placeholder}
+                    value={connectFormData[field.key] || ''}
+                    onChange={e => setConnectFormData(d => ({ ...d, [field.key]: e.target.value }))}
+                    className={`w-full px-3 py-2.5 rounded-xl text-sm ${txt} bg-slate-50 dark:bg-slate-800 border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500`}
+                  />
+                  {field.hint && <p className={`text-[11px] mt-1 ${subtl}`}>{field.hint}</p>}
+                </div>
+              ))}
+              {/* Error */}
+              {connectError && (
+                <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-sm text-rose-600 dark:text-rose-400">{connectError}</div>
+              )}
+              {/* Note for non-Meta platforms */}
+              {!['Meta Business Suite','Meta Ads Manager'].includes(connectModal) && (
+                <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-[12px] text-blue-600 dark:text-blue-400">
+                  Credentials are saved locally. Live data sync for this platform requires the backend API proxy to be configured by your developer.
+                </div>
+              )}
+              {/* Actions */}
+              <div className="flex gap-3 mt-2">
+                <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
+                <button
+                  onClick={() => saveConnection(connectModal, connectFormData)}
+                  disabled={connectTesting}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-black bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2"
+                >
+                  {connectTesting
+                    ? <><RefreshCw size={14} className="animate-spin" /> Testing…</>
+                    : <><Plug size={14} /> Save & Connect</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
