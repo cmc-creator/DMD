@@ -123,14 +123,14 @@ html:not(.dark) .sidebar-brand {
 }
 .sidebar-brand-text { overflow: hidden; white-space: nowrap; min-width: 0; }
 .sidebar-title {
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 900;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1.2;
 }
 .sidebar-subtitle {
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -139,7 +139,7 @@ html:not(.dark) .sidebar-brand {
 }
 
 .sidebar-section-label {
-  font-size: 8.5px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.22em;
@@ -212,7 +212,7 @@ html:not(.dark) .sidebar-brand {
 
 .sidebar-icon { flex-shrink: 0; }
 .sidebar-label {
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 700;
   letter-spacing: 0.01em;
   overflow: hidden;
@@ -257,7 +257,7 @@ html:not(.dark) .sidebar-brand {
   box-shadow: 0 1px 0 rgba(45,212,191,0.1), 0 4px 24px rgba(0,0,0,0.6);
 }
 .topbar-page-title {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 900;
   color: #0f172a;
   text-transform: uppercase;
@@ -271,7 +271,7 @@ html:not(.dark) .sidebar-brand {
   background-clip: text;
 }
 .topbar-breadcrumb {
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 500;
   color: #94a3b8;
   margin-top: 5px;
@@ -289,7 +289,7 @@ html:not(.dark) .sidebar-brand {
   gap: 6px;
   padding: 5px 12px;
   border-radius: 50px;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #64748b;
@@ -309,7 +309,7 @@ html:not(.dark) .sidebar-brand {
   border-radius: 50px;
   background: rgba(16,185,129,0.08);
   border: 1px solid rgba(16,185,129,0.2);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 900;
   color: #10b981;
   text-transform: uppercase;
@@ -339,7 +339,7 @@ html:not(.dark) .sidebar-brand {
   padding: 8px 16px;
   border-radius: 10px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -490,7 +490,7 @@ html:not(.dark) .content-area { background: #f1f5f9; }
   box-shadow: 0 0 20px rgba(var(--r,13),var(--g,148),var(--b,136),0.25);
 }
 .kpi-badge {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   padding: 4px 10px;
   border-radius: 50px;
@@ -502,7 +502,7 @@ html:not(.dark) .content-area { background: #f1f5f9; }
 .dark .kpi-badge-up   { background: rgba(16,185,129,0.16); color: #34d399; }
 .dark .kpi-badge-down { background: rgba(244,63,94,0.16);  color: #fb7185; }
 .kpi-label {
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -511,7 +511,7 @@ html:not(.dark) .content-area { background: #f1f5f9; }
 }
 .dark .kpi-label { color: rgba(255,255,255,0.3); }
 .kpi-value {
-  font-size: 2.4rem;
+  font-size: 2.8rem;
   font-weight: 900;
   line-height: 1;
   margin-bottom: 7px;
@@ -522,7 +522,7 @@ html:not(.dark) .content-area { background: #f1f5f9; }
   text-shadow: 0 0 30px rgba(var(--r,13),var(--g,148),var(--b,136),0.7), 0 0 60px rgba(var(--r,13),var(--g,148),var(--b,136),0.3);
 }
 .kpi-sub {
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 500;
   font-style: italic;
   line-height: 1.4;
@@ -559,7 +559,7 @@ html:not(.dark) .content-area { background: #f1f5f9; }
   box-shadow: 0 0 20px rgba(var(--sr,20),var(--sg,184),var(--sb,166),0.2);
 }
 .section-title {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -568,7 +568,7 @@ html:not(.dark) .content-area { background: #f1f5f9; }
 }
 .dark .section-title { color: #f1f5f9; }
 .section-subtitle {
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 500;
   color: #64748b;
   margin-top: 4px;

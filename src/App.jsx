@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
@@ -14,8 +14,8 @@ import {
   ChevronLeft, Upload, Plus, Download, ExternalLink, Bot, X,
 } from 'lucide-react';
 
-// â”€â”€â”€ Shared style helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Color system — maps Tailwind color prop strings to actual hex/RGB values
+// ─── Shared style helpers ───────────────────────────────────────────────────
+// Color system � maps Tailwind color prop strings to actual hex/RGB values
 const colorMap = {
   'bg-amber-500':   { hex: '#f59e0b', r: 245, g: 158, b: 11  },
   'bg-amber-600':   { hex: '#d97706', r: 217, g: 119, b: 6   },
@@ -69,7 +69,7 @@ const App = () => {
     else          document.documentElement.classList.remove('dark');
   }, [darkMode]);
 
-  // â”€â”€ Chart theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Chart theme ─────────────────────────────────────────────────────────────
   const grid     = darkMode ? '#1e293b' : '#f1f5f9';
   const tick     = darkMode ? '#94a3b8' : '#64748b';
   const tipStyle = {
@@ -79,31 +79,31 @@ const App = () => {
     boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
   };
 
-  // â”€â”€ Core KPI Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Core KPI Metrics ────────────────────────────────────────────────────────
   const metrics = {
-    googleScore: '—',
+    googleScore: '�',
     googleTrend: null,
-    nps: '—',
-    promoters: '—',
-    socialPostsMonthly: '—',
-    blogVelocity: '—',
-    tiktokVelocity: '—',
-    videoViews: '—',
-    seoStatewideGrowth: '—',
-    avgReadTime: '—',
-    siteConversion: '—',
-    wixSessions: '—',
-    wixBounceRate: '—',
-    emailOpenRate: '—',
-    costPerLead: '—',
-    totalLeads: '—',
+    nps: '�',
+    promoters: '�',
+    socialPostsMonthly: '�',
+    blogVelocity: '�',
+    tiktokVelocity: '�',
+    videoViews: '�',
+    seoStatewideGrowth: '�',
+    avgReadTime: '�',
+    siteConversion: '�',
+    wixSessions: '�',
+    wixBounceRate: '�',
+    emailOpenRate: '�',
+    costPerLead: '�',
+    totalLeads: '�',
     leadsGrowth: null,
   };
 
-  // â”€â”€ Monthly Trend (6 months) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Monthly Trend (6 months) ─────────────────────────────────────────────────
   const monthlyTrend = [];
 
-  // â”€â”€ Social Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Social Analytics ─────────────────────────────────────────────────────────
   const socialAnalytics = [
     { platform: 'Facebook',  reach: 0, engagement: 0, clicks: 0, followers: 0, color: '#1877F2' },
     { platform: 'Instagram', reach: 0, engagement: 0, clicks: 0, followers: 0, color: '#E4405F' },
@@ -111,10 +111,10 @@ const App = () => {
     { platform: 'TikTok',    reach: 0, engagement: 0, clicks: 0, followers: 0, color: '#00f2ea' },
   ];
 
-  // â”€â”€ Weekly Engagement Trend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Weekly Engagement Trend ──────────────────────────────────────────────────
   const weeklyEngagement = [];
 
-  // â”€â”€ Wix Traffic Sources â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Wix Traffic Sources ──────────────────────────────────────────────────────
   const wixSources = [
     { name: 'Organic Search', value: 0, color: '#0d9488' },
     { name: 'Social Media',   value: 0, color: '#8b5cf6' },
@@ -122,7 +122,7 @@ const App = () => {
     { name: 'Referral',       value: 0, color: '#f59e0b' },
   ];
 
-  // â”€â”€ AZ Regional Traffic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── AZ Regional Traffic ──────────────────────────────────────────────────────
   const regionalTraffic = [
     { city: 'Phoenix',        traffic: 0 },
     { city: 'Tucson',         traffic: 0 },
@@ -131,32 +131,32 @@ const App = () => {
     { city: 'Rest of AZ',     traffic: 0 },
   ];
 
-  // â”€â”€ Website Video Tracing / UX Depth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Website Video Tracing / UX Depth ─────────────────────────────────────────
   const pathData = [];
 
-  // â”€â”€ SEO Keyword Rankings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── SEO Keyword Rankings ─────────────────────────────────────────────────────
   const seoKeywords = [];
 
-  // â”€â”€ Blog Performance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Blog Performance ─────────────────────────────────────────────────────────
   const blogPosts = [];
 
-  // â”€â”€ Email Campaign Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Email Campaign Metrics ────────────────────────────────────────────────────
   const emailCampaigns = [];
 
-  // â”€â”€ Ad Performance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Ad Performance ───────────────────────────────────────────────────────────
   const adPerformance = [];
 
-  // â”€â”€ NPS Breakdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── NPS Breakdown ─────────────────────────────────────────────────────────────
   const npsData = [
     { name: 'Promoters',  value: 0, color: '#10b981' },
     { name: 'Passives',   value: 0, color: '#f59e0b' },
     { name: 'Detractors', value: 0, color: '#ef4444' },
   ];
 
-  // â”€â”€ Upcoming Tasks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Upcoming Tasks ────────────────────────────────────────────────────────────
   const pipeline = [];
 
-  // â”€â”€ My Achievements data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── My Achievements data ────────────────────────────────────────────────────
   const myStats = [
     { label: 'Blogs Written',    value: 0, icon: FileText,  color: 'text-purple-500', target: 0 },
     { label: 'TikToks Produced', value: 0, icon: PlayCircle,color: 'text-pink-500',   target: 0 },
@@ -188,22 +188,22 @@ const App = () => {
     { skill: 'Video',        score: 0 },
   ];
 
-  // â”€â”€ Client ROI data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Client ROI data ─────────────────────────────────────────────────────────
   const roiSpend = [];
 
   const roiChannels = [
-    { channel: 'Organic SEO',  leads: 0, cpl: '—', roi: '—', color: '#0d9488' },
-    { channel: 'Social Media', leads: 0, cpl: '—', roi: '—', color: '#8b5cf6' },
-    { channel: 'Google Ads',   leads: 0, cpl: '—', roi: '—', color: '#3b82f6' },
-    { channel: 'Email',        leads: 0, cpl: '—', roi: '—', color: '#10b981' },
+    { channel: 'Organic SEO',  leads: 0, cpl: '�', roi: '�', color: '#0d9488' },
+    { channel: 'Social Media', leads: 0, cpl: '�', roi: '�', color: '#8b5cf6' },
+    { channel: 'Google Ads',   leads: 0, cpl: '�', roi: '�', color: '#3b82f6' },
+    { channel: 'Email',        leads: 0, cpl: '�', roi: '�', color: '#10b981' },
   ];
 
-  // â”€â”€ Content Calendar data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Content Calendar data ────────────────────────────────────────────────────
   const [contentItems, setContentItems] = useState([
     { title: 'Mental Health Awareness Post',       platform: 'Facebook, Instagram', date: 'Mon 3',  type: 'Social', status: 'scheduled', notes: 'Focus on stigma reduction'          },
     { title: '5 Signs You Need Support (TikTok)',  platform: 'TikTok',              date: 'Tue 4',  type: 'TikTok', status: 'filming',   notes: 'Short-form, 60s max'                },
-    { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: 'Wed 5',  type: 'Blog',   status: 'draft',     notes: '1,200 words · SEO optimized'        },
-    { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: 'Thu 6',  type: 'Email',  status: 'scheduled', notes: 'All subscribers · 3pm send time'    },
+    { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: 'Wed 5',  type: 'Blog',   status: 'draft',     notes: '1,200 words � SEO optimized'        },
+    { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: 'Thu 6',  type: 'Email',  status: 'scheduled', notes: 'All subscribers � 3pm send time'    },
     { title: 'Success Story Spotlight',            platform: 'LinkedIn',            date: 'Fri 7',  type: 'Social', status: 'idea',      notes: 'Patient testimonial (anonymized)'   },
     { title: 'Weekend Wellness Tip',               platform: 'Instagram',           date: 'Sat 8',  type: 'Social', status: 'scheduled', notes: '5 breathing exercises for calm'     },
     { title: 'Staff Introduction Video',           platform: 'TikTok, Instagram',   date: 'Mon 10', type: 'TikTok', status: 'filming',   notes: 'Behind the scenes series'           },
@@ -232,14 +232,14 @@ const App = () => {
     idea:      'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
   };
 
-  // â”€â”€ Review Management data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Review Management data ──────────────────────────────────────────────────
   const recentReviews = [];
 
   const reviewTrend = [];
 
   const promoters = [];
 
-  // â”€â”€ Integrations data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Integrations data ───────────────────────────────────────────────────────
   const integrations = [
     { name: 'Google Analytics',    sub: 'GA4 + Search Console',   icon: BarChart3,  connected: false, lastSync: 'Not connected', color: 'text-orange-500', metrics: ['Setup Required'] },
     { name: 'Google Business',     sub: 'Reviews & Rating Feed',  icon: Star,       connected: false, lastSync: 'Not connected', color: 'text-amber-500',  metrics: ['Setup Required'] },
@@ -260,7 +260,7 @@ const App = () => {
     setShowAddPost(false);
   };
 
-  // â”€â”€ Helper Components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Helper Components ─────────────────────────────────────────────────────────
   const StatCard = ({ title, value, trend, icon: Icon, color, sub, trendPositive }) => {
     const isPositive = trend && (trendPositive !== undefined ? trendPositive : trend.startsWith('+'));
     const isNeutral  = trend && trend === '0%';
@@ -331,7 +331,7 @@ const App = () => {
     { id: 'ai-tools',     label: 'AI Tools',      icon: Bot         },
   ];
 
-  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="dashboard-shell font-sans">
 
@@ -346,7 +346,7 @@ const App = () => {
           {!sidebarCollapsed && (
             <div className="sidebar-brand-text">
               <div className="gradient-title sidebar-title">Destiny Springs</div>
-              <div className="sidebar-subtitle">Healthcare · DMD</div>
+              <div className="sidebar-subtitle">Healthcare � DMD</div>
             </div>
           )}
         </div>
@@ -444,12 +444,12 @@ const App = () => {
               <StatCard title="Google Rating"     value={metrics.googleScore}    trend={metrics.googleTrend} icon={Star}        color="bg-amber-500"   sub="Review Cleanup Performance" />
               <StatCard title="Monthly Sessions"  value={metrics.wixSessions}    trend={null}                icon={Layout}      color="bg-teal-600"    sub="Wix Website Traffic"       />
               <StatCard title="Avg Read Time"     value={metrics.avgReadTime}    trend={null}                icon={Clock}       color="bg-emerald-600" sub="Blog & Education Retention" />
-              <StatCard title="Omnichannel Reach" value="—"                      trend={null}                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"       />
+              <StatCard title="Omnichannel Reach" value="�"                      trend={null}                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"       />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <StatCard title="Total Leads"       value={metrics.totalLeads}     trend={metrics.leadsGrowth} icon={Target}      color="bg-rose-500"    sub="Monthly Lead Volume"        />
               <StatCard title="Cost Per Lead"     value={metrics.costPerLead}    trend={null}                icon={TrendingDown} color="bg-indigo-600" sub="Blended Paid Acquisition"   />
-              <StatCard title="Site Conversion"   value={metrics.siteConversion} trend={null}                icon={MousePointer} color="bg-teal-600"   sub="Visitor → Lead Rate"        />
+              <StatCard title="Site Conversion"   value={metrics.siteConversion} trend={null}                icon={MousePointer} color="bg-teal-600"   sub="Visitor ? Lead Rate"        />
               <StatCard title="NPS Score"         value={metrics.nps}            trend={null}                icon={ThumbsUp}    color="bg-amber-600"   sub="Net Promoter Score"         />
             </div>
 
@@ -458,7 +458,7 @@ const App = () => {
               <SectionHeader icon={TrendingUp} color="text-teal-500" title="6-Month Growth Trend" subtitle="Sessions, Reach & Lead Volume" />
               <div className="h-72">
                 {monthlyTrend.length === 0 ? (
-                  <EmptyChart height="h-72" message="No trend data yet — connect Google Analytics &amp; Meta to populate" />
+                  <EmptyChart height="h-72" message="No trend data yet � connect Google Analytics &amp; Meta to populate" />
                 ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -500,9 +500,9 @@ const App = () => {
                     <div key={s.name} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }}></div>
-                        <span className={`text-[11px] font-bold ${txt2}`}>{s.name}</span>
+                        <span className={`text-[13px] font-bold ${txt2}`}>{s.name}</span>
                       </div>
-                      <span className={`text-[11px] font-black ${txt}`}>{s.value}%</span>
+                      <span className={`text-[13px] font-black ${txt}`}>{s.value}%</span>
                     </div>
                   ))}
                 </div>
@@ -529,15 +529,15 @@ const App = () => {
                     <div key={s.name} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }}></div>
-                        <span className={`text-[11px] font-bold ${txt2}`}>{s.name}</span>
+                        <span className={`text-[13px] font-bold ${txt2}`}>{s.name}</span>
                       </div>
-                      <span className={`text-[11px] font-black ${txt}`}>{s.value}%</span>
+                      <span className={`text-[13px] font-black ${txt}`}>{s.value}%</span>
                     </div>
                   ))}
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                   <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800 p-3 rounded-xl">
-                    <span className={`text-[10px] font-black uppercase ${subtl} tracking-wider`}>Bounce Rate</span>
+                    <span className={`text-[13px] font-black uppercase ${subtl} tracking-wider`}>Bounce Rate</span>
                     <span className="text-sm font-black text-teal-500">{metrics.wixBounceRate}</span>
                   </div>
                 </div>
@@ -548,7 +548,7 @@ const App = () => {
                 <div className="space-y-4">
                   {regionalTraffic.map(item => (
                     <div key={item.city}>
-                      <div className={`flex justify-between text-[10px] font-black ${subtl} uppercase mb-1`}>
+                      <div className={`flex justify-between text-[13px] font-black ${subtl} uppercase mb-1`}>
                         <span>{item.city}</span><span>{item.traffic}%</span>
                       </div>
                       <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -567,7 +567,7 @@ const App = () => {
                 <div className="space-y-5">
                   {pathData.map(p => (
                     <div key={p.name}>
-                      <div className={`flex justify-between text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>
+                      <div className={`flex justify-between text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>
                         <span>{p.name}</span><span>{p.stay}% Retention</span>
                       </div>
                       <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -589,12 +589,12 @@ const App = () => {
                   ].map(s => (
                     <div key={s.label} className={`p-4 ${s.bg} rounded-3xl text-center`}>
                       <div className={`text-3xl font-black ${s.tx}`}>{s.val}</div>
-                      <div className={`text-[10px] ${s.sm} font-black uppercase mt-1`}>{s.label}</div>
+                      <div className={`text-[13px] ${s.sm} font-black uppercase mt-1`}>{s.label}</div>
                     </div>
                   ))}
                 </div>
                 <div className="space-y-2">
-                  <div className={`flex justify-between items-center text-[11px] font-bold`}>
+                  <div className={`flex justify-between items-center text-[13px] font-bold`}>
                     <span className={`${muted} uppercase`}>Statewide SEO Lift</span>
                     <span className="text-teal-500">{metrics.seoStatewideGrowth} Organic</span>
                   </div>
@@ -615,15 +615,15 @@ const App = () => {
               </div>
               <div className="flex gap-2">
                 {[1,2,3,4].map(i => (
-                  <div key={i} className="h-10 w-10 rounded-full border-2 border-slate-800 bg-slate-700 flex items-center justify-center text-[10px] font-black">User</div>
+                  <div key={i} className="h-10 w-10 rounded-full border-2 border-slate-800 bg-slate-700 flex items-center justify-center text-[13px] font-black">User</div>
                 ))}
-                <div className="h-10 w-10 rounded-full bg-teal-600 border-2 border-slate-800 flex items-center justify-center text-[10px] font-black">0</div>
+                <div className="h-10 w-10 rounded-full bg-teal-600 border-2 border-slate-800 flex items-center justify-center text-[13px] font-black">0</div>
               </div>
             </div>
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SOCIAL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ══════════════════ SOCIAL ══════════════════ */}
         {activeTab === 'social' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -632,10 +632,10 @@ const App = () => {
                   <div className="h-10 w-10 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: s.color + '25' }}>
                     <div className="h-4 w-4 rounded-full" style={{ backgroundColor: s.color }}></div>
                   </div>
-                  <p className={`text-[10px] font-black uppercase ${subtl} tracking-widest mb-1`}>{s.platform}</p>
+                  <p className={`text-[13px] font-black uppercase ${subtl} tracking-widest mb-1`}>{s.platform}</p>
                   <h3 className={`text-2xl font-black ${txt}`}>{s.reach.toLocaleString()}</h3>
-                  <p className={`text-[10px] ${subtl} italic mt-1`}>Monthly Reach</p>
-                  <div className={`mt-3 pt-3 border-t ${brd} flex justify-between text-[10px] font-bold`}>
+                  <p className={`text-[13px] ${subtl} italic mt-1`}>Monthly Reach</p>
+                  <div className={`mt-3 pt-3 border-t ${brd} flex justify-between text-[13px] font-bold`}>
                     <span className={muted}>{s.followers.toLocaleString()} Followers</span>
                     <span className="text-teal-500">{s.clicks} Clicks</span>
                   </div>
@@ -687,7 +687,7 @@ const App = () => {
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SEO & CONTENT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ══════════════════ SEO & CONTENT ══════════════════ */}
         {activeTab === 'seo' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -701,7 +701,7 @@ const App = () => {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className={`text-[10px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
+                    <tr className={`text-[13px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
                       <th className="text-left pb-3 pr-4">Keyword</th>
                       <th className="text-center pb-3 px-4">Rank</th>
                       <th className="text-center pb-3 px-4">Change</th>
@@ -717,7 +717,7 @@ const App = () => {
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span className={`text-xs font-black px-2 py-1 rounded-full ${kw.change > 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'}`}>
-                            {kw.change > 0 ? `▲ ${kw.change}` : `▼ ${Math.abs(kw.change)}`}
+                            {kw.change > 0 ? `? ${kw.change}` : `? ${Math.abs(kw.change)}`}
                           </span>
                         </td>
                         <td className={`py-3 pl-4 text-right text-sm font-bold ${txt2}`}>{kw.volume.toLocaleString()}</td>
@@ -736,13 +736,13 @@ const App = () => {
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-bold ${txt} truncate`}>{post.title}</p>
                       <div className="flex gap-4 mt-1">
-                        <span className={`text-[10px] font-bold ${subtl}`}><Eye size={10} className="inline mr-1" />{post.views.toLocaleString()} views</span>
-                        <span className={`text-[10px] font-bold ${subtl}`}><Clock size={10} className="inline mr-1" />{post.readTime}</span>
+                        <span className={`text-[13px] font-bold ${subtl}`}><Eye size={10} className="inline mr-1" />{post.views.toLocaleString()} views</span>
+                        <span className={`text-[13px] font-bold ${subtl}`}><Clock size={10} className="inline mr-1" />{post.readTime}</span>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
                       <div className={`text-sm font-black ${txt}`}>{post.shares}</div>
-                      <div className={`text-[9px] font-bold ${subtl} uppercase`}>Shares</div>
+                      <div className={`text-[12px] font-bold ${subtl} uppercase`}>Shares</div>
                     </div>
                   </div>
                 ))}
@@ -758,7 +758,7 @@ const App = () => {
                 ].map(s => (
                   <div key={s.label} className={`p-4 ${s.bg} rounded-3xl text-center`}>
                     <div className={`text-3xl font-black ${s.tx}`}>{s.val}</div>
-                    <div className={`text-[10px] ${s.sm} font-black uppercase mt-1`}>{s.label}</div>
+                    <div className={`text-[13px] ${s.sm} font-black uppercase mt-1`}>{s.label}</div>
                   </div>
                 ))}
               </div>
@@ -766,21 +766,21 @@ const App = () => {
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• PAID ADS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ══════════════════ PAID ADS ══════════════════ */}
         {activeTab === 'ads' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <StatCard title="Total Ad Spend"    value="—"      trend={null}     icon={Target}      color="bg-indigo-600" sub="Monthly Budget"      />
-              <StatCard title="Total Leads"       value="—"      trend={null}     icon={Users}       color="bg-teal-600"  sub="From Paid Channels" />
-              <StatCard title="Avg CPL"           value="—"      trend={null}      icon={TrendingDown} color="bg-blue-600" sub="Cost Per Lead" />
-              <StatCard title="Total Impressions" value="—"      trend={null}     icon={Eye}         color="bg-amber-600" sub="Paid Visibility"     />
+              <StatCard title="Total Ad Spend"    value="�"      trend={null}     icon={Target}      color="bg-indigo-600" sub="Monthly Budget"      />
+              <StatCard title="Total Leads"       value="�"      trend={null}     icon={Users}       color="bg-teal-600"  sub="From Paid Channels" />
+              <StatCard title="Avg CPL"           value="�"      trend={null}      icon={TrendingDown} color="bg-blue-600" sub="Cost Per Lead" />
+              <StatCard title="Total Impressions" value="�"      trend={null}     icon={Eye}         color="bg-amber-600" sub="Paid Visibility"     />
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={BarChart3} color="text-indigo-500" title="Paid Channel Performance" subtitle="Google, Meta & LinkedIn Ads" />
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className={`text-[10px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
+                    <tr className={`text-[13px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
                       {['Channel','Spend','Impressions','Clicks','Leads','CPL'].map(h => (
                         <th key={h} className={`${h==='Channel'?'text-left':'text-right'} pb-3 px-4`}>{h}</th>
                       ))}
@@ -820,21 +820,21 @@ const App = () => {
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• EMAIL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ══════════════════ EMAIL ══════════════════ */}
         {activeTab === 'email' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <StatCard title="Avg Open Rate"     value={metrics.emailOpenRate} trend={null}  icon={Mail}        color="bg-teal-600"   sub="All Campaigns"      />
-              <StatCard title="Total Subscribers" value="—"                    trend={null}  icon={Users}       color="bg-purple-600" sub="Active List Size"   />
-              <StatCard title="Click Rate"        value="—"                    trend={null}  icon={MousePointer}color="bg-emerald-600"sub="Avg CTR"            />
-              <StatCard title="Conversions"       value="—"                    trend={null}  icon={CheckCircle} color="bg-amber-600"  sub="Email-Attributed"  />
+              <StatCard title="Total Subscribers" value="�"                    trend={null}  icon={Users}       color="bg-purple-600" sub="Active List Size"   />
+              <StatCard title="Click Rate"        value="�"                    trend={null}  icon={MousePointer}color="bg-emerald-600"sub="Avg CTR"            />
+              <StatCard title="Conversions"       value="�"                    trend={null}  icon={CheckCircle} color="bg-amber-600"  sub="Email-Attributed"  />
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Mail} color="text-teal-500" title="Email Campaign Performance" subtitle="Sends, Opens, Clicks & Conversions" />
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className={`text-[10px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
+                    <tr className={`text-[13px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
                       {['Campaign','Sent','Opened','Clicked','Converted'].map(h => (
                         <th key={h} className={`${h==='Campaign'?'text-left':'text-right'} pb-3 px-4`}>{h}</th>
                       ))}
@@ -874,7 +874,7 @@ const App = () => {
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• PIPELINE â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ══════════════════ PIPELINE ══════════════════ */}
         {activeTab === 'pipeline' && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -886,10 +886,10 @@ const App = () => {
                 <div key={p.key} className={`${card} p-5 rounded-2xl`}>
                   <div className="flex items-center gap-2 mb-3">
                     <div className={`h-3 w-3 rounded-full ${p.dot}`}></div>
-                    <span className={`text-[10px] font-black uppercase ${subtl} tracking-widest`}>{p.label}</span>
+                    <span className={`text-[13px] font-black uppercase ${subtl} tracking-widest`}>{p.label}</span>
                   </div>
                   <p className={`text-2xl font-black ${txt}`}>{pipeline.filter(t => t.priority === p.key).length}</p>
-                  <p className={`text-[10px] ${subtl} mt-1 italic`}>{p.desc}</p>
+                  <p className={`text-[13px] ${subtl} mt-1 italic`}>{p.desc}</p>
                 </div>
               ))}
             </div>
@@ -900,8 +900,8 @@ const App = () => {
                   <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
                     <div className={`h-3 w-3 rounded-full shrink-0 ${item.priority==='high'?'bg-rose-500':item.priority==='medium'?'bg-amber-500':'bg-slate-400'}`}></div>
                     <div className="flex-1"><p className={`text-sm font-bold ${txt}`}>{item.task}</p></div>
-                    <span className={`shrink-0 text-[10px] font-black ${subtl} uppercase`}>{item.due}</span>
-                    <span className={`shrink-0 text-[9px] font-black px-2 py-1 rounded-full uppercase ${item.priority==='high'?'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400':item.priority==='medium'?'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400':'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                    <span className={`shrink-0 text-[13px] font-black ${subtl} uppercase`}>{item.due}</span>
+                    <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full uppercase ${item.priority==='high'?'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400':item.priority==='medium'?'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400':'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
                       {item.priority}
                     </span>
                   </div>
@@ -918,15 +918,15 @@ const App = () => {
               </div>
               <div className="flex gap-2">
                 {[1,2,3,4].map(i => (
-                  <div key={i} className="h-10 w-10 rounded-full border-2 border-slate-800 bg-slate-700 flex items-center justify-center text-[10px] font-black">User</div>
+                  <div key={i} className="h-10 w-10 rounded-full border-2 border-slate-800 bg-slate-700 flex items-center justify-center text-[13px] font-black">User</div>
                 ))}
-                <div className="h-10 w-10 rounded-full bg-teal-600 border-2 border-slate-800 flex items-center justify-center text-[10px] font-black">0</div>
+                <div className="h-10 w-10 rounded-full bg-teal-600 border-2 border-slate-800 flex items-center justify-center text-[13px] font-black">0</div>
               </div>
             </div>
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• MY ACHIEVEMENTS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ══════════════════ MY ACHIEVEMENTS ══════════════════ */}
         {activeTab === 'achievements' && (
           <>
             <div className="bg-gradient-to-r from-teal-700 to-teal-900 rounded-[2.5rem] p-8 text-white mb-8 flex flex-col md:flex-row items-center gap-6">
@@ -935,8 +935,8 @@ const App = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight">My Digital Marketing Achievements</h2>
-                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing · Social Media · Website Management · Blog Writing · SEO · Paid Ads</p>
-                <p className="text-teal-200 text-xs mt-2 italic">Ongoing · Destiny Springs Healthcare</p>
+                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing � Social Media � Website Management � Blog Writing � SEO � Paid Ads</p>
+                <p className="text-teal-200 text-xs mt-2 italic">Ongoing � Destiny Springs Healthcare</p>
               </div>
               <div className="ml-auto shrink-0 text-right hidden md:block">
                 <div className="text-4xl font-black text-amber-300">312</div>
@@ -951,13 +951,13 @@ const App = () => {
                   <div key={s.label} className={`${card} p-5 rounded-2xl`}>
                     <div className="flex items-center gap-3 mb-3">
                       <s.icon size={20} className={s.color} />
-                      <span className={`text-[10px] font-black uppercase ${subtl} tracking-widest`}>{s.label}</span>
+                      <span className={`text-[13px] font-black uppercase ${subtl} tracking-widest`}>{s.label}</span>
                     </div>
                     <div className={`text-3xl font-black ${txt} mb-1`}>{s.value}</div>
                     <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2">
                       <div className="h-full bg-teal-500 rounded-full" style={{ width: `${pct}%` }}></div>
                     </div>
-                    <div className={`text-[9px] ${subtl} mt-1`}>{pct}% of target ({s.target})</div>
+                    <div className={`text-[12px] ${subtl} mt-1`}>{pct}% of target ({s.target})</div>
                   </div>
                 );
               })}
@@ -985,8 +985,8 @@ const App = () => {
                     <div key={m.title} className={`p-3 rounded-2xl border ${m.earned ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 opacity-50'}`}>
                       <m.icon size={16} className={m.earned ? 'text-teal-600 dark:text-teal-400 mb-1.5' : `${subtl} mb-1.5`} />
                       <div className={`text-xs font-black leading-tight ${m.earned ? 'text-teal-900 dark:text-teal-100' : txt}`}>{m.title}</div>
-                      <div className={`text-[10px] mt-0.5 ${m.earned ? 'text-teal-600 dark:text-teal-400' : subtl}`}>{m.desc}</div>
-                      <div className={`text-[9px] ${subtl} mt-1 uppercase font-bold`}>{m.date}</div>
+                      <div className={`text-[13px] mt-0.5 ${m.earned ? 'text-teal-600 dark:text-teal-400' : subtl}`}>{m.desc}</div>
+                      <div className={`text-[12px] ${subtl} mt-1 uppercase font-bold`}>{m.date}</div>
                     </div>
                   ))}
                 </div>
@@ -1012,14 +1012,14 @@ const App = () => {
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• CLIENT ROI â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ══════════════════ CLIENT ROI ══════════════════ */}
         {activeTab === 'roi' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <StatCard title="Est. Revenue Potential" value="—"      trend={null}         icon={DollarSign} color="bg-teal-600"   sub="Based on avg value / lead"     />
-              <StatCard title="Total Mktg Spend"       value="—"      trend={null}          icon={Target}     color="bg-indigo-600" sub="Monthly All Channels"        />
-              <StatCard title="Blended ROI"            value="—"      trend={null}          icon={TrendingUp} color="bg-emerald-600" sub="Revenue / Spend Ratio"       />
-              <StatCard title="Agency Cost Savings"    value="—"      trend={null}          icon={ShieldCheck} color="bg-amber-600"  sub="vs. Full Agency Retainer"    />
+              <StatCard title="Est. Revenue Potential" value="�"      trend={null}         icon={DollarSign} color="bg-teal-600"   sub="Based on avg value / lead"     />
+              <StatCard title="Total Mktg Spend"       value="�"      trend={null}          icon={Target}     color="bg-indigo-600" sub="Monthly All Channels"        />
+              <StatCard title="Blended ROI"            value="�"      trend={null}          icon={TrendingUp} color="bg-emerald-600" sub="Revenue / Spend Ratio"       />
+              <StatCard title="Agency Cost Savings"    value="�"      trend={null}          icon={ShieldCheck} color="bg-amber-600"  sub="vs. Full Agency Retainer"    />
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
@@ -1044,7 +1044,7 @@ const App = () => {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className={`text-[10px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
+                    <tr className={`text-[13px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
                       <th className="text-left pb-3 pr-4">Channel</th>
                       <th className="text-right pb-3 px-4">Leads</th>
                       <th className="text-right pb-3 px-4">Cost Per Lead</th>
@@ -1074,14 +1074,14 @@ const App = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[
-                { label: 'Total Leads x Avg Lead Value',        value: '—',    icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
-                { label: 'Total Marketing Investment',      value: '—',    icon: Target,     color: 'text-indigo-500',  sub: 'Blended spend across all channels'   },
-                { label: 'Return on Investment',            value: '—',    icon: TrendingUp, color: 'text-emerald-500', sub: 'Revenue potential / marketing spend'  },
+                { label: 'Total Leads x Avg Lead Value',        value: '�',    icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
+                { label: 'Total Marketing Investment',      value: '�',    icon: Target,     color: 'text-indigo-500',  sub: 'Blended spend across all channels'   },
+                { label: 'Return on Investment',            value: '�',    icon: TrendingUp, color: 'text-emerald-500', sub: 'Revenue potential / marketing spend'  },
               ].map(s => (
                 <div key={s.label} className={`${card} p-6 rounded-2xl text-center`}>
                   <s.icon size={28} className={`${s.color} mx-auto mb-3`} />
                   <div className={`text-3xl font-black ${txt} mb-1`}>{s.value}</div>
-                  <div className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-1`}>{s.label}</div>
+                  <div className={`text-[13px] font-black ${muted} uppercase tracking-wider mb-1`}>{s.label}</div>
                   <div className={`text-xs ${subtl} italic`}>{s.sub}</div>
                 </div>
               ))}
@@ -1089,7 +1089,7 @@ const App = () => {
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• CONTENT CALENDAR â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ══════════════════ CONTENT CALENDAR ══════════════════ */}
         {activeTab === 'calendar' && (
           <>
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -1122,7 +1122,7 @@ const App = () => {
                     { label: 'Notes',    key: 'notes',    type: 'text',   placeholder: 'Brief description or details...' },
                   ].map(f => (
                     <div key={f.key}>
-                      <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                      <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
                       {f.type === 'select'
                         ? <select value={newPost[f.key]} onChange={e => setNewPost(p => ({...p, [f.key]: e.target.value}))}
                             className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500 transition-colors`}>
@@ -1155,7 +1155,7 @@ const App = () => {
               ].map(s => (
                 <div key={s.label} className={`${card} p-5 rounded-2xl text-center`}>
                   <div className={`text-3xl font-black ${s.color}`}>{s.value}</div>
-                  <div className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-1`}>{s.label}</div>
+                  <div className={`text-[13px] font-black ${subtl} uppercase tracking-wider mt-1`}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -1165,15 +1165,15 @@ const App = () => {
                 {filteredContent.map((item, i) => (
                   <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
                     <div className={`shrink-0 text-center w-12 ${card} px-2 py-1.5 rounded-xl`}>
-                      <div className={`text-[10px] font-black uppercase ${subtl}`}>{item.date.split(' ')[0]}</div>
+                      <div className={`text-[13px] font-black uppercase ${subtl}`}>{item.date.split(' ')[0]}</div>
                       <div className={`text-lg font-black ${txt}`}>{item.date.split(' ')[1]}</div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-bold ${txt} truncate`}>{item.title}</p>
-                      <p className={`text-[10px] ${muted} font-medium mt-0.5`}>{item.platform}</p>
+                      <p className={`text-[13px] ${muted} font-medium mt-0.5`}>{item.platform}</p>
                     </div>
-                    <span className={`shrink-0 text-[10px] font-black px-2 py-1 rounded-full ${typeColor[item.type]||''}`}>{item.type}</span>
-                    <span className={`shrink-0 text-[9px] font-black px-2 py-1 rounded-full capitalize ${statusColor[item.status]||''}`}>{item.status}</span>
+                    <span className={`shrink-0 text-[13px] font-black px-2 py-1 rounded-full ${typeColor[item.type]||''}`}>{item.type}</span>
+                    <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full capitalize ${statusColor[item.status]||''}`}>{item.status}</span>
                   </div>
                 ))}
               </div>
@@ -1181,14 +1181,14 @@ const App = () => {
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• REVIEWS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ══════════════════ REVIEWS ══════════════════ */}
         {activeTab === 'reviews' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <StatCard title="Current Rating"  value="4.2 ★" trend="+0.8"  icon={Star}        color="bg-amber-500"   sub="Google Business Profile" />
-              <StatCard title="Total Reviews"   value="—"     trend={null}  icon={MessageSquare}color="bg-teal-600"   sub="All Time"               />
-              <StatCard title="Promoters Ready" value="—"     trend={null}  icon={ThumbsUp}    color="bg-emerald-600" sub="Awaiting Outreach"      />
-              <StatCard title="Response Rate"   value="—"     trend={null}  icon={Send}        color="bg-purple-600" sub="Reviews Responded To"   />
+              <StatCard title="Current Rating"  value="4.2 ?" trend="+0.8"  icon={Star}        color="bg-amber-500"   sub="Google Business Profile" />
+              <StatCard title="Total Reviews"   value="�"     trend={null}  icon={MessageSquare}color="bg-teal-600"   sub="All Time"               />
+              <StatCard title="Promoters Ready" value="�"     trend={null}  icon={ThumbsUp}    color="bg-emerald-600" sub="Awaiting Outreach"      />
+              <StatCard title="Response Rate"   value="�"     trend={null}  icon={Send}        color="bg-purple-600" sub="Reviews Responded To"   />
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
@@ -1217,20 +1217,20 @@ const App = () => {
                     <div key={i} className={`p-4 ${rowCls} rounded-2xl`}>
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <div className="h-7 w-7 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center text-[10px] font-black text-teal-700 dark:text-teal-300">{r.author[0]}</div>
+                          <div className="h-7 w-7 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center text-[13px] font-black text-teal-700 dark:text-teal-300">{r.author[0]}</div>
                           <span className={`text-xs font-black ${txt}`}>{r.author}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="flex gap-0.5">
                             {[1,2,3,4,5].map(n => <Star key={n} size={11} className={n<=r.rating?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
                           </span>
-                          <span className={`text-[9px] ${subtl}`}>{r.date}</span>
+                          <span className={`text-[12px] ${subtl}`}>{r.date}</span>
                         </div>
                       </div>
                       <p className={`text-xs ${txt2} leading-relaxed line-clamp-2`}>{r.text}</p>
                       <div className="flex justify-end mt-2">
-                        <span className={`text-[9px] font-black px-2 py-1 rounded-full ${r.responded ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
-                          {r.responded ? '✓ Responded' : 'Needs Response'}
+                        <span className={`text-[12px] font-black px-2 py-1 rounded-full ${r.responded ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
+                          {r.responded ? '? Responded' : 'Needs Response'}
                         </span>
                       </div>
                     </div>
@@ -1239,46 +1239,46 @@ const App = () => {
               </div>
 
               <div className={`${card} p-6 rounded-[2rem]`}>
-                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 9–10 Clients Ready for Google Review" />
+                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 9�10 Clients Ready for Google Review" />
                 <div className="space-y-3">
                   {promoters.map((p, i) => (
                     <div key={i} className={`flex items-center gap-3 p-3 ${rowCls} rounded-xl`}>
                       <div className="h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-xs font-black text-emerald-700 dark:text-emerald-300 shrink-0">{p.name[0]}</div>
                       <div className="flex-1">
                         <div className={`text-sm font-bold ${txt}`}>{p.name}</div>
-                        <div className={`text-[10px] ${subtl}`}>NPS Score: {p.nps}/10</div>
+                        <div className={`text-[13px] ${subtl}`}>NPS Score: {p.nps}/10</div>
                       </div>
-                      <span className={`text-[9px] font-black px-2 py-1 rounded-full capitalize ${p.status==='reviewed'?'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400':p.status==='contacted'?'bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400':'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>{p.status}</span>
+                      <span className={`text-[12px] font-black px-2 py-1 rounded-full capitalize ${p.status==='reviewed'?'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400':p.status==='contacted'?'bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400':'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>{p.status}</span>
                     </div>
                   ))}
                 </div>
                 <div className="mt-6 p-4 bg-teal-50 dark:bg-teal-900/20 rounded-2xl border border-teal-200 dark:border-teal-800">
                   <p className="text-xs font-black text-teal-700 dark:text-teal-300 uppercase tracking-wider mb-1">Goal</p>
-                  <p className="text-sm text-teal-600 dark:text-teal-400">Convert all pipeline promoters to 5-star reviews → Push rating above 4.5 ★</p>
+                  <p className="text-sm text-teal-600 dark:text-teal-400">Convert all pipeline promoters to 5-star reviews ? Push rating above 4.5 ?</p>
                 </div>
               </div>
             </div>
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• INTEGRATIONS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ══════════════════ INTEGRATIONS ══════════════════ */}
         {activeTab === 'integrations' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
               <div className={`${card} p-5 rounded-2xl text-center`}>
                 <div className="text-3xl font-black text-teal-500 mb-1">{integrations.filter(i=>i.connected).length}</div>
-                <div className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>Active Integrations</div>
+                <div className={`text-[13px] font-black ${subtl} uppercase tracking-wider`}>Active Integrations</div>
               </div>
               <div className={`${card} p-5 rounded-2xl text-center`}>
                 <div className="text-3xl font-black text-amber-500 mb-1">{integrations.filter(i=>!i.connected).length}</div>
-                <div className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>Pending Setup</div>
+                <div className={`text-[13px] font-black ${subtl} uppercase tracking-wider`}>Pending Setup</div>
               </div>
               <div className={`${card} p-5 rounded-2xl text-center`}>
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <div className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></div>
                   <span className="text-3xl font-black text-emerald-500">Live</span>
                 </div>
-                <div className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>All Active Feeds</div>
+                <div className={`text-[13px] font-black ${subtl} uppercase tracking-wider`}>All Active Feeds</div>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
@@ -1291,20 +1291,20 @@ const App = () => {
                       </div>
                       <div>
                         <div className={`font-black text-sm ${txt}`}>{intg.name}</div>
-                        <div className={`text-[10px] ${subtl}`}>{intg.sub}</div>
+                        <div className={`text-[13px] ${subtl}`}>{intg.sub}</div>
                       </div>
                     </div>
-                    <span className={`flex items-center gap-1.5 text-[10px] font-black px-2 py-1 rounded-full ${intg.connected ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
+                    <span className={`flex items-center gap-1.5 text-[13px] font-black px-2 py-1 rounded-full ${intg.connected ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
                       {intg.connected ? <RefreshCw size={10} /> : <WifiOff size={10} />}
                       {intg.connected ? 'Connected' : 'Setup Required'}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2 mb-4">
                     {intg.metrics.map(m => (
-                      <span key={m} className={`text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 ${intg.connected ? 'text-teal-600 dark:text-teal-400' : subtl}`}>{m}</span>
+                      <span key={m} className={`text-[13px] font-bold px-2 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 ${intg.connected ? 'text-teal-600 dark:text-teal-400' : subtl}`}>{m}</span>
                     ))}
                   </div>
-                  <div className={`flex items-center justify-between text-[10px] ${subtl} border-t ${brd} pt-3`}>
+                  <div className={`flex items-center justify-between text-[13px] ${subtl} border-t ${brd} pt-3`}>
                     <span>Last sync: {intg.lastSync}</span>
                     {intg.connected
                       ? <button className="text-teal-500 hover:text-teal-400 font-black flex items-center gap-1"><RefreshCw size={10} /> Sync Now</button>
@@ -1317,8 +1317,8 @@ const App = () => {
               <SectionHeader icon={Plug} color="text-teal-500" title="Integration Setup Guide" subtitle="Steps to connect remaining platforms" />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {[
-                  { name: 'Meta Ads Manager',    icon: Megaphone,  step: 'Meta Business Manager → Apps → Generate API token → Add to .env as VITE_META_ADS_TOKEN'  },
-                  { name: 'TikTok for Business', icon: PlayCircle, step: 'Apply for TikTok Business API → Create App → Get access token → Add as VITE_TIKTOK_TOKEN' },
+                  { name: 'Meta Ads Manager',    icon: Megaphone,  step: 'Meta Business Manager ? Apps ? Generate API token ? Add to .env as VITE_META_ADS_TOKEN'  },
+                  { name: 'TikTok for Business', icon: PlayCircle, step: 'Apply for TikTok Business API ? Create App ? Get access token ? Add as VITE_TIKTOK_TOKEN' },
                 ].map(g => (
                   <div key={g.name} className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl">
                     <div className="flex items-center gap-2 mb-2">
@@ -1331,13 +1331,13 @@ const App = () => {
               </div>
               <div className="p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-2xl">
                 <p className="text-xs font-black text-teal-700 dark:text-teal-300 uppercase tracking-wider mb-1">Note</p>
-                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 5–30 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
+                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 5�30 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
               </div>
             </div>
           </>
         )}
 
-        {/* ══════════════════ DATA IMPORT ══════════════════ */}
+        {/* ------------------ DATA IMPORT ------------------ */}
         {activeTab === 'import' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -1345,12 +1345,12 @@ const App = () => {
                 { label: 'Data Sources',  value: '10',  color: 'text-teal-500',    icon: Plug      },
                 { label: 'Auto Syncing',  value: '0',   color: 'text-emerald-500', icon: RefreshCw },
                 { label: 'Pending Setup', value: '10',  color: 'text-amber-500',   icon: Clock     },
-                { label: 'Manual Entries',value: '—',   color: 'text-purple-500',  icon: Upload    },
+                { label: 'Manual Entries',value: '�',   color: 'text-purple-500',  icon: Upload    },
               ].map(s => (
                 <div key={s.label} className={`${card} p-5 rounded-2xl text-center`}>
                   <s.icon size={22} className={`${s.color} mx-auto mb-2`} />
                   <div className={`text-3xl font-black ${txt} mb-1`}>{s.value}</div>
-                  <div className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>{s.label}</div>
+                  <div className={`text-[13px] font-black ${subtl} uppercase tracking-wider`}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -1358,7 +1358,7 @@ const App = () => {
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Upload} color="text-teal-500" title="Import Data" subtitle="Upload files, paste CSV, or enter data manually" />
               <div className="flex gap-2 mb-6">
-                {[['upload','↑ File Upload'],['paste','⊙ Paste CSV'],['manual','✏ Manual Entry']].map(([m, label]) => (
+                {[['upload','? File Upload'],['paste','? Paste CSV'],['manual','? Manual Entry']].map(([m, label]) => (
                   <button key={m} onClick={() => setImportMode(m)}
                     className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${importMode===m ? 'bg-teal-600 text-white' : `bg-slate-100 dark:bg-slate-800 ${muted} hover:text-teal-500`}`}>
                     {label}
@@ -1377,7 +1377,7 @@ const App = () => {
                   </div>
                   <div className="flex gap-2 justify-center mt-5 flex-wrap">
                     {['Google Analytics', 'Meta Business', 'Mailchimp', 'Google Ads', 'TikTok', 'Generic CSV'].map(fmt => (
-                      <span key={fmt} className={`text-[10px] font-black px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 ${muted}`}>{fmt}</span>
+                      <span key={fmt} className={`text-[13px] font-black px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 ${muted}`}>{fmt}</span>
                     ))}
                   </div>
                 </div>
@@ -1420,7 +1420,7 @@ const App = () => {
                         { label: 'Posts Published',    type: 'number', ph: '0' },
                       ].map(f => (
                         <div key={f.label}>
-                          <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                          <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
                           {f.type === 'select'
                             ? <select className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
                             : <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
@@ -1433,8 +1433,8 @@ const App = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
                         { label: 'Keyword',            type: 'text',   ph: 'e.g. healthcare Arizona' },
-                        { label: 'Current Rank',       type: 'number', ph: '1–100' },
-                        { label: 'Previous Rank',      type: 'number', ph: '1–100' },
+                        { label: 'Current Rank',       type: 'number', ph: '1�100' },
+                        { label: 'Previous Rank',      type: 'number', ph: '1�100' },
                         { label: 'Monthly Search Vol', type: 'number', ph: '0' },
                         { label: 'Impressions',        type: 'number', ph: '0' },
                         { label: 'Clicks',             type: 'number', ph: '0' },
@@ -1442,7 +1442,7 @@ const App = () => {
                         { label: 'Reporting Month',    type: 'month'  },
                       ].map(f => (
                         <div key={f.label}>
-                          <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                          <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
                           <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
                         </div>
                       ))}
@@ -1461,7 +1461,7 @@ const App = () => {
                         { label: 'ROAS',               type: 'number', ph: '0.0' },
                       ].map(f => (
                         <div key={f.label}>
-                          <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                          <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
                           {f.type === 'select'
                             ? <select className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
                             : <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
@@ -1483,7 +1483,7 @@ const App = () => {
                         { label: 'Revenue Attributed', type: 'number', ph: '0.00' },
                       ].map(f => (
                         <div key={f.label}>
-                          <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                          <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
                           <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
                         </div>
                       ))}
@@ -1493,13 +1493,13 @@ const App = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {[
                         { label: 'Reviewer Name',      type: 'text',   ph: 'e.g. J. Smith', half: false },
-                        { label: 'Rating (1–5)',        type: 'number', ph: '5', half: false },
+                        { label: 'Rating (1�5)',        type: 'number', ph: '5', half: false },
                         { label: 'Review Date',        type: 'date',    half: false },
                         { label: 'Platform',           type: 'select', opts: ['Google','Yelp','Healthgrades','Facebook'], half: false },
                         { label: 'Review Text',        type: 'textarea',ph: 'Paste review content here...', half: true },
                       ].map(f => (
                         <div key={f.label} className={f.half ? 'md:col-span-2' : ''}>
-                          <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                          <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
                           {f.type === 'select'
                             ? <select className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
                             : f.type === 'textarea'
@@ -1538,10 +1538,10 @@ const App = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-bold ${txt}`}>{feed.name}</p>
-                      <p className={`text-[10px] ${subtl} truncate`}>{feed.metric}</p>
+                      <p className={`text-[13px] ${subtl} truncate`}>{feed.metric}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="text-[9px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Setup Required</span>
+                      <span className="text-[12px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Setup Required</span>
                     </div>
                   </div>
                 ))}
@@ -1559,7 +1559,7 @@ const App = () => {
           </>
         )}
 
-        {/* ══════════════════ AI TOOLS ══════════════════ */}
+        {/* ------------------ AI TOOLS ------------------ */}
         {activeTab === 'ai-tools' && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -1573,9 +1573,9 @@ const App = () => {
                     <h3 className={`text-xl font-black ${txt}`}>Sintra AI</h3>
                     <p className={`text-xs ${subtl}`}>AI Marketing Automation Platform</p>
                   </div>
-                  <span className="shrink-0 text-[10px] font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Connect Required</span>
+                  <span className="shrink-0 text-[13px] font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Connect Required</span>
                 </div>
-                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>Sintra AI automates your digital marketing workflows — from social post generation to SEO optimization and ad copy. Connect your account to sync campaign data and run AI-powered automations directly from this dashboard.</p>
+                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>Sintra AI automates your digital marketing workflows � from social post generation to SEO optimization and ad copy. Connect your account to sync campaign data and run AI-powered automations directly from this dashboard.</p>
                 <div className="space-y-2 mb-6">
                   {[
                     'Automated social media post generation',
@@ -1611,7 +1611,7 @@ const App = () => {
                     <h3 className={`text-xl font-black ${txt}`}>MarkyAI</h3>
                     <p className={`text-xs ${subtl}`}>AI Content Creation &amp; Social Scheduling</p>
                   </div>
-                  <span className="shrink-0 text-[10px] font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Connect Required</span>
+                  <span className="shrink-0 text-[13px] font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Connect Required</span>
                 </div>
                 <p className={`text-sm ${txt2} leading-relaxed mb-5`}>MarkyAI generates high-quality marketing content including social posts, captions, hashtags, and ad copy. Connect to automate your content calendar and push performance data directly into this dashboard.</p>
                 <div className="space-y-2 mb-6">
@@ -1641,7 +1641,7 @@ const App = () => {
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <SectionHeader icon={Bot} color="text-purple-500" title="AI Content Generator" subtitle="Generate marketing content · Connect Sintra AI or MarkyAI to enable" />
+              <SectionHeader icon={Bot} color="text-purple-500" title="AI Content Generator" subtitle="Generate marketing content � Connect Sintra AI or MarkyAI to enable" />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                 {[
                   { label: 'Content Type', opts: ['Social Post','Blog Brief','Email Subject Line','Ad Copy','TikTok Script','Caption + Hashtags'] },
@@ -1649,7 +1649,7 @@ const App = () => {
                   { label: 'Tone',         opts: ['Professional','Empathetic','Informational','Motivational','Conversational','Urgent'] },
                 ].map(f => (
                   <div key={f.label}>
-                    <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                    <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
                     <select disabled className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none opacity-60 cursor-not-allowed`}>
                       {f.opts.map(o => <option key={o}>{o}</option>)}
                     </select>
@@ -1657,9 +1657,9 @@ const App = () => {
                 ))}
               </div>
               <div className="mb-5">
-                <label className={`block text-[10px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>Topic / Brief</label>
+                <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>Topic / Brief</label>
                 <textarea disabled className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-24 resize-none focus:outline-none opacity-60 cursor-not-allowed`}
-                  placeholder="e.g. Mental health awareness week post — focus on reducing stigma in Arizona healthcare..." />
+                  placeholder="e.g. Mental health awareness week post � focus on reducing stigma in Arizona healthcare..." />
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <button disabled className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-black opacity-50 cursor-not-allowed">
@@ -1684,7 +1684,7 @@ const App = () => {
                     <item.icon size={20} className={`${item.color} mb-3`} />
                     <h4 className={`text-sm font-black ${txt} mb-2`}>{item.title}</h4>
                     <p className={`text-xs ${subtl} leading-relaxed mb-3`}>{item.desc}</p>
-                    <span className="text-[10px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Awaiting Connection</span>
+                    <span className="text-[13px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Awaiting Connection</span>
                   </div>
                 ))}
               </div>
@@ -1696,9 +1696,9 @@ const App = () => {
         <div className={`mt-12 pt-6 border-t ${brd} flex flex-col md:flex-row justify-between items-center gap-3 no-print`}>
           <div className="flex items-center gap-2">
             <Heart size={13} className="text-teal-500 fill-teal-500" />
-            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare · Digital Marketing Portal</span>
+            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare � Digital Marketing Portal</span>
           </div>
-          <span className={`text-[10px] ${subtl} uppercase tracking-wider`}>Powered by DMD &middot; Destiny Springs Healthcare</span>
+          <span className={`text-[13px] ${subtl} uppercase tracking-wider`}>Powered by DMD &middot; Destiny Springs Healthcare</span>
         </div>
 
         </main>
