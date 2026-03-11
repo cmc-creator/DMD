@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
@@ -286,7 +286,7 @@ const App = () => {
               </h1>
             </div>
             <p className={`${muted} font-medium italic text-sm`}>
-              Digital Marketing &amp; Business Development Portal Â· March 2026
+              Digital Marketing &amp; Business Development Portal · March 2026
             </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap no-print">
@@ -341,7 +341,7 @@ const App = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <StatCard title="Total Leads"       value={metrics.totalLeads}     trend={metrics.leadsGrowth} icon={Target}      color="bg-rose-500"    sub="Monthly Lead Volume"        />
               <StatCard title="Cost Per Lead"     value={metrics.costPerLead}    trend={null}                icon={TrendingDown} color="bg-indigo-600" sub="Blended Paid Acquisition"   />
-              <StatCard title="Site Conversion"   value={metrics.siteConversion} trend={null}                icon={MousePointer} color="bg-teal-600"   sub="Visitor â†’ Lead Rate"        />
+              <StatCard title="Site Conversion"   value={metrics.siteConversion} trend={null}                icon={MousePointer} color="bg-teal-600"   sub="Visitor → Lead Rate"        />
               <StatCard title="NPS Score"         value={metrics.nps}            trend={null}                icon={ThumbsUp}    color="bg-amber-600"   sub="Net Promoter Score"         />
             </div>
 
@@ -589,7 +589,7 @@ const App = () => {
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span className={`text-xs font-black px-2 py-1 rounded-full ${kw.change > 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'}`}>
-                            {kw.change > 0 ? `â–² ${kw.change}` : `â–¼ ${Math.abs(kw.change)}`}
+                            {kw.change > 0 ? `▲ ${kw.change}` : `▼ ${Math.abs(kw.change)}`}
                           </span>
                         </td>
                         <td className={`py-3 pl-4 text-right text-sm font-bold ${txt2}`}>{kw.volume.toLocaleString()}</td>
@@ -807,8 +807,8 @@ const App = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight">My Digital Marketing Achievements</h2>
-                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing Â· Social Media Â· Website Management Â· Blog Writing Â· SEO Â· Paid Ads</p>
-                <p className="text-teal-200 text-xs mt-2 italic">Reporting Period: Oct 2025 â€“ Mar 2026 Â· Destiny Springs Healthcare</p>
+                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing · Social Media · Website Management · Blog Writing · SEO · Paid Ads</p>
+                <p className="text-teal-200 text-xs mt-2 italic">Reporting Period: Oct 2025 – Mar 2026 · Destiny Springs Healthcare</p>
               </div>
               <div className="ml-auto shrink-0 text-right hidden md:block">
                 <div className="text-4xl font-black text-amber-300">312</div>
@@ -986,7 +986,7 @@ const App = () => {
               ))}
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="March 2026 Â· Upcoming Posts & Deadlines" />
+              <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="March 2026 · Upcoming Posts & Deadlines" />
               <div className="space-y-3">
                 {filteredContent.map((item, i) => (
                   <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
@@ -1011,7 +1011,7 @@ const App = () => {
         {activeTab === 'reviews' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <StatCard title="Current Rating"  value="4.2 â˜…" trend="+0.8"  icon={Star}        color="bg-amber-500"   sub="Google Business Profile" />
+              <StatCard title="Current Rating"  value="4.2 ★" trend="+0.8"  icon={Star}        color="bg-amber-500"   sub="Google Business Profile" />
               <StatCard title="Total Reviews"   value="—"     trend={null}  icon={MessageSquare}color="bg-teal-600"   sub="All Time"               />
               <StatCard title="Promoters Ready" value="—"     trend={null}  icon={ThumbsUp}    color="bg-emerald-600" sub="Awaiting Outreach"      />
               <StatCard title="Response Rate"   value="—"     trend={null}  icon={Send}        color="bg-purple-600" sub="Reviews Responded To"   />
@@ -1056,7 +1056,7 @@ const App = () => {
                       <p className={`text-xs ${txt2} leading-relaxed line-clamp-2`}>{r.text}</p>
                       <div className="flex justify-end mt-2">
                         <span className={`text-[9px] font-black px-2 py-1 rounded-full ${r.responded ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
-                          {r.responded ? 'âœ“ Responded' : 'Needs Response'}
+                          {r.responded ? '✓ Responded' : 'Needs Response'}
                         </span>
                       </div>
                     </div>
@@ -1065,7 +1065,7 @@ const App = () => {
               </div>
 
               <div className={`${card} p-6 rounded-[2rem]`}>
-                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 9â€“10 Clients Ready for Google Review" />
+                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 9–10 Clients Ready for Google Review" />
                 <div className="space-y-3">
                   {promoters.map((p, i) => (
                     <div key={i} className={`flex items-center gap-3 p-3 ${rowCls} rounded-xl`}>
@@ -1080,7 +1080,7 @@ const App = () => {
                 </div>
                 <div className="mt-6 p-4 bg-teal-50 dark:bg-teal-900/20 rounded-2xl border border-teal-200 dark:border-teal-800">
                   <p className="text-xs font-black text-teal-700 dark:text-teal-300 uppercase tracking-wider mb-1">Goal</p>
-                  <p className="text-sm text-teal-600 dark:text-teal-400">Convert all pipeline promoters to 5-star reviews â†’ Push rating above 4.5 â˜…</p>
+                  <p className="text-sm text-teal-600 dark:text-teal-400">Convert all pipeline promoters to 5-star reviews → Push rating above 4.5 ★</p>
                 </div>
               </div>
             </div>
@@ -1143,8 +1143,8 @@ const App = () => {
               <SectionHeader icon={Plug} color="text-teal-500" title="Integration Setup Guide" subtitle="Steps to connect remaining platforms" />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {[
-                  { name: 'Meta Ads Manager',    icon: Megaphone,  step: 'Meta Business Manager â†’ Apps â†’ Generate API token â†’ Add to .env as VITE_META_ADS_TOKEN'  },
-                  { name: 'TikTok for Business', icon: PlayCircle, step: 'Apply for TikTok Business API â†’ Create App â†’ Get access token â†’ Add as VITE_TIKTOK_TOKEN' },
+                  { name: 'Meta Ads Manager',    icon: Megaphone,  step: 'Meta Business Manager → Apps → Generate API token → Add to .env as VITE_META_ADS_TOKEN'  },
+                  { name: 'TikTok for Business', icon: PlayCircle, step: 'Apply for TikTok Business API → Create App → Get access token → Add as VITE_TIKTOK_TOKEN' },
                 ].map(g => (
                   <div key={g.name} className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl">
                     <div className="flex items-center gap-2 mb-2">
@@ -1157,7 +1157,7 @@ const App = () => {
               </div>
               <div className="p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-2xl">
                 <p className="text-xs font-black text-teal-700 dark:text-teal-300 uppercase tracking-wider mb-1">Note</p>
-                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 5â€“30 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
+                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 5–30 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
               </div>
             </div>
           </>
@@ -1167,9 +1167,9 @@ const App = () => {
         <div className={`mt-12 pt-6 border-t ${brd} flex flex-col md:flex-row justify-between items-center gap-3 no-print`}>
           <div className="flex items-center gap-2">
             <Heart size={13} className="text-teal-500 fill-teal-500" />
-            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare Â· Digital Marketing Portal</span>
+            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare · Digital Marketing Portal</span>
           </div>
-          <span className={`text-[10px] ${subtl} uppercase tracking-wider`}>Powered by DMD Â· March 10, 2026</span>
+          <span className={`text-[10px] ${subtl} uppercase tracking-wider`}>Powered by DMD · March 10, 2026</span>
         </div>
 
       </div>
