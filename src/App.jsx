@@ -14,14 +14,14 @@ import {
 } from 'lucide-react';
 
 // â”€â”€â”€ Shared style helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const card  = 'bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm';
+const card  = 'bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/40 shadow-lg shadow-black/5 dark:shadow-black/40';
 const txt   = 'text-slate-900 dark:text-slate-100';
 const txt2  = 'text-slate-600 dark:text-slate-300';
 const muted = 'text-slate-500 dark:text-slate-400';
 const subtl = 'text-slate-400 dark:text-slate-500';
-const rowCls= 'bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors';
-const divdr = 'divide-slate-100 dark:divide-slate-800';
-const brd   = 'border-slate-100 dark:border-slate-800';
+const rowCls= 'bg-slate-50/80 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors';
+const divdr = 'divide-slate-100 dark:divide-slate-700/50';
+const brd   = 'border-slate-100 dark:border-slate-700/50';
 
 const App = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -208,18 +208,20 @@ const App = () => {
     const isNeutral  = trend && trend === '0%';
     const textColor  = color.replace('bg-', 'text-');
     const iconBg     = darkMode
-      ? color.replace('bg-', 'bg-').replace(/-(5|6)00$/, '-900/30')
-      : color.replace('bg-', 'bg-').replace(/-(5|6)00$/, '-100');
+      ? color.replace('bg-', 'bg-').replace(/-(5|6)00$/, '-900/25')
+      : color.replace('bg-', 'bg-').replace(/-(5|6)00$/, '-50');
     return (
-      <div className={`${card} p-5 rounded-2xl transition-all hover:shadow-md`}>
-        <div className="flex justify-between items-start mb-4">
-          <div className={`p-3 rounded-xl ${iconBg}`}>
-            <Icon className={textColor} size={24} />
+      <div className="stat-card relative overflow-hidden bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/40 rounded-2xl p-5 shadow-md dark:shadow-black/30 transition-all duration-200 hover:-translate-y-0.5 group">
+        {/* Colored top accent bar */}
+        <div className={`absolute inset-x-0 top-0 h-[2px] ${color}`} />
+        <div className="flex justify-between items-start mb-4 mt-1">
+          <div className={`p-2.5 rounded-xl ${iconBg} ring-1 ring-inset ${color.replace('bg-', 'ring-').replace(/-(5|6)00$/, '-400/20')}`}>
+            <Icon className={textColor} size={20} />
           </div>
           {trend && (
             <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
               isNeutral
-                ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                ? 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
                 : isPositive
                 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
                 : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
@@ -228,9 +230,9 @@ const App = () => {
             </span>
           )}
         </div>
-        <p className={`${subtl} text-[10px] font-black uppercase tracking-widest mb-1`}>{title}</p>
-        <h3 className={`text-2xl font-black ${txt} leading-none`}>{value}</h3>
-        {sub && <p className={`text-[10px] ${subtl} mt-2 italic font-medium leading-tight`}>{sub}</p>}
+        <p className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ${subtl}`}>{title}</p>
+        <h3 className={`text-3xl font-black ${textColor} leading-none`}>{value}</h3>
+        {sub && <p className={`text-[10px] ${subtl} mt-2.5 italic font-medium leading-tight`}>{sub}</p>}
       </div>
     );
   };
@@ -238,12 +240,23 @@ const App = () => {
   const SectionHeader = ({ icon: Icon, color, title, subtitle }) => (
     <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-2">
       <div>
-        <h2 className={`text-xl font-black flex items-center gap-2 uppercase tracking-tight ${txt}`}>
-          <Icon size={22} className={color} />
+        <h2 className={`text-xl font-black flex items-center gap-2.5 uppercase tracking-tight ${txt}`}>
+          <span className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700/60">
+            <Icon size={17} className={color} />
+          </span>
           {title}
         </h2>
-        {subtitle && <p className={`text-sm ${muted} font-medium mt-0.5`}>{subtitle}</p>}
+        {subtitle && <p className={`text-sm ${muted} font-medium mt-1 ml-9`}>{subtitle}</p>}
       </div>
+    </div>
+  );
+
+  const EmptyChart = ({ height = 'h-64', message = 'Connect your integrations to populate this chart' }) => (
+    <div className={`${height} flex flex-col items-center justify-center gap-3`}>
+      <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/50">
+        <BarChart3 size={26} className="text-slate-300 dark:text-slate-600" />
+      </div>
+      <p className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold text-center max-w-[180px] leading-relaxed">{message}</p>
     </div>
   );
 
@@ -256,73 +269,81 @@ const App = () => {
   );
 
   const tabs = [
-    { id: 'overview',     label: 'Overview'         },
-    { id: 'social',       label: 'Social'           },
-    { id: 'seo',          label: 'SEO & Content'    },
-    { id: 'ads',          label: 'Paid Ads'         },
-    { id: 'email',        label: 'Email'            },
-    { id: 'pipeline',     label: 'Pipeline'         },
-    { id: 'achievements', label: 'My Achievements'  },
-    { id: 'roi',          label: 'Client ROI'       },
-    { id: 'calendar',     label: 'Content Calendar' },
-    { id: 'reviews',      label: 'Reviews'          },
-    { id: 'integrations', label: 'Integrations'     },
+    { id: 'overview',     label: 'Overview',         icon: BarChart3   },
+    { id: 'social',       label: 'Social',           icon: Share2      },
+    { id: 'seo',          label: 'SEO & Content',    icon: Search      },
+    { id: 'ads',          label: 'Paid Ads',         icon: Megaphone   },
+    { id: 'email',        label: 'Email',            icon: Mail        },
+    { id: 'pipeline',     label: 'Pipeline',         icon: Users       },
+    { id: 'achievements', label: 'My Achievements',  icon: Trophy      },
+    { id: 'roi',          label: 'Client ROI',       icon: DollarSign  },
+    { id: 'calendar',     label: 'Content Calendar', icon: Calendar    },
+    { id: 'reviews',      label: 'Reviews',          icon: Star        },
+    { id: 'integrations', label: 'Integrations',     icon: Plug        },
   ];
 
   // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#030712] transition-colors duration-300 p-4 md:p-8 font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#060e1e] transition-colors duration-300 p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto">
 
-        {/* â”€â”€ Header â”€â”€ */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="h-8 w-8 rounded-xl bg-teal-600 flex items-center justify-center">
-                <Heart size={16} className="text-white fill-white" />
+        {/* Header Banner */}
+        <div className="relative overflow-hidden rounded-[2rem] mb-8 border border-teal-900/30 dark:border-teal-800/20" style={{ background: darkMode ? 'linear-gradient(135deg, #0a1628 0%, #0d1f3c 40%, #0b1e2e 100%)' : 'linear-gradient(135deg, #0f2942 0%, #0d9488 100%)' }}>
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 60% at 85% 50%, rgba(13,148,136,0.18) 0%, transparent 65%)' }} />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 40% 80% at 10% 50%, rgba(99,102,241,0.08) 0%, transparent 60%)' }} />
+          <div className="relative p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="flex items-center gap-5">
+              <div className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'rgba(13,148,136,0.25)', border: '1px solid rgba(13,148,136,0.4)', boxShadow: '0 0 24px rgba(13,148,136,0.3)' }}>
+                <Heart size={24} className="text-teal-300 fill-teal-300" />
               </div>
-              <h1 className={`text-3xl font-black tracking-tight uppercase ${txt}`}>
-                Destiny Springs Healthcare
-              </h1>
+              <div>
+                <h1 className="gradient-title text-2xl md:text-4xl font-black tracking-tight uppercase leading-none mb-1.5">
+                  Destiny Springs Healthcare
+                </h1>
+                <p className="text-teal-300/60 font-medium italic text-xs">
+                  Digital Marketing &amp; Business Development Portal · March 2026
+                </p>
+              </div>
             </div>
-            <p className={`${muted} font-medium italic text-sm`}>
-              Digital Marketing &amp; Business Development Portal · March 2026
-            </p>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap no-print">
-            <button
-              onClick={() => window.print()}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider ${card} ${txt2} hover:shadow-md transition-all`}
-            >
-              <Printer size={14} />
-              Export
-            </button>
-            <button
-              onClick={() => setDarkMode(d => !d)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-teal-600 hover:bg-teal-500 text-white shadow-md transition-all"
-            >
-              {darkMode ? <Sun size={14} /> : <Moon size={14} />}
-              {darkMode ? 'Light Mode' : 'Dark Mode'}
-            </button>
-            <div className={`flex items-center gap-3 ${card} px-5 py-2 rounded-2xl`}>
-              <div className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span className={`text-xs font-black ${subtl} uppercase tracking-widest leading-none`}>Live Feeds</span>
+            <div className="flex items-center gap-2.5 flex-wrap no-print ml-auto">
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white/80 hover:text-white transition-all"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+              >
+                <Printer size={13} />
+                Export
+              </button>
+              <button
+                onClick={() => setDarkMode(d => !d)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white transition-all"
+                style={{ background: 'rgba(13,148,136,0.7)', border: '1px solid rgba(13,148,136,0.5)', boxShadow: '0 4px 14px rgba(13,148,136,0.4)' }}
+              >
+                {darkMode ? <Sun size={13} /> : <Moon size={13} />}
+                {darkMode ? 'Light' : 'Dark'}
+              </button>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" style={{ boxShadow: '0 0 6px rgba(52,211,153,0.8)' }}></div>
+                <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">Live</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* â”€â”€ Tabs â”€â”€ */}
-        <div className="flex gap-2 mb-8 flex-wrap no-print">
+        {/* Tabs */}
+        <div className="tab-bar flex gap-1 mb-8 flex-wrap no-print p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/40">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${
                 activeTab === tab.id
-                  ? 'bg-teal-600 text-white shadow-md'
-                  : `${card} ${muted} hover:border-teal-400 hover:text-teal-500`
+                  ? 'bg-teal-600 text-white'
+                  : `${muted} hover:text-teal-500 dark:hover:text-teal-400 hover:bg-white/60 dark:hover:bg-slate-700/50`
               }`}
+              style={activeTab === tab.id ? { boxShadow: '0 4px 12px rgba(13,148,136,0.4)' } : {}}
             >
+              <tab.icon size={11} />
               {tab.label}
             </button>
           ))}
@@ -349,6 +370,9 @@ const App = () => {
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={TrendingUp} color="text-teal-500" title="6-Month Growth Trend" subtitle="Sessions, Reach & Lead Volume" />
               <div className="h-72">
+                {monthlyTrend.length === 0 ? (
+                  <EmptyChart height="h-72" message="No trend data yet — connect Google Analytics &amp; Meta to populate" />
+                ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={grid} />
@@ -362,6 +386,7 @@ const App = () => {
                     <Bar  yAxisId="right" dataKey="leads" fill="#10b981" radius={[6,6,0,0]} barSize={24} name="Leads" />
                   </ComposedChart>
                 </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -370,6 +395,9 @@ const App = () => {
               <div className={`lg:col-span-4 ${card} p-8 rounded-[2.5rem] flex flex-col`}>
                 <SectionHeader icon={ThumbsUp} color="text-amber-500" title="NPS Breakdown" subtitle="Promoters / Passives / Detractors" />
                 <div className="flex-1 min-h-[180px]">
+                  {npsData.every(d => d.value === 0) ? (
+                    <EmptyChart height="min-h-[180px] h-full" message="NPS data unavailable" />
+                  ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={npsData} innerRadius={55} outerRadius={75} paddingAngle={6} dataKey="value">
@@ -378,6 +406,7 @@ const App = () => {
                       <Tooltip contentStyle={tipStyle} />
                     </PieChart>
                   </ResponsiveContainer>
+                  )}
                 </div>
                 <div className="space-y-2 mt-4">
                   {npsData.map(s => (
@@ -395,6 +424,9 @@ const App = () => {
               <div className={`lg:col-span-4 ${card} p-8 rounded-[2.5rem] flex flex-col`}>
                 <SectionHeader icon={Layout} color="text-teal-500" title="Wix Analytics" subtitle="Traffic Acquisition Sources" />
                 <div className="flex-1 min-h-[180px]">
+                  {wixSources.every(s => s.value === 0) ? (
+                    <EmptyChart height="min-h-[180px] h-full" message="Connect Wix Analytics to see traffic sources" />
+                  ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={wixSources} innerRadius={55} outerRadius={75} paddingAngle={8} dataKey="value">
@@ -403,6 +435,7 @@ const App = () => {
                       <Tooltip contentStyle={tipStyle} />
                     </PieChart>
                   </ResponsiveContainer>
+                  )}
                 </div>
                 <div className="space-y-2 mt-4">
                   {wixSources.map(s => (
@@ -525,6 +558,9 @@ const App = () => {
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Share2} color="text-blue-500" title="Social Intelligence" subtitle="Platform Reach vs. Engagement Depth" />
               <div className="h-80">
+                {socialAnalytics.every(s => s.reach === 0) ? (
+                  <EmptyChart height="h-80" message="Connect Meta Business Suite to see social intelligence data" />
+                ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={socialAnalytics} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={grid} />
@@ -536,11 +572,15 @@ const App = () => {
                     <Bar dataKey="engagement" fill="#8b5cf6" radius={[10,10,0,0]} barSize={20} name="Engagement" />
                   </ComposedChart>
                 </ResponsiveContainer>
+                )}
               </div>
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Activity} color="text-purple-500" title="Weekly Engagement by Platform" subtitle="Last 4 Weeks" />
               <div className="h-72">
+                {weeklyEngagement.length === 0 ? (
+                  <EmptyChart height="h-72" message="No weekly engagement data yet" />
+                ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={weeklyEngagement} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={grid} />
@@ -554,6 +594,7 @@ const App = () => {
                     <Bar dataKey="tiktok"    fill="#00f2ea" radius={[6,6,0,0]} name="TikTok"    />
                   </BarChart>
                 </ResponsiveContainer>
+                )}
               </div>
             </div>
           </>

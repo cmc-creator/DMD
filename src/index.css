@@ -24,6 +24,43 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+html.dark body {
+  background-color: #060e1e;
+  background-image:
+    radial-gradient(ellipse 120% 45% at 50% -8%, rgba(13,148,136,0.13) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 30% at 90% 20%, rgba(99,102,241,0.05) 0%, transparent 55%);
+}
+
+/* Card hover glow */
+.stat-card:hover {
+  box-shadow: 0 0 0 1px rgba(13,148,136,0.15), 0 20px 40px rgba(0,0,0,0.35);
+}
+
+/* Tab pill container */
+.tab-bar {
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(8px);
+}
+
+html:not(.dark) .tab-bar {
+  background: rgba(0,0,0,0.04);
+  backdrop-filter: none;
+}
+
+/* Gradient text utility */
+.gradient-title {
+  background: linear-gradient(135deg, #ffffff 0%, #99f6e4 60%, #5eead4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+html:not(.dark) .gradient-title {
+  background: linear-gradient(135deg, #0f172a 0%, #0d9488 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 /* ── Print styles for PDF export ─────────────────────────────── */
 @media print {
   .no-print { display: none !important; }
