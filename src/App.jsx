@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
@@ -11,6 +11,7 @@ import {
   Target, Award, Bell, TrendingDown, Sun, Moon, Printer,
   Calendar, DollarSign, Plug, Trophy, Heart, WifiOff,
   RefreshCw, Pencil, Send, Zap, BadgeCheck, ShieldCheck, Megaphone,
+  ChevronLeft,
 } from 'lucide-react';
 
 // â”€â”€â”€ Shared style helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -54,9 +55,10 @@ const divdr = 'divide-slate-100 dark:divide-slate-700/50';
 const brd   = 'border-slate-200 dark:border-slate-700/50';
 
 const App = () => {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [darkMode, setDarkMode]   = useState(true);
-  const [calFilter, setCalFilter] = useState('All');
+  const [activeTab, setActiveTab]               = useState('overview');
+  const [darkMode, setDarkMode]                 = useState(true);
+  const [calFilter, setCalFilter]               = useState('All');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -326,73 +328,103 @@ const App = () => {
 
   // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#060e1e] transition-colors duration-300 p-4 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto">
+    <div className="dashboard-shell font-sans">
 
-        {/* Header Banner */}
-        <div className="relative overflow-hidden rounded-[2rem] mb-8 border border-teal-900/30 dark:border-teal-800/20" style={{ background: darkMode ? 'linear-gradient(135deg, #0a1628 0%, #0d1f3c 40%, #0b1e2e 100%)' : 'linear-gradient(135deg, #0f2942 0%, #0d9488 100%)' }}>
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 60% at 85% 50%, rgba(13,148,136,0.18) 0%, transparent 65%)' }} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 40% 80% at 10% 50%, rgba(99,102,241,0.08) 0%, transparent 60%)' }} />
-          <div className="relative p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-5">
-            <div className="flex items-center gap-5">
-              <div className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'rgba(13,148,136,0.25)', border: '1px solid rgba(13,148,136,0.4)', boxShadow: '0 0 24px rgba(13,148,136,0.3)' }}>
-                <Heart size={24} className="text-teal-300 fill-teal-300" />
-              </div>
-              <div>
-                <h1 className="gradient-title text-2xl md:text-4xl font-black tracking-tight uppercase leading-none mb-1.5">
-                  Destiny Springs Healthcare
-                </h1>
-                <p className="text-teal-300/60 font-medium italic text-xs">
-                  Digital Marketing &amp; Business Development Portal · March 2026
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2.5 flex-wrap no-print ml-auto">
-              <button
-                onClick={() => window.print()}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white/80 hover:text-white transition-all"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
-              >
-                <Printer size={13} />
-                Export
-              </button>
-              <button
-                onClick={() => setDarkMode(d => !d)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white transition-all"
-                style={{ background: 'rgba(13,148,136,0.7)', border: '1px solid rgba(13,148,136,0.5)', boxShadow: '0 4px 14px rgba(13,148,136,0.4)' }}
-              >
-                {darkMode ? <Sun size={13} /> : <Moon size={13} />}
-                {darkMode ? 'Light' : 'Dark'}
-              </button>
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" style={{ boxShadow: '0 0 6px rgba(52,211,153,0.8)' }}></div>
-                <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">Live</span>
-              </div>
-            </div>
+      {/* SIDEBAR */}
+      <aside className={`sidebar no-print ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+
+        {/* Brand */}
+        <div className="sidebar-brand">
+          <div className="sidebar-logo">
+            <Heart size={19} className="text-teal-300 fill-teal-300" />
           </div>
+          {!sidebarCollapsed && (
+            <div className="sidebar-brand-text">
+              <div className="gradient-title sidebar-title">Destiny Springs</div>
+              <div className="sidebar-subtitle">Healthcare</div>
+            </div>
+          )}
         </div>
 
-        {/* Tabs */}
-        <div className="tab-bar flex gap-1 mb-8 flex-wrap no-print p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/40">
+        {/* Nav label */}
+        {!sidebarCollapsed && <div className="sidebar-section-label">Navigation</div>}
+
+        {/* Nav items */}
+        <nav className="sidebar-nav">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${
-                activeTab === tab.id
-                  ? 'bg-teal-600 text-white'
-                  : `${muted} hover:text-teal-500 dark:hover:text-teal-400 hover:bg-white/60 dark:hover:bg-slate-700/50`
-              }`}
-              style={activeTab === tab.id ? { boxShadow: '0 4px 12px rgba(13,148,136,0.4)' } : {}}
+              className={`sidebar-item ${activeTab === tab.id ? 'sidebar-item-active' : ''}`}
+              title={sidebarCollapsed ? tab.label : undefined}
             >
-              <tab.icon size={11} />
-              {tab.label}
+              <tab.icon size={16} className="sidebar-icon" />
+              {!sidebarCollapsed && <span className="sidebar-label">{tab.label}</span>}
             </button>
           ))}
-        </div>
+        </nav>
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• OVERVIEW TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-        {activeTab === 'overview' && (
+        {/* Bottom actions */}
+        <div className="sidebar-footer">
+          <button
+            onClick={() => setDarkMode(d => !d)}
+            className="sidebar-item"
+            title={sidebarCollapsed ? (darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode') : undefined}
+          >
+            {darkMode
+              ? <Sun  size={16} className="sidebar-icon" />
+              : <Moon size={16} className="sidebar-icon" />}
+            {!sidebarCollapsed && (
+              <span className="sidebar-label">{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setSidebarCollapsed(c => !c)}
+            className="sidebar-item"
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <ChevronLeft
+              size={16}
+              className="sidebar-icon"
+              style={{
+                transform: sidebarCollapsed ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.25s',
+              }}
+            />
+            {!sidebarCollapsed && <span className="sidebar-label">Collapse</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* MAIN AREA */}
+      <div className="main-area">
+
+        {/* Top bar */}
+        <header className="topbar no-print">
+          <div className="topbar-left">
+            <div className="topbar-page-title">
+              {tabs.find(t => t.id === activeTab)?.label ?? 'Dashboard'}
+            </div>
+            <div className="topbar-breadcrumb">
+              Destiny Springs Healthcare &middot; Digital Marketing &amp; Business Development Portal &middot; March 2026
+            </div>
+          </div>
+          <div className="topbar-right">
+            <div className="topbar-live">
+              <div className="live-dot" />
+              <span>Live</span>
+            </div>
+            <button onClick={() => window.print()} className="topbar-btn topbar-btn-ghost">
+              <Printer size={13} />
+              <span>Export</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Scrollable content */}
+        <main className="content-area">
+
+{activeTab === 'overview' && (
           <>
             {/* Top KPI Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -1255,6 +1287,7 @@ const App = () => {
           <span className={`text-[10px] ${subtl} uppercase tracking-wider`}>Powered by DMD · March 10, 2026</span>
         </div>
 
+        </main>
       </div>
     </div>
   );
