@@ -448,7 +448,7 @@ const App = () => {
   const EmptyChart = ({ height = 'h-64', message = 'Connect integrations to populate this chart' }) => (
     <div className={`${height} empty-chart`}>
       <div className="empty-chart-icon">
-        <BarChart3 size={26} color={darkMode ? '#1e3a5f' : '#cbd5e1'} />
+        <BarChart3 size={26} color={darkMode ? '#334155' : '#cbd5e1'} />
       </div>
       <p className="empty-chart-msg">{message}</p>
       <span className="empty-chart-badge">Awaiting Integration Data</span>
