@@ -14,14 +14,44 @@ import {
 } from 'lucide-react';
 
 // â”€â”€â”€ Shared style helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const card  = 'bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/40 shadow-lg shadow-black/5 dark:shadow-black/40';
+// Color system — maps Tailwind color prop strings to actual hex/RGB values
+const colorMap = {
+  'bg-amber-500':   { hex: '#f59e0b', r: 245, g: 158, b: 11  },
+  'bg-amber-600':   { hex: '#d97706', r: 217, g: 119, b: 6   },
+  'bg-teal-600':    { hex: '#0d9488', r: 13,  g: 148, b: 136 },
+  'bg-emerald-500': { hex: '#10b981', r: 16,  g: 185, b: 129 },
+  'bg-emerald-600': { hex: '#059669', r: 5,   g: 150, b: 105 },
+  'bg-purple-600':  { hex: '#9333ea', r: 147, g: 51,  b: 234 },
+  'bg-rose-500':    { hex: '#f43f5e', r: 244, g: 63,  b: 94  },
+  'bg-indigo-600':  { hex: '#4f46e5', r: 79,  g: 70,  b: 229 },
+  'bg-blue-600':    { hex: '#2563eb', r: 37,  g: 99,  b: 235 },
+  'bg-pink-500':    { hex: '#ec4899', r: 236, g: 72,  b: 153 },
+  'bg-orange-500':  { hex: '#f97316', r: 249, g: 115, b: 22  },
+};
+const sectionColorMap = {
+  'text-teal-500':    { hex: '#14b8a6', r: 20,  g: 184, b: 166 },
+  'text-teal-400':    { hex: '#2dd4bf', r: 45,  g: 212, b: 191 },
+  'text-blue-500':    { hex: '#3b82f6', r: 59,  g: 130, b: 246 },
+  'text-amber-500':   { hex: '#f59e0b', r: 245, g: 158, b: 11  },
+  'text-purple-500':  { hex: '#a855f7', r: 168, g: 85,  b: 247 },
+  'text-rose-500':    { hex: '#f43f5e', r: 244, g: 63,  b: 94  },
+  'text-emerald-500': { hex: '#10b981', r: 16,  g: 185, b: 129 },
+  'text-indigo-500':  { hex: '#6366f1', r: 99,  g: 102, b: 241 },
+  'text-pink-500':    { hex: '#ec4899', r: 236, g: 72,  b: 153 },
+  'text-orange-500':  { hex: '#f97316', r: 249, g: 115, b: 22  },
+  'text-slate-500':   { hex: '#64748b', r: 100, g: 116, b: 139 },
+  'text-green-500':   { hex: '#22c55e', r: 34,  g: 197, b: 94  },
+};
+const cc = (c, a) => `rgba(${c.r},${c.g},${c.b},${a})`;
+
+const card  = 'bg-white dark:bg-[#0b1a2e] border border-slate-200 dark:border-slate-700/60 shadow-lg';
 const txt   = 'text-slate-900 dark:text-slate-100';
 const txt2  = 'text-slate-600 dark:text-slate-300';
 const muted = 'text-slate-500 dark:text-slate-400';
 const subtl = 'text-slate-400 dark:text-slate-500';
-const rowCls= 'bg-slate-50/80 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors';
+const rowCls= 'bg-slate-50 dark:bg-[#0d1f38]/80 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors';
 const divdr = 'divide-slate-100 dark:divide-slate-700/50';
-const brd   = 'border-slate-100 dark:border-slate-700/50';
+const brd   = 'border-slate-200 dark:border-slate-700/50';
 
 const App = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -206,57 +236,69 @@ const App = () => {
   const StatCard = ({ title, value, trend, icon: Icon, color, sub, trendPositive }) => {
     const isPositive = trend && (trendPositive !== undefined ? trendPositive : trend.startsWith('+'));
     const isNeutral  = trend && trend === '0%';
-    const textColor  = color.replace('bg-', 'text-');
-    const iconBg     = darkMode
-      ? color.replace('bg-', 'bg-').replace(/-(5|6)00$/, '-900/25')
-      : color.replace('bg-', 'bg-').replace(/-(5|6)00$/, '-50');
+    const col = colorMap[color] || colorMap['bg-teal-600'];
     return (
-      <div className="stat-card relative overflow-hidden bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/40 rounded-2xl p-5 shadow-md dark:shadow-black/30 transition-all duration-200 hover:-translate-y-0.5 group">
-        {/* Colored top accent bar */}
-        <div className={`absolute inset-x-0 top-0 h-[2px] ${color}`} />
-        <div className="flex justify-between items-start mb-4 mt-1">
-          <div className={`p-2.5 rounded-xl ${iconBg} ring-1 ring-inset ${color.replace('bg-', 'ring-').replace(/-(5|6)00$/, '-400/20')}`}>
-            <Icon className={textColor} size={20} />
+      <div
+        style={{
+          position: 'relative', overflow: 'hidden',
+          borderLeft: `4px solid ${col.hex}`,
+          border: `1px solid ${darkMode ? cc(col,0.22) : cc(col,0.18)}`,
+          borderLeftWidth: '4px', borderLeftColor: col.hex,
+          background: darkMode
+            ? `linear-gradient(145deg, ${cc(col,0.10)} 0%, #0b1a2e 60%)`
+            : `linear-gradient(145deg, ${cc(col,0.07)} 0%, #ffffff 60%)`,
+          borderRadius: '1rem',
+          padding: '1.25rem 1.25rem 1rem',
+          transition: 'transform 0.15s, box-shadow 0.15s',
+          cursor: 'default',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 16px 40px ${cc(col,0.22)}`; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+      >
+        {/* Watermark */}
+        <div style={{ position:'absolute', right: -8, bottom: -8, opacity: 0.06, pointerEvents:'none' }}>
+          <Icon size={88} color={col.hex} />
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'0.85rem' }}>
+          <div style={{ width:38, height:38, borderRadius:10, background:`${cc(col,0.14)}`, border:`1.5px solid ${cc(col,0.28)}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <Icon size={18} color={col.hex} />
           </div>
           {trend && (
-            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-              isNeutral
-                ? 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
-                : isPositive
-                ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-                : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
-            }`}>
-              {trend}
-            </span>
+            <span style={{ fontSize:'10px', fontWeight:800, padding:'3px 8px', borderRadius:20, letterSpacing:'0.03em',
+              background: isNeutral ? (darkMode ? '#1e293b' : '#f1f5f9') : isPositive ? (darkMode ? 'rgba(16,185,129,0.16)' : 'rgba(16,185,129,0.1)') : (darkMode ? 'rgba(244,63,94,0.16)' : 'rgba(244,63,94,0.1)'),
+              color: isNeutral ? '#64748b' : isPositive ? '#10b981' : '#f43f5e',
+            }}>{trend}</span>
           )}
         </div>
-        <p className={`text-[10px] font-black uppercase tracking-widest mb-1.5 ${subtl}`}>{title}</p>
-        <h3 className={`text-3xl font-black ${textColor} leading-none`}>{value}</h3>
-        {sub && <p className={`text-[10px] ${subtl} mt-2.5 italic font-medium leading-tight`}>{sub}</p>}
+        <div style={{ fontSize:'9.5px', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.1em', color: darkMode ? '#64748b' : '#94a3b8', marginBottom:'5px' }}>{title}</div>
+        <div style={{ fontSize:'2rem', fontWeight:900, lineHeight:1, color:col.hex, marginBottom: sub ? '8px' : 0 }}>{value}</div>
+        {sub && <div style={{ fontSize:'10px', color: darkMode ? '#475569' : '#9ca3af', fontStyle:'italic', fontWeight:500, lineHeight:1.4 }}>{sub}</div>}
       </div>
     );
   };
 
-  const SectionHeader = ({ icon: Icon, color, title, subtitle }) => (
-    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-2">
-      <div>
-        <h2 className={`text-xl font-black flex items-center gap-2.5 uppercase tracking-tight ${txt}`}>
-          <span className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700/60">
-            <Icon size={17} className={color} />
-          </span>
-          {title}
-        </h2>
-        {subtitle && <p className={`text-sm ${muted} font-medium mt-1 ml-9`}>{subtitle}</p>}
+  const SectionHeader = ({ icon: Icon, color, title, subtitle }) => {
+    const col = sectionColorMap[color] || sectionColorMap['text-teal-500'];
+    return (
+      <div style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', marginBottom:'1.5rem' }}>
+        <div style={{ width:36, height:36, borderRadius:10, background:`${cc(col,0.12)}`, border:`1.5px solid ${cc(col,0.22)}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:2 }}>
+          <Icon size={16} color={col.hex} />
+        </div>
+        <div>
+          <h2 style={{ fontSize:'1rem', fontWeight:900, textTransform:'uppercase', letterSpacing:'0.02em', color: darkMode ? '#f1f5f9' : '#0f172a', lineHeight:1.2 }}>{title}</h2>
+          {subtitle && <p style={{ fontSize:'12px', color: darkMode ? '#64748b' : '#94a3b8', fontWeight:500, marginTop:'3px' }}>{subtitle}</p>}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  const EmptyChart = ({ height = 'h-64', message = 'Connect your integrations to populate this chart' }) => (
-    <div className={`${height} flex flex-col items-center justify-center gap-3`}>
-      <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/50">
-        <BarChart3 size={26} className="text-slate-300 dark:text-slate-600" />
+  const EmptyChart = ({ height = 'h-64', message = 'Connect integrations to populate this chart' }) => (
+    <div className={`${height} flex flex-col items-center justify-center gap-3`}
+         style={{ background: darkMode ? 'linear-gradient(135deg, rgba(15,23,42,0.4) 25%, transparent 25%) -10px 0, linear-gradient(225deg, rgba(15,23,42,0.4) 25%, transparent 25%) -10px 0, linear-gradient(315deg, rgba(15,23,42,0.4) 25%, transparent 25%), linear-gradient(45deg, rgba(15,23,42,0.4) 25%, transparent 25%)' : undefined, borderRadius:'1rem' }}>
+      <div style={{ padding:14, borderRadius:14, background: darkMode ? 'rgba(11,26,46,0.9)' : 'rgba(248,250,252,0.9)', border:`1px solid ${darkMode ? 'rgba(51,65,85,0.7)' : 'rgba(226,232,240,0.8)'}`, boxShadow: darkMode ? '0 0 0 1px rgba(13,148,136,0.06)' : 'none' }}>
+        <BarChart3 size={24} color={darkMode ? '#334155' : '#cbd5e1'} />
       </div>
-      <p className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold text-center max-w-[180px] leading-relaxed">{message}</p>
+      <p style={{ fontSize:'11px', color: darkMode ? '#475569' : '#94a3b8', fontWeight:600, textAlign:'center', maxWidth:'160px', lineHeight:1.5 }}>{message}</p>
     </div>
   );
 
@@ -269,17 +311,17 @@ const App = () => {
   );
 
   const tabs = [
-    { id: 'overview',     label: 'Overview',         icon: BarChart3   },
-    { id: 'social',       label: 'Social',           icon: Share2      },
-    { id: 'seo',          label: 'SEO & Content',    icon: Search      },
-    { id: 'ads',          label: 'Paid Ads',         icon: Megaphone   },
-    { id: 'email',        label: 'Email',            icon: Mail        },
-    { id: 'pipeline',     label: 'Pipeline',         icon: Users       },
-    { id: 'achievements', label: 'My Achievements',  icon: Trophy      },
-    { id: 'roi',          label: 'Client ROI',       icon: DollarSign  },
-    { id: 'calendar',     label: 'Content Calendar', icon: Calendar    },
-    { id: 'reviews',      label: 'Reviews',          icon: Star        },
-    { id: 'integrations', label: 'Integrations',     icon: Plug        },
+    { id: 'overview',     label: 'Overview',      icon: BarChart3   },
+    { id: 'social',       label: 'Social',        icon: Share2      },
+    { id: 'seo',          label: 'SEO',           icon: Search      },
+    { id: 'ads',          label: 'Paid Ads',      icon: Megaphone   },
+    { id: 'email',        label: 'Email',         icon: Mail        },
+    { id: 'pipeline',     label: 'Pipeline',      icon: Users       },
+    { id: 'achievements', label: 'Achievements',  icon: Trophy      },
+    { id: 'roi',          label: 'ROI',           icon: DollarSign  },
+    { id: 'calendar',     label: 'Calendar',      icon: Calendar    },
+    { id: 'reviews',      label: 'Reviews',       icon: Star        },
+    { id: 'integrations', label: 'Integrations',  icon: Plug        },
   ];
 
   // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
