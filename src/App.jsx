@@ -45,14 +45,14 @@ const sectionColorMap = {
 };
 const cc = (c, a) => `rgba(${c.r},${c.g},${c.b},${a})`;
 
-const card  = 'bg-white dark:bg-[#0b1a2e] border border-slate-200 dark:border-slate-700/60 shadow-lg';
+const card  = 'glass-card';
 const txt   = 'text-slate-900 dark:text-slate-100';
 const txt2  = 'text-slate-600 dark:text-slate-300';
 const muted = 'text-slate-500 dark:text-slate-400';
 const subtl = 'text-slate-400 dark:text-slate-500';
-const rowCls= 'bg-slate-50 dark:bg-[#0d1f38]/80 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors';
-const divdr = 'divide-slate-100 dark:divide-slate-700/50';
-const brd   = 'border-slate-200 dark:border-slate-700/50';
+const rowCls= 'row-hover transition-colors';
+const divdr = 'divide-slate-100 dark:divide-white/[0.05]';
+const brd   = 'border-slate-200 dark:border-white/[0.06]';
 
 const App = () => {
   const [activeTab, setActiveTab]               = useState('overview');
@@ -241,40 +241,19 @@ const App = () => {
     const col = colorMap[color] || colorMap['bg-teal-600'];
     return (
       <div
-        style={{
-          position: 'relative', overflow: 'hidden',
-          borderLeft: `4px solid ${col.hex}`,
-          border: `1px solid ${darkMode ? cc(col,0.22) : cc(col,0.18)}`,
-          borderLeftWidth: '4px', borderLeftColor: col.hex,
-          background: darkMode
-            ? `linear-gradient(145deg, ${cc(col,0.10)} 0%, #0b1a2e 60%)`
-            : `linear-gradient(145deg, ${cc(col,0.07)} 0%, #ffffff 60%)`,
-          borderRadius: '1rem',
-          padding: '1.25rem 1.25rem 1rem',
-          transition: 'transform 0.15s, box-shadow 0.15s',
-          cursor: 'default',
-        }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 16px 40px ${cc(col,0.22)}`; }}
-        onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+        className="kpi-card"
+        style={{ '--r': col.r, '--g': col.g, '--b': col.b }}
       >
-        {/* Watermark */}
-        <div style={{ position:'absolute', right: -8, bottom: -8, opacity: 0.06, pointerEvents:'none' }}>
-          <Icon size={88} color={col.hex} />
-        </div>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'0.85rem' }}>
-          <div style={{ width:38, height:38, borderRadius:10, background:`${cc(col,0.14)}`, border:`1.5px solid ${cc(col,0.28)}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <Icon size={18} color={col.hex} />
-          </div>
+        <div className="kpi-watermark"><Icon size={90} color={col.hex} /></div>
+        <div className="kpi-top">
+          <div className="kpi-icon-box"><Icon size={20} color={col.hex} /></div>
           {trend && (
-            <span style={{ fontSize:'10px', fontWeight:800, padding:'3px 8px', borderRadius:20, letterSpacing:'0.03em',
-              background: isNeutral ? (darkMode ? '#1e293b' : '#f1f5f9') : isPositive ? (darkMode ? 'rgba(16,185,129,0.16)' : 'rgba(16,185,129,0.1)') : (darkMode ? 'rgba(244,63,94,0.16)' : 'rgba(244,63,94,0.1)'),
-              color: isNeutral ? '#64748b' : isPositive ? '#10b981' : '#f43f5e',
-            }}>{trend}</span>
+            <span className={`kpi-badge ${isNeutral ? 'kpi-badge-neutral' : isPositive ? 'kpi-badge-up' : 'kpi-badge-down'}`}>{trend}</span>
           )}
         </div>
-        <div style={{ fontSize:'9.5px', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.1em', color: darkMode ? '#64748b' : '#94a3b8', marginBottom:'5px' }}>{title}</div>
-        <div style={{ fontSize:'2rem', fontWeight:900, lineHeight:1, color:col.hex, marginBottom: sub ? '8px' : 0 }}>{value}</div>
-        {sub && <div style={{ fontSize:'10px', color: darkMode ? '#475569' : '#9ca3af', fontStyle:'italic', fontWeight:500, lineHeight:1.4 }}>{sub}</div>}
+        <div className="kpi-label">{title}</div>
+        <div className="kpi-value">{value}</div>
+        {sub && <div className="kpi-sub">{sub}</div>}
       </div>
     );
   };
@@ -282,25 +261,23 @@ const App = () => {
   const SectionHeader = ({ icon: Icon, color, title, subtitle }) => {
     const col = sectionColorMap[color] || sectionColorMap['text-teal-500'];
     return (
-      <div style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', marginBottom:'1.5rem' }}>
-        <div style={{ width:36, height:36, borderRadius:10, background:`${cc(col,0.12)}`, border:`1.5px solid ${cc(col,0.22)}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:2 }}>
-          <Icon size={16} color={col.hex} />
-        </div>
+      <div className="section-header" style={{ '--sr': col.r, '--sg': col.g, '--sb': col.b }}>
+        <div className="section-icon"><Icon size={18} color={col.hex} /></div>
         <div>
-          <h2 style={{ fontSize:'1rem', fontWeight:900, textTransform:'uppercase', letterSpacing:'0.02em', color: darkMode ? '#f1f5f9' : '#0f172a', lineHeight:1.2 }}>{title}</h2>
-          {subtitle && <p style={{ fontSize:'12px', color: darkMode ? '#64748b' : '#94a3b8', fontWeight:500, marginTop:'3px' }}>{subtitle}</p>}
+          <h2 className="section-title">{title}</h2>
+          {subtitle && <p className="section-subtitle">{subtitle}</p>}
         </div>
       </div>
     );
   };
 
   const EmptyChart = ({ height = 'h-64', message = 'Connect integrations to populate this chart' }) => (
-    <div className={`${height} flex flex-col items-center justify-center gap-3`}
-         style={{ background: darkMode ? 'linear-gradient(135deg, rgba(15,23,42,0.4) 25%, transparent 25%) -10px 0, linear-gradient(225deg, rgba(15,23,42,0.4) 25%, transparent 25%) -10px 0, linear-gradient(315deg, rgba(15,23,42,0.4) 25%, transparent 25%), linear-gradient(45deg, rgba(15,23,42,0.4) 25%, transparent 25%)' : undefined, borderRadius:'1rem' }}>
-      <div style={{ padding:14, borderRadius:14, background: darkMode ? 'rgba(11,26,46,0.9)' : 'rgba(248,250,252,0.9)', border:`1px solid ${darkMode ? 'rgba(51,65,85,0.7)' : 'rgba(226,232,240,0.8)'}`, boxShadow: darkMode ? '0 0 0 1px rgba(13,148,136,0.06)' : 'none' }}>
-        <BarChart3 size={24} color={darkMode ? '#334155' : '#cbd5e1'} />
+    <div className={`${height} empty-chart`}>
+      <div className="empty-chart-icon">
+        <BarChart3 size={26} color={darkMode ? '#1e3a5f' : '#cbd5e1'} />
       </div>
-      <p style={{ fontSize:'11px', color: darkMode ? '#475569' : '#94a3b8', fontWeight:600, textAlign:'center', maxWidth:'160px', lineHeight:1.5 }}>{message}</p>
+      <p className="empty-chart-msg">{message}</p>
+      <span className="empty-chart-badge">Awaiting Integration Data</span>
     </div>
   );
 
@@ -336,12 +313,12 @@ const App = () => {
         {/* Brand */}
         <div className="sidebar-brand">
           <div className="sidebar-logo">
-            <Heart size={19} className="text-teal-300 fill-teal-300" />
+            <Heart size={20} color="#2dd4bf" fill="#2dd4bf" />
           </div>
           {!sidebarCollapsed && (
             <div className="sidebar-brand-text">
               <div className="gradient-title sidebar-title">Destiny Springs</div>
-              <div className="sidebar-subtitle">Healthcare</div>
+              <div className="sidebar-subtitle">Healthcare · DMD</div>
             </div>
           )}
         </div>
@@ -410,10 +387,18 @@ const App = () => {
             </div>
           </div>
           <div className="topbar-right">
+            <div className="topbar-date">
+              <Calendar size={11} />
+              <span>March 2026</span>
+            </div>
             <div className="topbar-live">
               <div className="live-dot" />
               <span>Live</span>
             </div>
+            <button onClick={() => setDarkMode(d => !d)} className="topbar-btn topbar-btn-ghost">
+              {darkMode ? <Sun size={13} /> : <Moon size={13} />}
+              <span>{darkMode ? 'Light' : 'Dark'}</span>
+            </button>
             <button onClick={() => window.print()} className="topbar-btn topbar-btn-ghost">
               <Printer size={13} />
               <span>Export</span>
