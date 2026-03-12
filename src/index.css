@@ -22,6 +22,7 @@ body {
   .sidebar  { display: none !important; }
   .topbar   { display: none !important; }
   .content-area { overflow: visible !important; height: auto !important; padding: 24px !important; }
+  html, body, #root { overflow: visible !important; height: auto !important; }
   body { background: white !important; color: black !important; }
 }
 

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 // ─── Shared style helpers ───────────────────────────────────────────────────
-// Color system � maps Tailwind color prop strings to actual hex/RGB values
+// Color system · maps Tailwind color prop strings to actual hex/RGB values
 const colorMap = {
   'bg-amber-500':   { hex: '#f59e0b', r: 245, g: 158, b: 11  },
   'bg-amber-600':   { hex: '#d97706', r: 217, g: 119, b: 6   },
@@ -328,22 +328,22 @@ const App = () => {
 
   // ── Core KPI Metrics ────────────────────────────────────────────────────────
   const metrics = {
-    googleScore: '�',
+    googleScore: '—',
     googleTrend: null,
-    nps: '�',
-    promoters: '�',
-    socialPostsMonthly: '�',
-    blogVelocity: '�',
-    tiktokVelocity: '�',
-    videoViews: '�',
-    seoStatewideGrowth: '�',
-    avgReadTime: '�',
-    siteConversion: '�',
-    wixSessions: '�',
-    wixBounceRate: '�',
-    emailOpenRate: '�',
-    costPerLead: '�',
-    totalLeads: '�',
+    nps: '—',
+    promoters: '—',
+    socialPostsMonthly: '—',
+    blogVelocity: '—',
+    tiktokVelocity: '—',
+    videoViews: '—',
+    seoStatewideGrowth: '—',
+    avgReadTime: '—',
+    siteConversion: '—',
+    wixSessions: '—',
+    wixBounceRate: '—',
+    emailOpenRate: '—',
+    costPerLead: '—',
+    totalLeads: '—',
     leadsGrowth: null,
   };
 
@@ -439,18 +439,18 @@ const App = () => {
   const roiSpend = [];
 
   const roiChannels = [
-    { channel: 'Organic SEO',  leads: 0, cpl: '�', roi: '�', color: '#0d9488' },
-    { channel: 'Social Media', leads: 0, cpl: '�', roi: '�', color: '#8b5cf6' },
-    { channel: 'Google Ads',   leads: 0, cpl: '�', roi: '�', color: '#3b82f6' },
-    { channel: 'Email',        leads: 0, cpl: '�', roi: '�', color: '#10b981' },
+    { channel: 'Organic SEO',  leads: 0, cpl: '—', roi: '—', color: '#0d9488' },
+    { channel: 'Social Media', leads: 0, cpl: '—', roi: '—', color: '#8b5cf6' },
+    { channel: 'Google Ads',   leads: 0, cpl: '—', roi: '—', color: '#3b82f6' },
+    { channel: 'Email',        leads: 0, cpl: '—', roi: '—', color: '#10b981' },
   ];
 
   // ── Content Calendar data ────────────────────────────────────────────────────
   const [contentItems, setContentItems] = useState([
     { title: 'Mental Health Awareness Post',       platform: 'Facebook, Instagram', date: 'Mon 3',  type: 'Social', status: 'scheduled', notes: 'Focus on stigma reduction'          },
     { title: '5 Signs You Need Support (TikTok)',  platform: 'TikTok',              date: 'Tue 4',  type: 'TikTok', status: 'filming',   notes: 'Short-form, 60s max'                },
-    { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: 'Wed 5',  type: 'Blog',   status: 'draft',     notes: '1,200 words � SEO optimized'        },
-    { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: 'Thu 6',  type: 'Email',  status: 'scheduled', notes: 'All subscribers � 3pm send time'    },
+    { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: 'Wed 5',  type: 'Blog',   status: 'draft',     notes: '1,200 words · SEO optimized'        },
+    { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: 'Thu 6',  type: 'Email',  status: 'scheduled', notes: 'All subscribers · 3pm send time'    },
     { title: 'Success Story Spotlight',            platform: 'LinkedIn',            date: 'Fri 7',  type: 'Social', status: 'idea',      notes: 'Patient testimonial (anonymized)'   },
     { title: 'Weekend Wellness Tip',               platform: 'Instagram',           date: 'Sat 8',  type: 'Social', status: 'scheduled', notes: '5 breathing exercises for calm'     },
     { title: 'Staff Introduction Video',           platform: 'TikTok, Instagram',   date: 'Mon 10', type: 'TikTok', status: 'filming',   notes: 'Behind the scenes series'           },
@@ -520,7 +520,7 @@ const App = () => {
     return (
       <div
         className="kpi-card"
-        style={{ '--r': col.r, '--g': col.g, '--b': col.b }}
+        style={{ '--r': col.r, '--g': col.g, '--b': col.b, borderLeft: `4px solid ${col.hex}` }}
         onClick={onClick}
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
@@ -553,13 +553,23 @@ const App = () => {
     );
   };
 
-  const EmptyChart = ({ height = 'h-64', message = 'Connect integrations to populate this chart' }) => (
+  const EmptyChart = ({ height = 'h-64', message = 'Connect integrations to populate this chart', action = true }) => (
     <div className={`${height} empty-chart`}>
       <div className="empty-chart-icon">
         <BarChart3 size={26} color={darkMode ? '#334155' : '#cbd5e1'} />
       </div>
       <p className="empty-chart-msg">{message}</p>
-      <span className="empty-chart-badge">Awaiting Integration Data</span>
+      {action ? (
+        <button
+          className="empty-chart-badge"
+          style={{ cursor: 'pointer', background: 'rgba(13,148,136,0.08)', borderColor: 'rgba(13,148,136,0.3)', color: '#0d9488' }}
+          onClick={() => setActiveTab('integrations')}
+        >
+          Connect Integration →
+        </button>
+      ) : (
+        <span className="empty-chart-badge">Awaiting Data</span>
+      )}
     </div>
   );
 
@@ -572,19 +582,19 @@ const App = () => {
   );
 
   const tabs = [
-    { id: 'overview',     label: 'Overview',      icon: BarChart3   },
-    { id: 'social',       label: 'Social',        icon: Share2      },
-    { id: 'seo',          label: 'SEO',           icon: Search      },
-    { id: 'ads',          label: 'Paid Ads',      icon: Megaphone   },
-    { id: 'email',        label: 'Email',         icon: Mail        },
-    { id: 'pipeline',     label: 'Pipeline',      icon: Users       },
-    { id: 'achievements', label: 'Achievements',  icon: Trophy      },
-    { id: 'roi',          label: 'ROI',           icon: DollarSign  },
-    { id: 'calendar',     label: 'Calendar',      icon: Calendar    },
-    { id: 'reviews',      label: 'Reviews',       icon: Star        },
-    { id: 'integrations', label: 'Integrations',  icon: Plug        },
-    { id: 'import',       label: 'Data Import',   icon: Upload      },
-    { id: 'ai-tools',     label: 'AI Tools',      icon: Bot         },
+    { id: 'overview',     label: 'Overview',      icon: BarChart3,  group: 'Dashboard'   },
+    { id: 'social',       label: 'Social',        icon: Share2,     group: 'Analytics'   },
+    { id: 'seo',          label: 'SEO',           icon: Search,     group: 'Analytics'   },
+    { id: 'ads',          label: 'Paid Ads',      icon: Megaphone,  group: 'Analytics'   },
+    { id: 'email',        label: 'Email',         icon: Mail,       group: 'Analytics'   },
+    { id: 'pipeline',     label: 'Pipeline',      icon: Users,      group: 'Analytics'   },
+    { id: 'achievements', label: 'Achievements',  icon: Trophy,     group: 'Performance' },
+    { id: 'roi',          label: 'ROI',           icon: DollarSign, group: 'Performance' },
+    { id: 'reviews',      label: 'Reviews',       icon: Star,       group: 'Performance' },
+    { id: 'calendar',     label: 'Calendar',      icon: Calendar,   group: 'Content'     },
+    { id: 'integrations', label: 'Integrations',  icon: Plug,       group: 'Tools'       },
+    { id: 'import',       label: 'Data Import',   icon: Upload,     group: 'Tools'       },
+    { id: 'ai-tools',     label: 'AI Tools',      icon: Bot,        group: 'Tools'       },
   ];
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -602,27 +612,35 @@ const App = () => {
           {!sidebarCollapsed && (
             <div className="sidebar-brand-text">
               <div className="gradient-title sidebar-title">Destiny Springs</div>
-              <div className="sidebar-subtitle">Healthcare � DMD</div>
+              <div className="sidebar-subtitle">Healthcare · DMD</div>
             </div>
           )}
         </div>
 
-        {/* Nav label */}
-        {!sidebarCollapsed && <div className="sidebar-section-label">Navigation</div>}
-
         {/* Nav items */}
         <nav className="sidebar-nav">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`sidebar-item ${activeTab === tab.id ? 'sidebar-item-active' : ''}`}
-              title={sidebarCollapsed ? tab.label : undefined}
-            >
-              <tab.icon size={16} className="sidebar-icon" />
-              {!sidebarCollapsed && <span className="sidebar-label">{tab.label}</span>}
-            </button>
-          ))}
+          {tabs.reduce((acc, tab, i) => {
+            const prevGroup = i > 0 ? tabs[i - 1].group : null;
+            if (tab.group !== prevGroup && !sidebarCollapsed) {
+              acc.push(
+                <div key={`grp-${tab.group}`} className="sidebar-section-label" style={{ marginTop: i > 0 ? 8 : 0 }}>
+                  {tab.group}
+                </div>
+              );
+            }
+            acc.push(
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`sidebar-item ${activeTab === tab.id ? 'sidebar-item-active' : ''}`}
+                title={sidebarCollapsed ? tab.label : undefined}
+              >
+                <tab.icon size={16} className="sidebar-icon" />
+                {!sidebarCollapsed && <span className="sidebar-label">{tab.label}</span>}
+              </button>
+            );
+            return acc;
+          }, [])}
         </nav>
 
         {/* Bottom actions */}
@@ -700,7 +718,7 @@ const App = () => {
               <StatCard title="Google Rating"     value={metrics.googleScore}    trend={metrics.googleTrend} icon={Star}        color="bg-amber-500"   sub="Review Cleanup Performance" onClick={() => setActiveTab('reviews')} />
               <StatCard title="Monthly Sessions"  value={metrics.wixSessions}    trend={null}                icon={Layout}      color="bg-teal-600"    sub="Wix Website Traffic"        onClick={() => setActiveTab('seo')} />
               <StatCard title="Avg Read Time"     value={metrics.avgReadTime}    trend={null}                icon={Clock}       color="bg-emerald-600" sub="Blog & Education Retention"  onClick={() => setActiveTab('seo')} />
-              <StatCard title="Omnichannel Reach" value="🔗"                      trend={null}                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"        onClick={() => setActiveTab('social')} />
+              <StatCard title="Omnichannel Reach" value="—"                      trend={null}                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"        onClick={() => setActiveTab('social')} />
               </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Total Leads"       value={metrics.totalLeads}     trend={metrics.leadsGrowth} icon={Target}      color="bg-rose-500"    sub="Monthly Lead Volume"         onClick={() => setActiveTab('pipeline')} />
@@ -714,7 +732,7 @@ const App = () => {
               <SectionHeader icon={TrendingUp} color="text-teal-500" title="6-Month Growth Trend" subtitle="Sessions, Reach & Lead Volume" />
               <div className="h-72">
                 {monthlyTrend.length === 0 ? (
-                  <EmptyChart height="h-72" message="No trend data yet � connect Google Analytics &amp; Meta to populate" />
+                  <EmptyChart height="h-72" message="No trend data yet · connect Google Analytics &amp; Meta to populate" />
                 ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1026,10 +1044,10 @@ const App = () => {
         {activeTab === 'ads' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Total Ad Spend"    value="�"      trend={null}     icon={Target}      color="bg-indigo-600" sub="Monthly Budget"      />
-              <StatCard title="Total Leads"       value="�"      trend={null}     icon={Users}       color="bg-teal-600"  sub="From Paid Channels" />
-              <StatCard title="Avg CPL"           value="�"      trend={null}      icon={TrendingDown} color="bg-blue-600" sub="Cost Per Lead" />
-              <StatCard title="Total Impressions" value="�"      trend={null}     icon={Eye}         color="bg-amber-600" sub="Paid Visibility"     />
+              <StatCard title="Total Ad Spend"    value="—"      trend={null}     icon={Target}      color="bg-indigo-600" sub="Monthly Budget"      />
+              <StatCard title="Total Leads"       value="—"      trend={null}     icon={Users}       color="bg-teal-600"  sub="From Paid Channels" />
+              <StatCard title="Avg CPL"           value="—"      trend={null}      icon={TrendingDown} color="bg-blue-600" sub="Cost Per Lead" />
+              <StatCard title="Total Impressions" value="—"      trend={null}     icon={Eye}         color="bg-amber-600" sub="Paid Visibility"     />
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={BarChart3} color="text-indigo-500" title="Paid Channel Performance" subtitle="Google, Meta & LinkedIn Ads" />
@@ -1081,9 +1099,9 @@ const App = () => {
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Avg Open Rate"     value={metrics.emailOpenRate} trend={null}  icon={Mail}        color="bg-teal-600"   sub="All Campaigns"      />
-              <StatCard title="Total Subscribers" value="�"                    trend={null}  icon={Users}       color="bg-purple-600" sub="Active List Size"   />
-              <StatCard title="Click Rate"        value="�"                    trend={null}  icon={MousePointer}color="bg-emerald-600"sub="Avg CTR"            />
-              <StatCard title="Conversions"       value="�"                    trend={null}  icon={CheckCircle} color="bg-amber-600"  sub="Email-Attributed"  />
+              <StatCard title="Total Subscribers" value="—"                    trend={null}  icon={Users}       color="bg-purple-600" sub="Active List Size"   />
+              <StatCard title="Click Rate"        value="—"                    trend={null}  icon={MousePointer}color="bg-emerald-600"sub="Avg CTR"            />
+              <StatCard title="Conversions"       value="—"                    trend={null}  icon={CheckCircle} color="bg-amber-600"  sub="Email-Attributed"  />
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Mail} color="text-teal-500" title="Email Campaign Performance" subtitle="Sends, Opens, Clicks & Conversions" />
@@ -1191,8 +1209,8 @@ const App = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight">My Digital Marketing Achievements</h2>
-                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing � Social Media � Website Management � Blog Writing � SEO � Paid Ads</p>
-                <p className="text-teal-200 text-xs mt-2 italic">Ongoing � Destiny Springs Healthcare</p>
+                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing · Social Media · Website Management · Blog Writing · SEO · Paid Ads</p>
+                <p className="text-teal-200 text-xs mt-2 italic">Ongoing · Destiny Springs Healthcare</p>
               </div>
               <div className="ml-auto shrink-0 text-right hidden md:block">
                 <div className="text-4xl font-black text-amber-300">312</div>
@@ -1272,10 +1290,10 @@ const App = () => {
         {activeTab === 'roi' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Est. Revenue Potential" value="�"      trend={null}         icon={DollarSign} color="bg-teal-600"   sub="Based on avg value / lead"     />
-              <StatCard title="Total Mktg Spend"       value="�"      trend={null}          icon={Target}     color="bg-indigo-600" sub="Monthly All Channels"        />
-              <StatCard title="Blended ROI"            value="�"      trend={null}          icon={TrendingUp} color="bg-emerald-600" sub="Revenue / Spend Ratio"       />
-              <StatCard title="Agency Cost Savings"    value="�"      trend={null}          icon={ShieldCheck} color="bg-amber-600"  sub="vs. Full Agency Retainer"    />
+              <StatCard title="Est. Revenue Potential" value="—"      trend={null}         icon={DollarSign} color="bg-teal-600"   sub="Based on avg value / lead"     />
+              <StatCard title="Total Mktg Spend"       value="—"      trend={null}          icon={Target}     color="bg-indigo-600" sub="Monthly All Channels"        />
+              <StatCard title="Blended ROI"            value="—"      trend={null}          icon={TrendingUp} color="bg-emerald-600" sub="Revenue / Spend Ratio"       />
+              <StatCard title="Agency Cost Savings"    value="—"      trend={null}          icon={ShieldCheck} color="bg-amber-600"  sub="vs. Full Agency Retainer"    />
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
@@ -1330,9 +1348,9 @@ const App = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[
-                { label: 'Total Leads x Avg Lead Value',        value: '�',    icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
-                { label: 'Total Marketing Investment',      value: '�',    icon: Target,     color: 'text-indigo-500',  sub: 'Blended spend across all channels'   },
-                { label: 'Return on Investment',            value: '�',    icon: TrendingUp, color: 'text-emerald-500', sub: 'Revenue potential / marketing spend'  },
+                { label: 'Total Leads x Avg Lead Value',        value: '—',    icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
+                { label: 'Total Marketing Investment',      value: '—',    icon: Target,     color: 'text-indigo-500',  sub: 'Blended spend across all channels'   },
+                { label: 'Return on Investment',            value: '—',    icon: TrendingUp, color: 'text-emerald-500', sub: 'Revenue potential / marketing spend'  },
               ].map(s => (
                 <div key={s.label} className={`${card} p-6 rounded-2xl text-center`}>
                   <s.icon size={28} className={`${s.color} mx-auto mb-3`} />
@@ -1442,9 +1460,9 @@ const App = () => {
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Current Rating"  value="4.2 ?" trend="+0.8"  icon={Star}        color="bg-amber-500"   sub="Google Business Profile" />
-              <StatCard title="Total Reviews"   value="�"     trend={null}  icon={MessageSquare}color="bg-teal-600"   sub="All Time"               />
-              <StatCard title="Promoters Ready" value="�"     trend={null}  icon={ThumbsUp}    color="bg-emerald-600" sub="Awaiting Outreach"      />
-              <StatCard title="Response Rate"   value="�"     trend={null}  icon={Send}        color="bg-purple-600" sub="Reviews Responded To"   />
+              <StatCard title="Total Reviews"   value="—"     trend={null}  icon={MessageSquare}color="bg-teal-600"   sub="All Time"               />
+              <StatCard title="Promoters Ready" value="—"     trend={null}  icon={ThumbsUp}    color="bg-emerald-600" sub="Awaiting Outreach"      />
+              <StatCard title="Response Rate"   value="—"     trend={null}  icon={Send}        color="bg-purple-600" sub="Reviews Responded To"   />
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
@@ -1495,7 +1513,7 @@ const App = () => {
               </div>
 
               <div className={`${card} p-6 rounded-[2rem]`}>
-                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 9�10 Clients Ready for Google Review" />
+                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 9—10 Clients Ready for Google Review" />
                 <div className="space-y-3">
                   {promoters.map((p, i) => (
                     <div key={i} className={`flex items-center gap-3 p-3 ${rowCls} rounded-xl`}>
@@ -1614,7 +1632,7 @@ const App = () => {
               </div>
               <div className="p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-2xl">
                 <p className="text-xs font-black text-teal-700 dark:text-teal-300 uppercase tracking-wider mb-1">Note</p>
-                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 5�30 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
+                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 5—30 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
               </div>
             </div>
           </>
@@ -1628,7 +1646,7 @@ const App = () => {
                 { label: 'Data Sources',  value: '10',  color: 'text-teal-500',    icon: Plug      },
                 { label: 'Auto Syncing',  value: '0',   color: 'text-emerald-500', icon: RefreshCw },
                 { label: 'Pending Setup', value: '10',  color: 'text-amber-500',   icon: Clock     },
-                { label: 'Manual Entries',value: '�',   color: 'text-purple-500',  icon: Upload    },
+                { label: 'Manual Entries',value: '—',   color: 'text-purple-500',  icon: Upload    },
               ].map(s => (
                 <div key={s.label} className={`${card} p-5 rounded-2xl text-center`}>
                   <s.icon size={22} className={`${s.color} mx-auto mb-2`} />
@@ -1772,8 +1790,8 @@ const App = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
                         { label: 'Keyword',            type: 'text',   ph: 'e.g. healthcare Arizona' },
-                        { label: 'Current Rank',       type: 'number', ph: '1�100' },
-                        { label: 'Previous Rank',      type: 'number', ph: '1�100' },
+                        { label: 'Current Rank',       type: 'number', ph: '1—100' },
+                        { label: 'Previous Rank',      type: 'number', ph: '1—100' },
                         { label: 'Monthly Search Vol', type: 'number', ph: '0' },
                         { label: 'Impressions',        type: 'number', ph: '0' },
                         { label: 'Clicks',             type: 'number', ph: '0' },
@@ -1832,7 +1850,7 @@ const App = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {[
                         { label: 'Reviewer Name',      type: 'text',   ph: 'e.g. J. Smith', half: false },
-                        { label: 'Rating (1�5)',        type: 'number', ph: '5', half: false },
+                        { label: 'Rating (1—5)',        type: 'number', ph: '5', half: false },
                         { label: 'Review Date',        type: 'date',    half: false },
                         { label: 'Platform',           type: 'select', opts: ['Google','Yelp','Healthgrades','Facebook'], half: false },
                         { label: 'Review Text',        type: 'textarea',ph: 'Paste review content here...', half: true },
@@ -1917,7 +1935,7 @@ const App = () => {
                   </div>
                   <span className="shrink-0 text-[13px] font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Connect Required</span>
                 </div>
-                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>Sintra AI automates your digital marketing workflows � from social post generation to SEO optimization and ad copy. Connect your account to sync campaign data and run AI-powered automations directly from this dashboard.</p>
+                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>Sintra AI automates your digital marketing workflows · from social post generation to SEO optimization and ad copy. Connect your account to sync campaign data and run AI-powered automations directly from this dashboard.</p>
                 <div className="space-y-2 mb-6">
                   {[
                     'Automated social media post generation',
@@ -1983,7 +2001,7 @@ const App = () => {
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <SectionHeader icon={Bot} color="text-purple-500" title="AI Content Generator" subtitle="Generate marketing content � Connect Sintra AI or MarkyAI to enable" />
+              <SectionHeader icon={Bot} color="text-purple-500" title="AI Content Generator" subtitle="Generate marketing content · Connect Sintra AI or MarkyAI to enable" />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                 {[
                   { label: 'Content Type', opts: ['Social Post','Blog Brief','Email Subject Line','Ad Copy','TikTok Script','Caption + Hashtags'] },
@@ -2001,7 +2019,7 @@ const App = () => {
               <div className="mb-5">
                 <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>Topic / Brief</label>
                 <textarea disabled className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-24 resize-none focus:outline-none opacity-60 cursor-not-allowed`}
-                  placeholder="e.g. Mental health awareness week post � focus on reducing stigma in Arizona healthcare..." />
+                  placeholder="e.g. Mental health awareness week post · focus on reducing stigma in Arizona healthcare..." />
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <button disabled className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-black opacity-50 cursor-not-allowed">
@@ -2038,7 +2056,7 @@ const App = () => {
         <div className={`mt-12 pt-6 border-t ${brd} flex flex-col md:flex-row justify-between items-center gap-3 no-print`}>
           <div className="flex items-center gap-2">
             <Heart size={13} className="text-teal-500 fill-teal-500" />
-            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare � Digital Marketing Portal</span>
+            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare · Digital Marketing Portal</span>
           </div>
           <span className={`text-[13px] ${subtl} uppercase tracking-wider`}>Powered by DMD &middot; Destiny Springs Healthcare</span>
         </div>
