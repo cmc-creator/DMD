@@ -71,7 +71,7 @@ const App = () => {
   const [connectTesting, setConnectTesting]     = useState(false);
   const [connectError, setConnectError]         = useState(null);
   const [syncStatus, setSyncStatus]             = useState({});
-  const [liveData, setLiveData]                 = useState({});
+  const [liveData, setLiveData]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_livedata') || '{}'); } catch { return {}; } });
   const [manualData, setManualData]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_manual') || '{}'); } catch { return {}; } });
   const [manualForm, setManualForm]             = useState({});
 
@@ -79,6 +79,11 @@ const App = () => {
     if (darkMode) document.documentElement.classList.add('dark');
     else          document.documentElement.classList.remove('dark');
   }, [darkMode]);
+
+  // Persist liveData to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('dmd_livedata', JSON.stringify(liveData));
+  }, [liveData]);
 
   // Handle TikTok OAuth redirect — parse ?tiktok_data= on first load
   useEffect(() => {
@@ -1856,28 +1861,29 @@ const App = () => {
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Zap} color="text-amber-500" title="Automation Feeds" subtitle="Live data flowing in from connected integrations" />
               <div className="space-y-3">
-                {[
-                  { name: 'Google Analytics 4',     icon: BarChart3,  color: 'text-orange-500', metric: 'Sessions, Bounce Rate, Goals, Conversions' },
-                  { name: 'Google Search Console',  icon: Search,     color: 'text-teal-500',   metric: 'Rankings, Impressions, CTR, Avg Position'  },
-                  { name: 'Meta Business Suite',    icon: Share2,     color: 'text-blue-500',   metric: 'Reach, Impressions, Engagement, Followers'  },
-                  { name: 'Google Ads',             icon: Target,     color: 'text-indigo-500', metric: 'Spend, Impressions, Clicks, Leads, CPL'     },
-                  { name: 'Meta Ads Manager',       icon: Megaphone,  color: 'text-blue-400',   metric: 'Spend, Reach, Leads, CPC, ROAS'             },
-                  { name: 'Mailchimp',              icon: Mail,       color: 'text-yellow-500', metric: 'Opens, Clicks, Subscribers, Unsubscribes'   },
-                  { name: 'Sintra AI',              icon: Bot,        color: 'text-purple-500', metric: 'Campaign Reports, AI Insights, Automation Logs' },
-                  { name: 'MarkyAI',                icon: Zap,        color: 'text-pink-500',   metric: 'Content Performance, Reach, Scheduling'      },
-                  { name: 'Wix Analytics',          icon: Globe,      color: 'text-emerald-500',metric: 'Traffic, Conversions, Form Submissions'      },
-                  { name: 'TikTok for Business',    icon: PlayCircle, color: 'text-pink-400',   metric: 'Views, Followers, Engagement, Watch Time'   },
-                ].map(feed => (
+                {integrations.map(feed => (
                   <div key={feed.name} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
-                    <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 shrink-0">
-                      <feed.icon size={15} className={feed.color} />
+                    <div className={`p-2.5 rounded-xl shrink-0 ${feed.connected ? 'bg-teal-50 dark:bg-teal-900/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                      <feed.icon size={15} className={feed.connected ? feed.color : subtl} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-bold ${txt}`}>{feed.name}</p>
-                      <p className={`text-[13px] ${subtl} truncate`}>{feed.metric}</p>
+                      <p className={`text-[13px] ${subtl} truncate`}>
+                        {feed.connected
+                          ? (liveData[feed.name] && Object.keys(liveData[feed.name]).filter(k=>!['id','name','connected','lastSync','accessToken','openId','clientId','apiKey','apiSecret','pageId','placeId'].includes(k)).length > 0
+                            ? Object.entries(liveData[feed.name]).filter(([k])=>!['id','name','connected','lastSync','accessToken','openId','clientId','apiKey','apiSecret','pageId','placeId'].includes(k)).slice(0,3).map(([k,v])=>`${k.replace(/_/g,' ')}: ${v}`).join(' · ')
+                            : `Last synced ${connections[feed.name]?.lastSync || '—'}`)
+                          : feed.metrics.join(', ')}
+                      </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="text-[12px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Setup Required</span>
+                      {feed.connected
+                        ? <span className="text-[12px] font-black px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><CheckCircle size={10} /> Connected</span>
+                        : <button
+                            onClick={() => { setConnectModal(feed.name); setConnectFormData(connections[feed.name] || {}); setConnectError(null); setActiveTab('integrations'); }}
+                            className="text-[12px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors cursor-pointer"
+                          >Set Up →</button>
+                      }
                     </div>
                   </div>
                 ))}
