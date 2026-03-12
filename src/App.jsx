@@ -689,10 +689,10 @@ const App = () => {
             </div>
           </div>
           <div className="topbar-right">
-            <div className="topbar-date">
+            <button className="topbar-date topbar-btn" onClick={() => setActiveTab('calendar')} title="Open Content Calendar">
               <Calendar size={11} />
               <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
-            </div>
+            </button>
             <div className="topbar-live">
               <div className="live-dot" />
               <span>Live</span>
