@@ -75,6 +75,9 @@ const App = () => {
   const [liveData, setLiveData]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_livedata') || '{}'); } catch { return {}; } });
   const [manualData, setManualData]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_manual') || '{}'); } catch { return {}; } });
   const [manualForm, setManualForm]             = useState({});
+  const [quickStats, setQuickStats]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_stats') || '{}'); } catch { return {}; } });
+  const [showQuickStats, setShowQuickStats]     = useState(false);
+  const [qsForm, setQsForm]                     = useState({});
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -327,36 +330,37 @@ const App = () => {
     boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
   };
 
-  // ── Core KPI Metrics ────────────────────────────────────────────────────────
+  // ── Core KPI Metrics — derived from quickStats ────────────────────────────
+  const qs = quickStats;
   const metrics = {
-    googleScore: '—',
-    googleTrend: null,
-    nps: '—',
-    promoters: '—',
-    socialPostsMonthly: '—',
-    blogVelocity: '—',
-    tiktokVelocity: '—',
-    videoViews: '—',
-    seoStatewideGrowth: '—',
-    avgReadTime: '—',
-    siteConversion: '—',
-    wixSessions: '—',
-    wixBounceRate: '—',
-    emailOpenRate: '—',
-    costPerLead: '—',
-    totalLeads: '—',
-    leadsGrowth: null,
+    googleScore:        qs.googleScore        || '—',
+    googleTrend:        qs.googleTrend        || null,
+    nps:                qs.nps                || '—',
+    promoters:          qs.promoters          || '—',
+    socialPostsMonthly: qs.socialPostsMonthly || '—',
+    blogVelocity:       qs.blogVelocity       || '—',
+    tiktokVelocity:     qs.tiktokVelocity     || '—',
+    videoViews:         qs.videoViews         || '—',
+    seoStatewideGrowth: qs.seoStatewideGrowth || '—',
+    avgReadTime:        qs.avgReadTime        || '—',
+    siteConversion:     qs.siteConversion     || '—',
+    wixSessions:        qs.wixSessions        || '—',
+    wixBounceRate:      qs.wixBounceRate      || '—',
+    emailOpenRate:      qs.emailOpenRate      || '—',
+    costPerLead:        qs.costPerLead        || '—',
+    totalLeads:         qs.totalLeads         || '—',
+    leadsGrowth:        qs.leadsGrowth        || null,
   };
 
   // ── Monthly Trend (6 months) ─────────────────────────────────────────────────
   const monthlyTrend = [];
 
-  // ── Social Analytics ─────────────────────────────────────────────────────────
+  // ── Social Analytics — derived from quickStats ─────────────────────────────
   const socialAnalytics = [
-    { platform: 'Facebook',  reach: 0, engagement: 0, clicks: 0, followers: 0, color: '#1877F2' },
-    { platform: 'Instagram', reach: 0, engagement: 0, clicks: 0, followers: 0, color: '#E4405F' },
-    { platform: 'LinkedIn',  reach: 0, engagement: 0, clicks: 0, followers: 0, color: '#0A66C2' },
-    { platform: 'TikTok',    reach: 0, engagement: 0, clicks: 0, followers: 0, color: '#00f2ea' },
+    { platform: 'Facebook',  reach: Number(qs.fbReach)||0,  engagement: Number(qs.fbEngagement)||0,  clicks: Number(qs.fbClicks)||0,  followers: Number(qs.fbFollowers)||0,  color: '#1877F2' },
+    { platform: 'Instagram', reach: Number(qs.igReach)||0,  engagement: Number(qs.igEngagement)||0,  clicks: Number(qs.igClicks)||0,  followers: Number(qs.igFollowers)||0,  color: '#E4405F' },
+    { platform: 'LinkedIn',  reach: Number(qs.liReach)||0,  engagement: Number(qs.liEngagement)||0,  clicks: Number(qs.liClicks)||0,  followers: Number(qs.liFollowers)||0,  color: '#0A66C2' },
+    { platform: 'TikTok',    reach: Number(qs.ttReach)||0,  engagement: Number(qs.ttEngagement)||0,  clicks: Number(qs.ttClicks)||0,  followers: Number(qs.ttFollowers)||0,  color: '#00f2ea' },
   ];
 
   // ── Weekly Engagement Trend ──────────────────────────────────────────────────
@@ -511,6 +515,49 @@ const App = () => {
     setContentItems(prev => [...prev, { ...newPost }]);
     setNewPost({ title: '', platform: 'Facebook', date: '', type: 'Social', status: 'scheduled', notes: '' });
     setShowAddPost(false);
+  };
+
+  // ── Quick Stats helpers ──────────────────────────────────────────────────────
+  const openQuickStats = () => { setQsForm({ ...quickStats }); setShowQuickStats(true); };
+  const saveQuickStats = () => {
+    setQuickStats(qsForm);
+    localStorage.setItem('dmd_stats', JSON.stringify(qsForm));
+    setShowQuickStats(false);
+  };
+  const exportDashboardData = () => {
+    const snapshot = {
+      _exported:       new Date().toISOString(),
+      _label:          'Destiny Springs DMD Dashboard',
+      dmd_stats:       quickStats,
+      dmd_connections: connections,
+      dmd_livedata:    liveData,
+      dmd_manual:      manualData,
+      dmd_calendar:    contentItems,
+    };
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `dmd-dashboard-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const importDashboardData = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.dmd_stats)       { setQuickStats(data.dmd_stats);        localStorage.setItem('dmd_stats',       JSON.stringify(data.dmd_stats)); }
+        if (data.dmd_connections) { setConnections(data.dmd_connections);  localStorage.setItem('dmd_connections', JSON.stringify(data.dmd_connections)); }
+        if (data.dmd_livedata)    { setLiveData(data.dmd_livedata);        localStorage.setItem('dmd_livedata',    JSON.stringify(data.dmd_livedata)); }
+        if (data.dmd_manual)      { setManualData(data.dmd_manual);        localStorage.setItem('dmd_manual',      JSON.stringify(data.dmd_manual)); }
+        if (data.dmd_calendar)    { setContentItems(data.dmd_calendar); }
+      } catch { alert('Invalid dashboard data file. Please use a file exported from this dashboard.'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   // ── Helper Components ─────────────────────────────────────────────────────────
@@ -704,8 +751,21 @@ const App = () => {
             </button>
             <button onClick={() => window.print()} className="topbar-btn topbar-btn-ghost">
               <Printer size={13} />
-              <span>Export</span>
+              <span>PDF</span>
             </button>
+            <button onClick={openQuickStats} className="topbar-btn" style={{ background:'rgba(13,148,136,0.85)', color:'#fff', border:'1px solid rgba(13,148,136,0.5)', boxShadow:'0 2px 8px rgba(13,148,136,0.3)' }}>
+              <Pencil size={13} />
+              <span>Update Stats</span>
+            </button>
+            <button onClick={exportDashboardData} className="topbar-btn topbar-btn-ghost" title="Download dashboard snapshot as JSON to share with your team">
+              <Download size={13} />
+              <span>Share Data</span>
+            </button>
+            <label className="topbar-btn topbar-btn-ghost" style={{ cursor:'pointer' }} title="Import a shared dashboard JSON file">
+              <Upload size={13} />
+              <span>Import</span>
+              <input type="file" accept=".json" style={{ display:'none' }} onChange={importDashboardData} />
+            </label>
           </div>
         </header>
 
@@ -2230,6 +2290,122 @@ const App = () => {
           </div>
         );
       })()}
+
+      {/* ── Quick Stats Slide-in Panel ───────────────────────────────────── */}
+      {showQuickStats && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setShowQuickStats(false); }}
+          style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'stretch' }}
+        >
+          <div style={{
+            marginLeft:'auto', width:'min(700px,100vw)', height:'100vh', overflowY:'auto',
+            background: darkMode ? '#0d1829' : '#f8fafc',
+            borderLeft: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : '#e2e8f0'}`,
+            display:'flex', flexDirection:'column', boxShadow:'-20px 0 60px rgba(0,0,0,0.4)',
+          }}>
+            {/* Panel header */}
+            <div style={{
+              padding:'20px 24px 16px', position:'sticky', top:0, zIndex:1,
+              background: darkMode ? '#0d1829' : '#f8fafc',
+              borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.07)' : '#e2e8f0'}`,
+              display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
+            }}>
+              <div>
+                <div style={{ fontSize:17, fontWeight:900, color: darkMode?'#f1f5f9':'#0f172a', letterSpacing:'-0.02em' }}>Update Stats</div>
+                <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>Enter your latest numbers — saves instantly to all dashboard views</div>
+              </div>
+              <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+                <button onClick={saveQuickStats} style={{ padding:'8px 20px', background:'#0d9488', color:'#fff', borderRadius:10, fontSize:13, fontWeight:900, border:'none', cursor:'pointer', boxShadow:'0 2px 8px rgba(13,148,136,0.4)' }}>Save All</button>
+                <button onClick={() => setShowQuickStats(false)} style={{ padding:'8px 12px', background: darkMode?'rgba(255,255,255,0.07)':'#e2e8f0', color:'#94a3b8', borderRadius:10, border:'none', cursor:'pointer', display:'flex', alignItems:'center' }}><X size={16}/></button>
+              </div>
+            </div>
+
+            {/* Field groups */}
+            <div style={{ padding:'20px 24px', display:'flex', flexDirection:'column', gap:28, flex:1 }}>
+              {[
+                { section:'Google & Reviews',  color:{ hex:'#f59e0b',r:245,g:158,b:11  }, icon:Star,     fields:[
+                  { key:'googleScore',    label:'Google Rating',      ph:'4.2'     },
+                  { key:'googleTrend',    label:'Rating Trend',       ph:'+0.3'    },
+                  { key:'nps',            label:'NPS Score',          ph:'72'      },
+                  { key:'promoters',      label:'Promoters Ready',    ph:'12'      },
+                ]},
+                { section:'Website (Wix)',      color:{ hex:'#0d9488',r:13, g:148,b:136 }, icon:Globe,    fields:[
+                  { key:'wixSessions',    label:'Monthly Sessions',   ph:'1,580'   },
+                  { key:'wixBounceRate',  label:'Bounce Rate',        ph:'42%'     },
+                  { key:'siteConversion', label:'Site Conversion',    ph:'3.8%'    },
+                  { key:'avgReadTime',    label:'Avg Read Time',      ph:'4m 12s'  },
+                ]},
+                { section:'Social Media',       color:{ hex:'#3b82f6',r:59, g:130,b:246 }, icon:Share2,   fields:[
+                  { key:'fbFollowers',    label:'FB Followers',       ph:'1,240'   },
+                  { key:'fbReach',        label:'FB Reach',           ph:'8,500'   },
+                  { key:'fbEngagement',   label:'FB Engagement',      ph:'320'     },
+                  { key:'igFollowers',    label:'IG Followers',       ph:'890'     },
+                  { key:'igReach',        label:'IG Reach',           ph:'5,200'   },
+                  { key:'igEngagement',   label:'IG Engagement',      ph:'195'     },
+                  { key:'ttFollowers',    label:'TikTok Followers',   ph:'2,100'   },
+                  { key:'ttReach',        label:'TikTok Reach',       ph:'15,000'  },
+                  { key:'liFollowers',    label:'LinkedIn Followers', ph:'450'     },
+                  { key:'liReach',        label:'LinkedIn Reach',     ph:'3,200'   },
+                ]},
+                { section:'Email (Mailchimp)',  color:{ hex:'#14b8a6',r:20, g:184,b:166 }, icon:Mail,     fields:[
+                  { key:'emailSubscribers', label:'Subscribers',      ph:'1,840'   },
+                  { key:'emailOpenRate',    label:'Open Rate',        ph:'28%'     },
+                  { key:'emailClickRate',   label:'Click Rate',       ph:'4.2%'    },
+                ]},
+                { section:'Paid Ads & Leads',   color:{ hex:'#f43f5e',r:244,g:63, b:94  }, icon:Target,   fields:[
+                  { key:'totalLeads',   label:'Total Leads',          ph:'61'      },
+                  { key:'leadsGrowth',  label:'Lead Growth',          ph:'+12%'    },
+                  { key:'costPerLead',  label:'Cost Per Lead',        ph:'$18'     },
+                ]},
+                { section:'Content Output',     color:{ hex:'#a855f7',r:168,g:85, b:247 }, icon:FileText, fields:[
+                  { key:'blogVelocity',       label:'Blogs / Month',       ph:'8'       },
+                  { key:'tiktokVelocity',     label:'TikToks / Month',     ph:'12'      },
+                  { key:'videoViews',         label:'Total Video Views',   ph:'48,500'  },
+                  { key:'socialPostsMonthly', label:'Social Posts / Mo',   ph:'90'      },
+                  { key:'seoStatewideGrowth', label:'SEO Growth',          ph:'+24%'    },
+                ]},
+              ].map(({ section, color: col, icon: Icon, fields }) => (
+                <div key={section}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, paddingBottom:12, borderBottom:`1px solid rgba(${col.r},${col.g},${col.b},0.25)` }}>
+                    <div style={{ width:34, height:34, borderRadius:9, background:`rgba(${col.r},${col.g},${col.b},0.12)`, border:`1px solid rgba(${col.r},${col.g},${col.b},0.25)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <Icon size={16} color={col.hex} />
+                    </div>
+                    <span style={{ fontSize:13, fontWeight:900, letterSpacing:'-0.01em', color: darkMode?'#f1f5f9':'#0f172a' }}>{section}</span>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(175px,1fr))', gap:10 }}>
+                    {fields.map(f => (
+                      <div key={f.key}>
+                        <label style={{ display:'block', fontSize:10.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:'#64748b', marginBottom:5 }}>{f.label}</label>
+                        <input
+                          type="text"
+                          placeholder={f.ph}
+                          value={qsForm[f.key] || ''}
+                          onChange={e => setQsForm(p => ({ ...p, [f.key]: e.target.value }))}
+                          style={{
+                            width:'100%', padding:'8px 11px', borderRadius:8, boxSizing:'border-box',
+                            border:`1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`,
+                            background: darkMode ? 'rgba(255,255,255,0.04)' : '#ffffff',
+                            color: darkMode ? '#f1f5f9' : '#0f172a', fontSize:13, outline:'none',
+                            transition:'border-color 0.15s',
+                          }}
+                          onFocus={e  => e.target.style.borderColor = col.hex}
+                          onBlur={e   => e.target.style.borderColor = darkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* Footer actions */}
+              <div style={{ display:'flex', gap:10, paddingBottom:24 }}>
+                <button onClick={saveQuickStats} style={{ flex:1, padding:'11px 0', background:'#0d9488', color:'#fff', borderRadius:11, fontSize:14, fontWeight:900, border:'none', cursor:'pointer', boxShadow:'0 4px 14px rgba(13,148,136,0.4)' }}>Save All Stats</button>
+                <button onClick={() => setShowQuickStats(false)} style={{ padding:'11px 20px', background: darkMode?'rgba(255,255,255,0.06)':'#e2e8f0', color:'#64748b', borderRadius:11, fontSize:13, fontWeight:700, border:'none', cursor:'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
