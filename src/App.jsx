@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 // ─── Shared style helpers ───────────────────────────────────────────────────
-// Color system · maps Tailwind color prop strings to actual hex/RGB values
+// Color system – maps Tailwind color prop strings to actual hex/RGB values
 const colorMap = {
   'bg-amber-500':   { hex: '#f59e0b', r: 245, g: 158, b: 11  },
   'bg-amber-600':   { hex: '#d97706', r: 217, g: 119, b: 6   },
@@ -60,7 +60,6 @@ const App = () => {
   const [activeTab, setActiveTab]               = useState('overview');
   const [darkMode, setDarkMode]                 = useState(true);
   const [calFilter, setCalFilter]               = useState('All');
-  const [calView, setCalView]                   = useState('grid');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showAddPost, setShowAddPost]           = useState(false);
   const [importMode, setImportMode]             = useState('upload');
@@ -75,9 +74,6 @@ const App = () => {
   const [liveData, setLiveData]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_livedata') || '{}'); } catch { return {}; } });
   const [manualData, setManualData]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_manual') || '{}'); } catch { return {}; } });
   const [manualForm, setManualForm]             = useState({});
-  const [quickStats, setQuickStats]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_stats') || '{}'); } catch { return {}; } });
-  const [showQuickStats, setShowQuickStats]     = useState(false);
-  const [qsForm, setQsForm]                     = useState({});
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -330,37 +326,67 @@ const App = () => {
     boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
   };
 
-  // ── Core KPI Metrics — derived from quickStats ────────────────────────────
-  const qs = quickStats;
+  // ── Core KPI Metrics ────────────────────────────────────────────────────────
   const metrics = {
-    googleScore:        qs.googleScore        || '—',
-    googleTrend:        qs.googleTrend        || null,
-    nps:                qs.nps                || '—',
-    promoters:          qs.promoters          || '—',
-    socialPostsMonthly: qs.socialPostsMonthly || '—',
-    blogVelocity:       qs.blogVelocity       || '—',
-    tiktokVelocity:     qs.tiktokVelocity     || '—',
-    videoViews:         qs.videoViews         || '—',
-    seoStatewideGrowth: qs.seoStatewideGrowth || '—',
-    avgReadTime:        qs.avgReadTime        || '—',
-    siteConversion:     qs.siteConversion     || '—',
-    wixSessions:        qs.wixSessions        || '—',
-    wixBounceRate:      qs.wixBounceRate      || '—',
-    emailOpenRate:      qs.emailOpenRate      || '—',
-    costPerLead:        qs.costPerLead        || '—',
-    totalLeads:         qs.totalLeads         || '—',
-    leadsGrowth:        qs.leadsGrowth        || null,
+    googleScore: '—',
+    googleTrend: null,
+    nps: '—',
+    promoters: '—',
+    socialPostsMonthly: '—',
+    blogVelocity: '—',
+    tiktokVelocity: '—',
+    videoViews: '—',
+    seoStatewideGrowth: '—',
+    avgReadTime: '—',
+    siteConversion: '—',
+    wixSessions: '—',
+    wixBounceRate: '—',
+    emailOpenRate: '—',
+    costPerLead: '—',
+    totalLeads: '—',
+    leadsGrowth: null,
   };
 
-  // ── Monthly Trend (6 months) ─────────────────────────────────────────────────
-  const monthlyTrend = [];
+  // ── Derived data from manual entries & live integrations ─────────────────────
+  const _reviews    = manualData.reviews       || [];
+  const _socialMet  = manualData.social_metrics || [];
+  const _adSpend    = manualData.ad_spend       || [];
+  const _emailStats = manualData.email_stats    || [];
+  const _seoData    = manualData.seo_rankings   || [];
+  const _tiktokPosts= manualData.tiktok_posts   || [];
+  const _metaLive   = liveData['Meta Business Suite'] || {};
+  const _wixLive    = liveData['Wix Analytics']      || {};
+  const _tikLive    = liveData['TikTok for Business'] || {};
+  const _avgRating  = _reviews.length ? (_reviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) / _reviews.length).toFixed(1) : null;
+  const _totalLeads = _adSpend.reduce((s, e) => s + (Number(e.leads) || 0), 0);
+  const _totalSpend = _adSpend.reduce((s, e) => s + (Number(e.spend) || 0), 0);
+  const _latestSocial = {};
+  _socialMet.forEach(e => { if (!_latestSocial[e.platform] || (e.month || '') > (_latestSocial[e.platform].month || '')) _latestSocial[e.platform] = e; });
+  // Patch placeholder metrics with computed values
+  Object.assign(metrics, {
+    googleScore:        _avgRating ? _avgRating + ' ★' : '—',
+    videoViews:         _tikLive.recentViews  ? Number(_tikLive.recentViews).toLocaleString()  : '—',
+    tiktokVelocity:     (_tiktokPosts.length  || _tikLive.recentPosts) ? String(_tiktokPosts.length || _tikLive.recentPosts) : '—',
+    socialPostsMonthly: _socialMet.reduce((s, e) => s + (Number(e.posts) || 0), 0) || '—',
+    wixSessions:        _wixLive.sessions   ? Number(_wixLive.sessions).toLocaleString()  : '—',
+    wixBounceRate:      _wixLive.bounceRate  ? _wixLive.bounceRate + '%'                   : '—',
+    emailOpenRate:      _emailStats.length   ? (_emailStats.reduce((s, e) => s + (e.sent ? Number(e.opened || 0) / Number(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : '—',
+    costPerLead:        (_totalSpend && _totalLeads) ? '$' + (_totalSpend / _totalLeads).toFixed(0) : '—',
+    totalLeads:         _totalLeads || '—',
+  });
 
-  // ── Social Analytics — derived from quickStats ─────────────────────────────
+  // ── Monthly Trend (from ad spend + social manual entries) ────────────────────
+  const _trendMap = {};
+  _socialMet.forEach(e => { if (!e.month) return; if (!_trendMap[e.month]) _trendMap[e.month] = { month: e.month, sessions: 0, reach: 0, leads: 0 }; _trendMap[e.month].reach += Number(e.reach || 0); });
+  _adSpend.forEach(e  => { if (!e.month) return; if (!_trendMap[e.month]) _trendMap[e.month] = { month: e.month, sessions: 0, reach: 0, leads: 0 }; _trendMap[e.month].leads += Number(e.leads || 0); });
+  const monthlyTrend = Object.values(_trendMap).sort((a, b) => a.month.localeCompare(b.month)).slice(-6);
+
+  // ── Social Analytics ─────────────────────────────────────────────────────────
   const socialAnalytics = [
-    { platform: 'Facebook',  reach: Number(qs.fbReach)||0,  engagement: Number(qs.fbEngagement)||0,  clicks: Number(qs.fbClicks)||0,  followers: Number(qs.fbFollowers)||0,  color: '#1877F2' },
-    { platform: 'Instagram', reach: Number(qs.igReach)||0,  engagement: Number(qs.igEngagement)||0,  clicks: Number(qs.igClicks)||0,  followers: Number(qs.igFollowers)||0,  color: '#E4405F' },
-    { platform: 'LinkedIn',  reach: Number(qs.liReach)||0,  engagement: Number(qs.liEngagement)||0,  clicks: Number(qs.liClicks)||0,  followers: Number(qs.liFollowers)||0,  color: '#0A66C2' },
-    { platform: 'TikTok',    reach: Number(qs.ttReach)||0,  engagement: Number(qs.ttEngagement)||0,  clicks: Number(qs.ttClicks)||0,  followers: Number(qs.ttFollowers)||0,  color: '#00f2ea' },
+    { platform: 'Facebook',  color: '#1877F2', reach: Number(_latestSocial['Facebook']?.reach  || _metaLive.reach   || 0), engagement: Number(_latestSocial['Facebook']?.engagement  || 0), clicks: Number(_latestSocial['Facebook']?.clicks  || 0), followers: Number(_latestSocial['Facebook']?.followers  || _metaLive.fanCount || 0) },
+    { platform: 'Instagram', color: '#E4405F', reach: Number(_latestSocial['Instagram']?.reach || 0),                      engagement: Number(_latestSocial['Instagram']?.engagement || 0), clicks: Number(_latestSocial['Instagram']?.clicks || 0), followers: Number(_latestSocial['Instagram']?.followers || 0) },
+    { platform: 'LinkedIn',  color: '#0A66C2', reach: Number(_latestSocial['LinkedIn']?.reach  || 0),                      engagement: Number(_latestSocial['LinkedIn']?.engagement  || 0), clicks: Number(_latestSocial['LinkedIn']?.clicks  || 0), followers: Number(_latestSocial['LinkedIn']?.followers  || 0) },
+    { platform: 'TikTok',    color: '#00f2ea', reach: Number(_latestSocial['TikTok']?.reach    || _tikLive.recentViews || 0), engagement: 0, clicks: 0, followers: Number(_latestSocial['TikTok']?.followers || _tikLive.followers || 0) },
   ];
 
   // ── Weekly Engagement Trend ──────────────────────────────────────────────────
@@ -387,16 +413,38 @@ const App = () => {
   const pathData = [];
 
   // ── SEO Keyword Rankings ─────────────────────────────────────────────────────
-  const seoKeywords = [];
+  const seoKeywords = _seoData.map(e => ({
+    keyword: e.keyword  || '—',
+    pos:     Number(e.rank      || 0),
+    change:  Number(e.prevRank  || 0) - Number(e.rank || 0),
+    volume:  Number(e.searchVol || 0),
+    clicks:  Number(e.clicks    || 0),
+  }));
 
   // ── Blog Performance ─────────────────────────────────────────────────────────
   const blogPosts = [];
 
   // ── Email Campaign Metrics ────────────────────────────────────────────────────
-  const emailCampaigns = [];
+  const emailCampaigns = _emailStats.map(e => ({
+    campaign:  e.campaign || 'Campaign',
+    sent:      Number(e.sent     || 0),
+    opened:    Number(e.opened   || 0),
+    clicked:   Number(e.clicked  || 0),
+    openRate:  e.sent ? (Number(e.opened  || 0) / Number(e.sent) * 100).toFixed(1) + '%' : '0%',
+    clickRate: e.sent ? (Number(e.clicked || 0) / Number(e.sent) * 100).toFixed(1) + '%' : '0%',
+    date:      e.date || '',
+  }));
 
   // ── Ad Performance ───────────────────────────────────────────────────────────
-  const adPerformance = [];
+  const adPerformance = _adSpend.map(e => ({
+    platform: e.platform || 'Platform',
+    spend:    Number(e.spend  || 0),
+    leads:    Number(e.leads  || 0),
+    clicks:   Number(e.clicks || 0),
+    cpl:      e.cpl   ? '$' + Number(e.cpl).toFixed(0)  : (e.spend && e.leads ? '$' + (Number(e.spend) / Number(e.leads)).toFixed(0) : '—'),
+    roas:     e.roas  ? Number(e.roas).toFixed(1) + 'x'  : '—',
+    month:    e.month || '',
+  }));
 
   // ── NPS Breakdown ─────────────────────────────────────────────────────────────
   const npsData = [
@@ -444,18 +492,18 @@ const App = () => {
   const roiSpend = [];
 
   const roiChannels = [
-    { channel: 'Organic SEO',  leads: 0, cpl: '—', roi: '—', color: '#0d9488' },
-    { channel: 'Social Media', leads: 0, cpl: '—', roi: '—', color: '#8b5cf6' },
-    { channel: 'Google Ads',   leads: 0, cpl: '—', roi: '—', color: '#3b82f6' },
-    { channel: 'Email',        leads: 0, cpl: '—', roi: '—', color: '#10b981' },
+    { channel: 'Organic SEO',  leads: _seoData.reduce((s,e)=>s+Number(e.clicks||0),0),                                                           cpl: '—', roi: '—', color: '#0d9488' },
+    { channel: 'Social Media', leads: _socialMet.reduce((s,e)=>s+Number(e.clicks||0),0),                                                         cpl: '—', roi: '—', color: '#8b5cf6' },
+    { channel: 'Google Ads',   leads: _adSpend.filter(e=>e.platform==='Google Ads').reduce((s,e)=>s+Number(e.leads||0),0),                        cpl: '—', roi: '—', color: '#3b82f6' },
+    { channel: 'Email',        leads: _emailStats.reduce((s,e)=>s+Number(e.conversions||0),0),                                                    cpl: '—', roi: '—', color: '#10b981' },
   ];
 
   // ── Content Calendar data ────────────────────────────────────────────────────
   const [contentItems, setContentItems] = useState([
     { title: 'Mental Health Awareness Post',       platform: 'Facebook, Instagram', date: 'Mon 3',  type: 'Social', status: 'scheduled', notes: 'Focus on stigma reduction'          },
     { title: '5 Signs You Need Support (TikTok)',  platform: 'TikTok',              date: 'Tue 4',  type: 'TikTok', status: 'filming',   notes: 'Short-form, 60s max'                },
-    { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: 'Wed 5',  type: 'Blog',   status: 'draft',     notes: '1,200 words · SEO optimized'        },
-    { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: 'Thu 6',  type: 'Email',  status: 'scheduled', notes: 'All subscribers · 3pm send time'    },
+    { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: 'Wed 5',  type: 'Blog',   status: 'draft',     notes: '1,200 words – SEO optimized'        },
+    { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: 'Thu 6',  type: 'Email',  status: 'scheduled', notes: 'All subscribers – 3pm send time'    },
     { title: 'Success Story Spotlight',            platform: 'LinkedIn',            date: 'Fri 7',  type: 'Social', status: 'idea',      notes: 'Patient testimonial (anonymized)'   },
     { title: 'Weekend Wellness Tip',               platform: 'Instagram',           date: 'Sat 8',  type: 'Social', status: 'scheduled', notes: '5 breathing exercises for calm'     },
     { title: 'Staff Introduction Video',           platform: 'TikTok, Instagram',   date: 'Mon 10', type: 'TikTok', status: 'filming',   notes: 'Behind the scenes series'           },
@@ -517,49 +565,6 @@ const App = () => {
     setShowAddPost(false);
   };
 
-  // ── Quick Stats helpers ──────────────────────────────────────────────────────
-  const openQuickStats = () => { setQsForm({ ...quickStats }); setShowQuickStats(true); };
-  const saveQuickStats = () => {
-    setQuickStats(qsForm);
-    localStorage.setItem('dmd_stats', JSON.stringify(qsForm));
-    setShowQuickStats(false);
-  };
-  const exportDashboardData = () => {
-    const snapshot = {
-      _exported:       new Date().toISOString(),
-      _label:          'Destiny Springs DMD Dashboard',
-      dmd_stats:       quickStats,
-      dmd_connections: connections,
-      dmd_livedata:    liveData,
-      dmd_manual:      manualData,
-      dmd_calendar:    contentItems,
-    };
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `dmd-dashboard-${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-  const importDashboardData = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (data.dmd_stats)       { setQuickStats(data.dmd_stats);        localStorage.setItem('dmd_stats',       JSON.stringify(data.dmd_stats)); }
-        if (data.dmd_connections) { setConnections(data.dmd_connections);  localStorage.setItem('dmd_connections', JSON.stringify(data.dmd_connections)); }
-        if (data.dmd_livedata)    { setLiveData(data.dmd_livedata);        localStorage.setItem('dmd_livedata',    JSON.stringify(data.dmd_livedata)); }
-        if (data.dmd_manual)      { setManualData(data.dmd_manual);        localStorage.setItem('dmd_manual',      JSON.stringify(data.dmd_manual)); }
-        if (data.dmd_calendar)    { setContentItems(data.dmd_calendar); }
-      } catch { alert('Invalid dashboard data file. Please use a file exported from this dashboard.'); }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
   // ── Helper Components ─────────────────────────────────────────────────────────
   const StatCard = ({ title, value, trend, icon: Icon, color, sub, trendPositive, onClick }) => {
     const isPositive = trend && (trendPositive !== undefined ? trendPositive : trend.startsWith('+'));
@@ -568,7 +573,7 @@ const App = () => {
     return (
       <div
         className="kpi-card"
-        style={{ '--r': col.r, '--g': col.g, '--b': col.b, borderLeft: `4px solid ${col.hex}` }}
+        style={{ '--r': col.r, '--g': col.g, '--b': col.b }}
         onClick={onClick}
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
@@ -601,23 +606,13 @@ const App = () => {
     );
   };
 
-  const EmptyChart = ({ height = 'h-64', message = 'Connect integrations to populate this chart', action = true }) => (
+  const EmptyChart = ({ height = 'h-64', message = 'Connect integrations to populate this chart' }) => (
     <div className={`${height} empty-chart`}>
       <div className="empty-chart-icon">
         <BarChart3 size={26} color={darkMode ? '#334155' : '#cbd5e1'} />
       </div>
       <p className="empty-chart-msg">{message}</p>
-      {action ? (
-        <button
-          className="empty-chart-badge"
-          style={{ cursor: 'pointer', background: 'rgba(13,148,136,0.08)', borderColor: 'rgba(13,148,136,0.3)', color: '#0d9488' }}
-          onClick={() => setActiveTab('integrations')}
-        >
-          Connect Integration →
-        </button>
-      ) : (
-        <span className="empty-chart-badge">Awaiting Data</span>
-      )}
+      <span className="empty-chart-badge">Awaiting Integration Data</span>
     </div>
   );
 
@@ -630,19 +625,19 @@ const App = () => {
   );
 
   const tabs = [
-    { id: 'overview',     label: 'Overview',      icon: BarChart3,  group: 'Dashboard'   },
-    { id: 'social',       label: 'Social',        icon: Share2,     group: 'Analytics'   },
-    { id: 'seo',          label: 'SEO',           icon: Search,     group: 'Analytics'   },
-    { id: 'ads',          label: 'Paid Ads',      icon: Megaphone,  group: 'Analytics'   },
-    { id: 'email',        label: 'Email',         icon: Mail,       group: 'Analytics'   },
-    { id: 'pipeline',     label: 'Pipeline',      icon: Users,      group: 'Analytics'   },
-    { id: 'achievements', label: 'Achievements',  icon: Trophy,     group: 'Performance' },
-    { id: 'roi',          label: 'ROI',           icon: DollarSign, group: 'Performance' },
-    { id: 'reviews',      label: 'Reviews',       icon: Star,       group: 'Performance' },
-    { id: 'calendar',     label: 'Calendar',      icon: Calendar,   group: 'Content'     },
-    { id: 'integrations', label: 'Integrations',  icon: Plug,       group: 'Tools'       },
-    { id: 'import',       label: 'Data Import',   icon: Upload,     group: 'Tools'       },
-    { id: 'ai-tools',     label: 'AI Tools',      icon: Bot,        group: 'Tools'       },
+    { id: 'overview',     label: 'Overview',      icon: BarChart3   },
+    { id: 'social',       label: 'Social',        icon: Share2      },
+    { id: 'seo',          label: 'SEO',           icon: Search      },
+    { id: 'ads',          label: 'Paid Ads',      icon: Megaphone   },
+    { id: 'email',        label: 'Email',         icon: Mail        },
+    { id: 'pipeline',     label: 'Pipeline',      icon: Users       },
+    { id: 'achievements', label: 'Achievements',  icon: Trophy      },
+    { id: 'roi',          label: 'ROI',           icon: DollarSign  },
+    { id: 'calendar',     label: 'Calendar',      icon: Calendar    },
+    { id: 'reviews',      label: 'Reviews',       icon: Star        },
+    { id: 'integrations', label: 'Integrations',  icon: Plug        },
+    { id: 'import',       label: 'Data Import',   icon: Upload      },
+    { id: 'ai-tools',     label: 'AI Tools',      icon: Bot         },
   ];
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -660,35 +655,27 @@ const App = () => {
           {!sidebarCollapsed && (
             <div className="sidebar-brand-text">
               <div className="gradient-title sidebar-title">Destiny Springs</div>
-              <div className="sidebar-subtitle">Healthcare · DMD</div>
+              <div className="sidebar-subtitle">Healthcare – DMD</div>
             </div>
           )}
         </div>
 
+        {/* Nav label */}
+        {!sidebarCollapsed && <div className="sidebar-section-label">Navigation</div>}
+
         {/* Nav items */}
         <nav className="sidebar-nav">
-          {tabs.reduce((acc, tab, i) => {
-            const prevGroup = i > 0 ? tabs[i - 1].group : null;
-            if (tab.group !== prevGroup && !sidebarCollapsed) {
-              acc.push(
-                <div key={`grp-${tab.group}`} className="sidebar-section-label" style={{ marginTop: i > 0 ? 8 : 0 }}>
-                  {tab.group}
-                </div>
-              );
-            }
-            acc.push(
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`sidebar-item ${activeTab === tab.id ? 'sidebar-item-active' : ''}`}
-                title={sidebarCollapsed ? tab.label : undefined}
-              >
-                <tab.icon size={16} className="sidebar-icon" />
-                {!sidebarCollapsed && <span className="sidebar-label">{tab.label}</span>}
-              </button>
-            );
-            return acc;
-          }, [])}
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`sidebar-item ${activeTab === tab.id ? 'sidebar-item-active' : ''}`}
+              title={sidebarCollapsed ? tab.label : undefined}
+            >
+              <tab.icon size={16} className="sidebar-icon" />
+              {!sidebarCollapsed && <span className="sidebar-label">{tab.label}</span>}
+            </button>
+          ))}
         </nav>
 
         {/* Bottom actions */}
@@ -737,7 +724,7 @@ const App = () => {
             </div>
           </div>
           <div className="topbar-right">
-            <button className="topbar-date topbar-btn" onClick={() => setActiveTab('calendar')} title="Open Content Calendar">
+            <button onClick={() => setActiveTab('calendar')} className="topbar-date hover:opacity-80 transition-opacity cursor-pointer" title="Go to Content Calendar">
               <Calendar size={11} />
               <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
             </button>
@@ -751,21 +738,8 @@ const App = () => {
             </button>
             <button onClick={() => window.print()} className="topbar-btn topbar-btn-ghost">
               <Printer size={13} />
-              <span>PDF</span>
+              <span>Export</span>
             </button>
-            <button onClick={openQuickStats} className="topbar-btn" style={{ background:'rgba(13,148,136,0.85)', color:'#fff', border:'1px solid rgba(13,148,136,0.5)', boxShadow:'0 2px 8px rgba(13,148,136,0.3)' }}>
-              <Pencil size={13} />
-              <span>Update Stats</span>
-            </button>
-            <button onClick={exportDashboardData} className="topbar-btn topbar-btn-ghost" title="Download dashboard snapshot as JSON to share with your team">
-              <Download size={13} />
-              <span>Share Data</span>
-            </button>
-            <label className="topbar-btn topbar-btn-ghost" style={{ cursor:'pointer' }} title="Import a shared dashboard JSON file">
-              <Upload size={13} />
-              <span>Import</span>
-              <input type="file" accept=".json" style={{ display:'none' }} onChange={importDashboardData} />
-            </label>
           </div>
         </header>
 
@@ -779,7 +753,7 @@ const App = () => {
               <StatCard title="Google Rating"     value={metrics.googleScore}    trend={metrics.googleTrend} icon={Star}        color="bg-amber-500"   sub="Review Cleanup Performance" onClick={() => setActiveTab('reviews')} />
               <StatCard title="Monthly Sessions"  value={metrics.wixSessions}    trend={null}                icon={Layout}      color="bg-teal-600"    sub="Wix Website Traffic"        onClick={() => setActiveTab('seo')} />
               <StatCard title="Avg Read Time"     value={metrics.avgReadTime}    trend={null}                icon={Clock}       color="bg-emerald-600" sub="Blog & Education Retention"  onClick={() => setActiveTab('seo')} />
-              <StatCard title="Omnichannel Reach" value="—"                      trend={null}                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"        onClick={() => setActiveTab('social')} />
+              <StatCard title="Omnichannel Reach" value="🔗"                      trend={null}                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"        onClick={() => setActiveTab('social')} />
               </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Total Leads"       value={metrics.totalLeads}     trend={metrics.leadsGrowth} icon={Target}      color="bg-rose-500"    sub="Monthly Lead Volume"         onClick={() => setActiveTab('pipeline')} />
@@ -793,7 +767,7 @@ const App = () => {
               <SectionHeader icon={TrendingUp} color="text-teal-500" title="6-Month Growth Trend" subtitle="Sessions, Reach & Lead Volume" />
               <div className="h-72">
                 {monthlyTrend.length === 0 ? (
-                  <EmptyChart height="h-72" message="No trend data yet · connect Google Analytics &amp; Meta to populate" />
+                  <EmptyChart height="h-72" message="No trend data yet – connect Google Analytics &amp; Meta to populate" />
                 ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1270,8 +1244,8 @@ const App = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight">My Digital Marketing Achievements</h2>
-                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing · Social Media · Website Management · Blog Writing · SEO · Paid Ads</p>
-                <p className="text-teal-200 text-xs mt-2 italic">Ongoing · Destiny Springs Healthcare</p>
+                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing – Social Media – Website Management – Blog Writing – SEO – Paid Ads</p>
+                <p className="text-teal-200 text-xs mt-2 italic">Ongoing – Destiny Springs Healthcare</p>
               </div>
               <div className="ml-auto shrink-0 text-right hidden md:block">
                 <div className="text-4xl font-black text-amber-300">312</div>
@@ -1495,94 +1469,23 @@ const App = () => {
               ))}
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100 dark:border-white/[0.05] gap-4 flex-wrap">
-                <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="Upcoming Posts &amp; Deadlines" />
-                <div className="flex gap-2 no-print shrink-0 -mt-4">
-                  {[['grid','⊞ Grid'],['list','≡ List']].map(([v,label]) => (
-                    <button key={v} onClick={() => setCalView(v)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
-                        calView === v ? 'bg-teal-600 text-white shadow-sm' : `${card} ${muted} hover:text-teal-500`}`}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {calView === 'list' ? (
-                <div className="space-y-3">
-                  {filteredContent.map((item, i) => (
-                    <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
-                      <div className={`shrink-0 text-center w-12 ${card} px-2 py-1.5 rounded-xl`}>
-                        <div className={`text-[13px] font-black uppercase ${subtl}`}>{item.date.split(' ')[0]}</div>
-                        <div className={`text-lg font-black ${txt}`}>{item.date.split(' ')[1]}</div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-bold ${txt} truncate`}>{item.title}</p>
-                        <p className={`text-[13px] ${muted} font-medium mt-0.5`}>{item.platform}</p>
-                      </div>
-                      <span className={`shrink-0 text-[13px] font-black px-2 py-1 rounded-full ${typeColor[item.type]||''}`}>{item.type}</span>
-                      <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full capitalize ${statusColor[item.status]||''}`}>{item.status}</span>
+              <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="Upcoming Posts &amp; Deadlines" />
+              <div className="space-y-3">
+                {filteredContent.map((item, i) => (
+                  <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
+                    <div className={`shrink-0 text-center w-12 ${card} px-2 py-1.5 rounded-xl`}>
+                      <div className={`text-[13px] font-black uppercase ${subtl}`}>{item.date.split(' ')[0]}</div>
+                      <div className={`text-lg font-black ${txt}`}>{item.date.split(' ')[1]}</div>
                     </div>
-                  ))}
-                </div>
-              ) : (() => {
-                const _now      = new Date();
-                const _yr       = _now.getFullYear();
-                const _mo       = _now.getMonth();
-                const _days     = new Date(_yr, _mo + 1, 0).getDate();
-                const _first    = new Date(_yr, _mo, 1).getDay(); // 0=Sun
-                const _today    = _now.getDate();
-                const _byDay    = {};
-                filteredContent.forEach(item => {
-                  const n = parseInt(item.date.split(' ').pop());
-                  if (!isNaN(n)) { if (!_byDay[n]) _byDay[n] = []; _byDay[n].push(item); }
-                });
-                const _cells = [];
-                for (let i = 0; i < _first; i++) _cells.push(null);
-                for (let d = 1; d <= _days; d++) _cells.push(d);
-                while (_cells.length % 7 !== 0) _cells.push(null);
-                return (
-                  <div>
-                    <div className="grid grid-cols-7 mb-1">
-                      {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
-                        <div key={d} className={`text-center text-[11px] font-black uppercase tracking-wider pb-2 ${subtl}`}>{d}</div>
-                      ))}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold ${txt} truncate`}>{item.title}</p>
+                      <p className={`text-[13px] ${muted} font-medium mt-0.5`}>{item.platform}</p>
                     </div>
-                    <div className="grid grid-cols-7 gap-1">
-                      {_cells.map((day, i) => (
-                        <div key={i} className={`min-h-[96px] rounded-xl p-1.5 border transition-colors ${
-                          !day
-                            ? 'border-transparent'
-                            : day === _today
-                              ? 'border-teal-500/60 bg-teal-500/5 dark:bg-teal-500/10'
-                              : 'border-slate-100 dark:border-white/[0.05] hover:border-teal-500/30'
-                        }`}>
-                          {day && (
-                            <>
-                              <div className={`text-[11px] font-black mb-1 w-5 h-5 flex items-center justify-center rounded-full ${
-                                day === _today ? 'bg-teal-500 text-white' : muted
-                              }`}>{day}</div>
-                              <div className="space-y-0.5">
-                                {(_byDay[day] || []).slice(0, 2).map((item, j) => (
-                                  <div key={j} title={`${item.title} · ${item.platform}`}
-                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded truncate leading-tight ${typeColor[item.type] || ''}`}>
-                                    {item.title.length > 20 ? item.title.slice(0, 18) + '…' : item.title}
-                                  </div>
-                                ))}
-                                {(_byDay[day] || []).length > 2 && (
-                                  <div className={`text-[10px] font-black px-1.5 py-0.5 ${subtl}`}>
-                                    +{(_byDay[day] || []).length - 2} more
-                                  </div>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                    <span className={`shrink-0 text-[13px] font-black px-2 py-1 rounded-full ${typeColor[item.type]||''}`}>{item.type}</span>
+                    <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full capitalize ${statusColor[item.status]||''}`}>{item.status}</span>
                   </div>
-                );
-              })()}
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -1591,10 +1494,10 @@ const App = () => {
         {activeTab === 'reviews' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Current Rating"  value="4.2 ?" trend="+0.8"  icon={Star}        color="bg-amber-500"   sub="Google Business Profile" />
-              <StatCard title="Total Reviews"   value="—"     trend={null}  icon={MessageSquare}color="bg-teal-600"   sub="All Time"               />
-              <StatCard title="Promoters Ready" value="—"     trend={null}  icon={ThumbsUp}    color="bg-emerald-600" sub="Awaiting Outreach"      />
-              <StatCard title="Response Rate"   value="—"     trend={null}  icon={Send}        color="bg-purple-600" sub="Reviews Responded To"   />
+              <StatCard title="Current Rating"  value={_avgRating ? _avgRating + ' ★' : '—'} trend={null} icon={Star} color="bg-amber-500" sub="Google Business Profile" />
+              <StatCard title="Total Reviews"   value={_reviews.length || '—'} trend={null} icon={MessageSquare} color="bg-teal-600" sub="All Time" />
+              <StatCard title="Promoters Ready" value={_reviews.filter(r=>Number(r.rating)>=4).length || '—'} trend={null} icon={ThumbsUp} color="bg-emerald-600" sub="4-5 Star Reviews" />
+              <StatCard title="Response Rate"   value={_reviews.length ? _reviews.filter(r=>Number(r.rating)>=4).length+' of '+_reviews.length : '—'} trend={null} icon={Send} color="bg-purple-600" sub="High-Rating Reviews" />
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
@@ -1645,7 +1548,7 @@ const App = () => {
               </div>
 
               <div className={`${card} p-6 rounded-[2rem]`}>
-                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 9—10 Clients Ready for Google Review" />
+                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 9–10 Clients Ready for Google Review" />
                 <div className="space-y-3">
                   {promoters.map((p, i) => (
                     <div key={i} className={`flex items-center gap-3 p-3 ${rowCls} rounded-xl`}>
@@ -1764,7 +1667,7 @@ const App = () => {
               </div>
               <div className="p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-2xl">
                 <p className="text-xs font-black text-teal-700 dark:text-teal-300 uppercase tracking-wider mb-1">Note</p>
-                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 5—30 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
+                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 5–30 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
               </div>
             </div>
           </>
@@ -1775,10 +1678,10 @@ const App = () => {
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               {[
-                { label: 'Data Sources',  value: '10',  color: 'text-teal-500',    icon: Plug      },
-                { label: 'Auto Syncing',  value: '0',   color: 'text-emerald-500', icon: RefreshCw },
-                { label: 'Pending Setup', value: '10',  color: 'text-amber-500',   icon: Clock     },
-                { label: 'Manual Entries',value: '—',   color: 'text-purple-500',  icon: Upload    },
+                { label: 'Data Sources',   value: String(integrations.length),                                                                               color: 'text-teal-500',    icon: Plug      },
+                { label: 'Auto Syncing',   value: String(integrations.filter(i=>i.connected).length),                                                        color: 'text-emerald-500', icon: RefreshCw },
+                { label: 'Pending Setup',  value: String(integrations.filter(i=>!i.connected).length),                                                       color: 'text-amber-500',   icon: Clock     },
+                { label: 'Manual Entries', value: String(Object.values(manualData).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0)),                        color: 'text-purple-500',  icon: Upload    },
               ].map(s => (
                 <div key={s.label} className={`${card} p-5 rounded-2xl text-center`}>
                   <s.icon size={22} className={`${s.color} mx-auto mb-2`} />
@@ -1899,20 +1802,20 @@ const App = () => {
                   {importDataType === 'Social Metrics' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
-                        { label: 'Platform',           type: 'select', opts: ['Facebook','Instagram','LinkedIn','TikTok','Twitter/X'] },
-                        { label: 'Reporting Month',    type: 'month'  },
-                        { label: 'Followers',          type: 'number', ph: '0' },
-                        { label: 'Monthly Reach',      type: 'number', ph: '0' },
-                        { label: 'Impressions',        type: 'number', ph: '0' },
-                        { label: 'Engagement Rate %',  type: 'number', ph: '0.0' },
-                        { label: 'Link Clicks',        type: 'number', ph: '0' },
-                        { label: 'Posts Published',    type: 'number', ph: '0' },
+                        { key: 'platform',    label: 'Platform',          type: 'select', opts: ['Facebook','Instagram','LinkedIn','TikTok','Twitter/X'] },
+                        { key: 'month',       label: 'Reporting Month',   type: 'month'  },
+                        { key: 'followers',   label: 'Followers',         type: 'number', ph: '0' },
+                        { key: 'reach',       label: 'Monthly Reach',     type: 'number', ph: '0' },
+                        { key: 'impressions', label: 'Impressions',       type: 'number', ph: '0' },
+                        { key: 'engagement',  label: 'Engagement Rate %', type: 'number', ph: '0.0' },
+                        { key: 'clicks',      label: 'Link Clicks',       type: 'number', ph: '0' },
+                        { key: 'posts',       label: 'Posts Published',   type: 'number', ph: '0' },
                       ].map(f => (
-                        <div key={f.label}>
+                        <div key={f.key}>
                           <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
                           {f.type === 'select'
-                            ? <select className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
-                            : <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
+                            ? <select value={manualForm[f.key]||''} onChange={e=>setManualForm(p=>({...p,[f.key]:e.target.value}))} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}><option value="">Select...</option>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
+                            : <input type={f.type} placeholder={f.ph||''} value={manualForm[f.key]||''} onChange={e=>setManualForm(p=>({...p,[f.key]:e.target.value}))} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
                           }
                         </div>
                       ))}
@@ -1921,18 +1824,18 @@ const App = () => {
                   {importDataType === 'SEO Rankings' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
-                        { label: 'Keyword',            type: 'text',   ph: 'e.g. healthcare Arizona' },
-                        { label: 'Current Rank',       type: 'number', ph: '1—100' },
-                        { label: 'Previous Rank',      type: 'number', ph: '1—100' },
-                        { label: 'Monthly Search Vol', type: 'number', ph: '0' },
-                        { label: 'Impressions',        type: 'number', ph: '0' },
-                        { label: 'Clicks',             type: 'number', ph: '0' },
-                        { label: 'CTR %',              type: 'number', ph: '0.0' },
-                        { label: 'Reporting Month',    type: 'month'  },
+                        { key: 'keyword',     label: 'Keyword',            type: 'text',   ph: 'e.g. healthcare Arizona' },
+                        { key: 'rank',        label: 'Current Rank',       type: 'number', ph: '1-100' },
+                        { key: 'prevRank',    label: 'Previous Rank',      type: 'number', ph: '1-100' },
+                        { key: 'searchVol',   label: 'Monthly Search Vol', type: 'number', ph: '0' },
+                        { key: 'impressions', label: 'Impressions',        type: 'number', ph: '0' },
+                        { key: 'clicks',      label: 'Clicks',             type: 'number', ph: '0' },
+                        { key: 'ctr',         label: 'CTR %',              type: 'number', ph: '0.0' },
+                        { key: 'month',       label: 'Reporting Month',    type: 'month'  },
                       ].map(f => (
-                        <div key={f.label}>
+                        <div key={f.key}>
                           <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
-                          <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
+                          <input type={f.type} placeholder={f.ph||''} value={manualForm[f.key]||''} onChange={e=>setManualForm(p=>({...p,[f.key]:e.target.value}))} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
                         </div>
                       ))}
                     </div>
@@ -1940,20 +1843,20 @@ const App = () => {
                   {importDataType === 'Ad Spend' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
-                        { label: 'Ad Platform',        type: 'select', opts: ['Google Ads','Meta Ads','LinkedIn Ads','TikTok Ads'] },
-                        { label: 'Reporting Month',    type: 'month'  },
-                        { label: 'Total Spend ($)',     type: 'number', ph: '0.00' },
-                        { label: 'Impressions',        type: 'number', ph: '0' },
-                        { label: 'Clicks',             type: 'number', ph: '0' },
-                        { label: 'Conversions / Leads',type: 'number', ph: '0' },
-                        { label: 'Cost Per Lead ($)',   type: 'number', ph: '0.00' },
-                        { label: 'ROAS',               type: 'number', ph: '0.0' },
+                        { key: 'platform',    label: 'Ad Platform',         type: 'select', opts: ['Google Ads','Meta Ads','LinkedIn Ads','TikTok Ads'] },
+                        { key: 'month',       label: 'Reporting Month',     type: 'month'  },
+                        { key: 'spend',       label: 'Total Spend ($)',      type: 'number', ph: '0.00' },
+                        { key: 'impressions', label: 'Impressions',         type: 'number', ph: '0' },
+                        { key: 'clicks',      label: 'Clicks',              type: 'number', ph: '0' },
+                        { key: 'leads',       label: 'Conversions / Leads', type: 'number', ph: '0' },
+                        { key: 'cpl',         label: 'Cost Per Lead ($)',    type: 'number', ph: '0.00' },
+                        { key: 'roas',        label: 'ROAS',                type: 'number', ph: '0.0' },
                       ].map(f => (
-                        <div key={f.label}>
+                        <div key={f.key}>
                           <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
                           {f.type === 'select'
-                            ? <select className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
-                            : <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
+                            ? <select value={manualForm[f.key]||''} onChange={e=>setManualForm(p=>({...p,[f.key]:e.target.value}))} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}><option value="">Select...</option>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
+                            : <input type={f.type} placeholder={f.ph||''} value={manualForm[f.key]||''} onChange={e=>setManualForm(p=>({...p,[f.key]:e.target.value}))} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
                           }
                         </div>
                       ))}
@@ -1962,18 +1865,18 @@ const App = () => {
                   {importDataType === 'Email Stats' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
-                        { label: 'Campaign Name',      type: 'text',   ph: 'e.g. April Newsletter' },
-                        { label: 'Send Date',          type: 'date'   },
-                        { label: 'Total Sent',         type: 'number', ph: '0' },
-                        { label: 'Opened',             type: 'number', ph: '0' },
-                        { label: 'Clicked',            type: 'number', ph: '0' },
-                        { label: 'Unsubscribed',       type: 'number', ph: '0' },
-                        { label: 'Conversions',        type: 'number', ph: '0' },
-                        { label: 'Revenue Attributed', type: 'number', ph: '0.00' },
+                        { key: 'campaign',    label: 'Campaign Name',      type: 'text',   ph: 'e.g. April Newsletter' },
+                        { key: 'date',        label: 'Send Date',          type: 'date'   },
+                        { key: 'sent',        label: 'Total Sent',         type: 'number', ph: '0' },
+                        { key: 'opened',      label: 'Opened',             type: 'number', ph: '0' },
+                        { key: 'clicked',     label: 'Clicked',            type: 'number', ph: '0' },
+                        { key: 'unsub',       label: 'Unsubscribed',       type: 'number', ph: '0' },
+                        { key: 'conversions', label: 'Conversions',        type: 'number', ph: '0' },
+                        { key: 'revenue',     label: 'Revenue Attributed', type: 'number', ph: '0.00' },
                       ].map(f => (
-                        <div key={f.label}>
+                        <div key={f.key}>
                           <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
-                          <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
+                          <input type={f.type} placeholder={f.ph||''} value={manualForm[f.key]||''} onChange={e=>setManualForm(p=>({...p,[f.key]:e.target.value}))} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
                         </div>
                       ))}
                     </div>
@@ -1981,19 +1884,19 @@ const App = () => {
                   {importDataType === 'Reviews' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {[
-                        { label: 'Reviewer Name',      type: 'text',   ph: 'e.g. J. Smith', half: false },
-                        { label: 'Rating (1—5)',        type: 'number', ph: '5', half: false },
-                        { label: 'Review Date',        type: 'date',    half: false },
-                        { label: 'Platform',           type: 'select', opts: ['Google','Yelp','Healthgrades','Facebook'], half: false },
-                        { label: 'Review Text',        type: 'textarea',ph: 'Paste review content here...', half: true },
+                        { key: 'name',     label: 'Reviewer Name', type: 'text',     ph: 'e.g. J. Smith', half: false },
+                        { key: 'rating',   label: 'Rating (1-5)',  type: 'number',   ph: '5', half: false },
+                        { key: 'date',     label: 'Review Date',   type: 'date',     half: false },
+                        { key: 'platform', label: 'Platform',      type: 'select',   opts: ['Google','Yelp','Healthgrades','Facebook'], half: false },
+                        { key: 'text',     label: 'Review Text',   type: 'textarea', ph: 'Paste review content here...', half: true },
                       ].map(f => (
-                        <div key={f.label} className={f.half ? 'md:col-span-2' : ''}>
+                        <div key={f.key} className={f.half ? 'md:col-span-2' : ''}>
                           <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
                           {f.type === 'select'
-                            ? <select className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
+                            ? <select value={manualForm[f.key]||''} onChange={e=>setManualForm(p=>({...p,[f.key]:e.target.value}))} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}><option value={''}>Select...</option>{f.opts.map(o=><option key={o}>{o}</option>)}</select>
                             : f.type === 'textarea'
-                            ? <textarea placeholder={f.ph} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-24 resize-none focus:outline-none focus:border-teal-500`} />
-                            : <input type={f.type} placeholder={f.ph||''} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
+                            ? <textarea placeholder={f.ph} value={manualForm[f.key]||''} onChange={e=>setManualForm(p=>({...p,[f.key]:e.target.value}))} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-24 resize-none focus:outline-none focus:border-teal-500`} />
+                            : <input type={f.type} placeholder={f.ph||''} value={manualForm[f.key]||''} onChange={e=>setManualForm(p=>({...p,[f.key]:e.target.value}))} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`} />
                           }
                         </div>
                       ))}
@@ -2067,7 +1970,7 @@ const App = () => {
                   </div>
                   <span className="shrink-0 text-[13px] font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Connect Required</span>
                 </div>
-                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>Sintra AI automates your digital marketing workflows · from social post generation to SEO optimization and ad copy. Connect your account to sync campaign data and run AI-powered automations directly from this dashboard.</p>
+                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>Sintra AI automates your digital marketing workflows – from social post generation to SEO optimization and ad copy. Connect your account to sync campaign data and run AI-powered automations directly from this dashboard.</p>
                 <div className="space-y-2 mb-6">
                   {[
                     'Automated social media post generation',
@@ -2133,7 +2036,7 @@ const App = () => {
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <SectionHeader icon={Bot} color="text-purple-500" title="AI Content Generator" subtitle="Generate marketing content · Connect Sintra AI or MarkyAI to enable" />
+              <SectionHeader icon={Bot} color="text-purple-500" title="AI Content Generator" subtitle="Generate marketing content – Connect Sintra AI or MarkyAI to enable" />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                 {[
                   { label: 'Content Type', opts: ['Social Post','Blog Brief','Email Subject Line','Ad Copy','TikTok Script','Caption + Hashtags'] },
@@ -2151,7 +2054,7 @@ const App = () => {
               <div className="mb-5">
                 <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>Topic / Brief</label>
                 <textarea disabled className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-24 resize-none focus:outline-none opacity-60 cursor-not-allowed`}
-                  placeholder="e.g. Mental health awareness week post · focus on reducing stigma in Arizona healthcare..." />
+                  placeholder="e.g. Mental health awareness week post – focus on reducing stigma in Arizona healthcare..." />
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <button disabled className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-black opacity-50 cursor-not-allowed">
@@ -2188,7 +2091,7 @@ const App = () => {
         <div className={`mt-12 pt-6 border-t ${brd} flex flex-col md:flex-row justify-between items-center gap-3 no-print`}>
           <div className="flex items-center gap-2">
             <Heart size={13} className="text-teal-500 fill-teal-500" />
-            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare · Digital Marketing Portal</span>
+            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare – Digital Marketing Portal</span>
           </div>
           <span className={`text-[13px] ${subtl} uppercase tracking-wider`}>Powered by DMD &middot; Destiny Springs Healthcare</span>
         </div>
@@ -2290,122 +2193,6 @@ const App = () => {
           </div>
         );
       })()}
-
-      {/* ── Quick Stats Slide-in Panel ───────────────────────────────────── */}
-      {showQuickStats && (
-        <div
-          onClick={e => { if (e.target === e.currentTarget) setShowQuickStats(false); }}
-          style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'stretch' }}
-        >
-          <div style={{
-            marginLeft:'auto', width:'min(700px,100vw)', height:'100vh', overflowY:'auto',
-            background: darkMode ? '#0d1829' : '#f8fafc',
-            borderLeft: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : '#e2e8f0'}`,
-            display:'flex', flexDirection:'column', boxShadow:'-20px 0 60px rgba(0,0,0,0.4)',
-          }}>
-            {/* Panel header */}
-            <div style={{
-              padding:'20px 24px 16px', position:'sticky', top:0, zIndex:1,
-              background: darkMode ? '#0d1829' : '#f8fafc',
-              borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.07)' : '#e2e8f0'}`,
-              display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
-            }}>
-              <div>
-                <div style={{ fontSize:17, fontWeight:900, color: darkMode?'#f1f5f9':'#0f172a', letterSpacing:'-0.02em' }}>Update Stats</div>
-                <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>Enter your latest numbers — saves instantly to all dashboard views</div>
-              </div>
-              <div style={{ display:'flex', gap:8, flexShrink:0 }}>
-                <button onClick={saveQuickStats} style={{ padding:'8px 20px', background:'#0d9488', color:'#fff', borderRadius:10, fontSize:13, fontWeight:900, border:'none', cursor:'pointer', boxShadow:'0 2px 8px rgba(13,148,136,0.4)' }}>Save All</button>
-                <button onClick={() => setShowQuickStats(false)} style={{ padding:'8px 12px', background: darkMode?'rgba(255,255,255,0.07)':'#e2e8f0', color:'#94a3b8', borderRadius:10, border:'none', cursor:'pointer', display:'flex', alignItems:'center' }}><X size={16}/></button>
-              </div>
-            </div>
-
-            {/* Field groups */}
-            <div style={{ padding:'20px 24px', display:'flex', flexDirection:'column', gap:28, flex:1 }}>
-              {[
-                { section:'Google & Reviews',  color:{ hex:'#f59e0b',r:245,g:158,b:11  }, icon:Star,     fields:[
-                  { key:'googleScore',    label:'Google Rating',      ph:'4.2'     },
-                  { key:'googleTrend',    label:'Rating Trend',       ph:'+0.3'    },
-                  { key:'nps',            label:'NPS Score',          ph:'72'      },
-                  { key:'promoters',      label:'Promoters Ready',    ph:'12'      },
-                ]},
-                { section:'Website (Wix)',      color:{ hex:'#0d9488',r:13, g:148,b:136 }, icon:Globe,    fields:[
-                  { key:'wixSessions',    label:'Monthly Sessions',   ph:'1,580'   },
-                  { key:'wixBounceRate',  label:'Bounce Rate',        ph:'42%'     },
-                  { key:'siteConversion', label:'Site Conversion',    ph:'3.8%'    },
-                  { key:'avgReadTime',    label:'Avg Read Time',      ph:'4m 12s'  },
-                ]},
-                { section:'Social Media',       color:{ hex:'#3b82f6',r:59, g:130,b:246 }, icon:Share2,   fields:[
-                  { key:'fbFollowers',    label:'FB Followers',       ph:'1,240'   },
-                  { key:'fbReach',        label:'FB Reach',           ph:'8,500'   },
-                  { key:'fbEngagement',   label:'FB Engagement',      ph:'320'     },
-                  { key:'igFollowers',    label:'IG Followers',       ph:'890'     },
-                  { key:'igReach',        label:'IG Reach',           ph:'5,200'   },
-                  { key:'igEngagement',   label:'IG Engagement',      ph:'195'     },
-                  { key:'ttFollowers',    label:'TikTok Followers',   ph:'2,100'   },
-                  { key:'ttReach',        label:'TikTok Reach',       ph:'15,000'  },
-                  { key:'liFollowers',    label:'LinkedIn Followers', ph:'450'     },
-                  { key:'liReach',        label:'LinkedIn Reach',     ph:'3,200'   },
-                ]},
-                { section:'Email (Mailchimp)',  color:{ hex:'#14b8a6',r:20, g:184,b:166 }, icon:Mail,     fields:[
-                  { key:'emailSubscribers', label:'Subscribers',      ph:'1,840'   },
-                  { key:'emailOpenRate',    label:'Open Rate',        ph:'28%'     },
-                  { key:'emailClickRate',   label:'Click Rate',       ph:'4.2%'    },
-                ]},
-                { section:'Paid Ads & Leads',   color:{ hex:'#f43f5e',r:244,g:63, b:94  }, icon:Target,   fields:[
-                  { key:'totalLeads',   label:'Total Leads',          ph:'61'      },
-                  { key:'leadsGrowth',  label:'Lead Growth',          ph:'+12%'    },
-                  { key:'costPerLead',  label:'Cost Per Lead',        ph:'$18'     },
-                ]},
-                { section:'Content Output',     color:{ hex:'#a855f7',r:168,g:85, b:247 }, icon:FileText, fields:[
-                  { key:'blogVelocity',       label:'Blogs / Month',       ph:'8'       },
-                  { key:'tiktokVelocity',     label:'TikToks / Month',     ph:'12'      },
-                  { key:'videoViews',         label:'Total Video Views',   ph:'48,500'  },
-                  { key:'socialPostsMonthly', label:'Social Posts / Mo',   ph:'90'      },
-                  { key:'seoStatewideGrowth', label:'SEO Growth',          ph:'+24%'    },
-                ]},
-              ].map(({ section, color: col, icon: Icon, fields }) => (
-                <div key={section}>
-                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, paddingBottom:12, borderBottom:`1px solid rgba(${col.r},${col.g},${col.b},0.25)` }}>
-                    <div style={{ width:34, height:34, borderRadius:9, background:`rgba(${col.r},${col.g},${col.b},0.12)`, border:`1px solid rgba(${col.r},${col.g},${col.b},0.25)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <Icon size={16} color={col.hex} />
-                    </div>
-                    <span style={{ fontSize:13, fontWeight:900, letterSpacing:'-0.01em', color: darkMode?'#f1f5f9':'#0f172a' }}>{section}</span>
-                  </div>
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(175px,1fr))', gap:10 }}>
-                    {fields.map(f => (
-                      <div key={f.key}>
-                        <label style={{ display:'block', fontSize:10.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:'#64748b', marginBottom:5 }}>{f.label}</label>
-                        <input
-                          type="text"
-                          placeholder={f.ph}
-                          value={qsForm[f.key] || ''}
-                          onChange={e => setQsForm(p => ({ ...p, [f.key]: e.target.value }))}
-                          style={{
-                            width:'100%', padding:'8px 11px', borderRadius:8, boxSizing:'border-box',
-                            border:`1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`,
-                            background: darkMode ? 'rgba(255,255,255,0.04)' : '#ffffff',
-                            color: darkMode ? '#f1f5f9' : '#0f172a', fontSize:13, outline:'none',
-                            transition:'border-color 0.15s',
-                          }}
-                          onFocus={e  => e.target.style.borderColor = col.hex}
-                          onBlur={e   => e.target.style.borderColor = darkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-
-              {/* Footer actions */}
-              <div style={{ display:'flex', gap:10, paddingBottom:24 }}>
-                <button onClick={saveQuickStats} style={{ flex:1, padding:'11px 0', background:'#0d9488', color:'#fff', borderRadius:11, fontSize:14, fontWeight:900, border:'none', cursor:'pointer', boxShadow:'0 4px 14px rgba(13,148,136,0.4)' }}>Save All Stats</button>
-                <button onClick={() => setShowQuickStats(false)} style={{ padding:'11px 20px', background: darkMode?'rgba(255,255,255,0.06)':'#e2e8f0', color:'#64748b', borderRadius:11, fontSize:13, fontWeight:700, border:'none', cursor:'pointer' }}>Cancel</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
