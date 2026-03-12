@@ -80,6 +80,33 @@ const App = () => {
     else          document.documentElement.classList.remove('dark');
   }, [darkMode]);
 
+  // Handle TikTok OAuth redirect — parse ?tiktok_data= on first load
+  useEffect(() => {
+    const params   = new URLSearchParams(window.location.search);
+    const rawData  = params.get('tiktok_data');
+    const rawError = params.get('tiktok_error');
+    if (rawData) {
+      try {
+        const b64      = rawData.replace(/-/g, '+').replace(/_/g, '/');
+        const data     = JSON.parse(atob(b64));
+        const syncTime = new Date().toLocaleString();
+        setConnections(c => {
+          const updated = { ...c, 'TikTok for Business': { ...data, connected: true, lastSync: syncTime } };
+          localStorage.setItem('dmd_connections', JSON.stringify(updated));
+          return updated;
+        });
+        setLiveData(d => ({ ...d, 'TikTok for Business': data }));
+        setSyncStatus(s => ({ ...s, 'TikTok for Business': 'ok' }));
+        setActiveTab('integrations');
+      } catch {}
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (rawError) {
+      setActiveTab('integrations');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Integration fields config (per-service credential forms) ─────────────────
   const integrationFields = {
     'Google Analytics':    [
@@ -110,10 +137,7 @@ const App = () => {
       { key: 'accessToken', label: 'Access Token',  placeholder: 'EAAxxxxxxxx…',  type: 'password', hint: 'developers.facebook.com → Access Token Tool'                },
       { key: 'adAccountId', label: 'Ad Account ID', placeholder: 'act_123456789',                   hint: 'Ads Manager → Account Settings → prepend "act_" to your ID' },
     ],
-    'TikTok for Business': [
-      { key: 'accessToken', label: 'User Access Token', placeholder: 'act.xxxxxxxxxxxxxxxxxx', type: 'password', hint: 'developers.tiktok.com → My Apps → your app → Auth & Permissions → Generate User Access Token' },
-      { key: 'openId',      label: 'Open ID (optional)', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',          hint: 'Returned by TikTok OAuth flow alongside the access token — leave blank to skip'           },
-    ],
+    'TikTok for Business': [], // OAuth flow — no manual fields
     'Sintra AI': [
       { key: 'apiKey',      label: 'API Key',       placeholder: 'Your Sintra API key',  type: 'password', hint: 'Sintra Dashboard → Settings → API Keys'    },
       { key: 'workspaceId', label: 'Workspace ID',  placeholder: 'ws_xxxxxxxxxx',                          hint: 'Sintra → Workspace → Settings → ID'         },
@@ -160,57 +184,13 @@ const App = () => {
   };
 
   const fetchTikTokData = async (creds) => {
-    const { accessToken } = creds;
-    if (!accessToken) return { success: false, error: 'Missing User Access Token' };
+    if (!creds?.accessToken) return { success: false, error: 'Not connected — use the OAuth login button' };
     try {
-      // TikTok v2 user info
-      const userRes = await fetch(
-        'https://open.tiktokapis.com/v2/user/info/?fields=display_name,follower_count,following_count,video_count,likes_count',
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      const userData = await userRes.json();
-      if (userData.error?.code && userData.error.code !== 'ok') {
-        return { success: false, error: userData.error.message || userData.error.code };
-      }
-      // TikTok v2 recent video list
-      const videoRes = await fetch(
-        'https://open.tiktokapis.com/v2/video/list/?fields=id,title,view_count,like_count,comment_count,share_count',
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ max_count: 10 }),
-        }
-      );
-      const videoData = await videoRes.json();
-      const videos = videoData.data?.videos || [];
-      const totalViews    = videos.reduce((s, v) => s + (v.view_count    || 0), 0);
-      const totalLikes    = videos.reduce((s, v) => s + (v.like_count    || 0), 0);
-      const totalComments = videos.reduce((s, v) => s + (v.comment_count || 0), 0);
-      const totalShares   = videos.reduce((s, v) => s + (v.share_count   || 0), 0);
-      return {
-        success: true,
-        data: {
-          displayName:  userData.data?.user?.display_name,
-          followers:    userData.data?.user?.follower_count,
-          videoCount:   userData.data?.user?.video_count,
-          totalLikes:   userData.data?.user?.likes_count,
-          recentPosts:  videos.length,
-          recentViews:  totalViews,
-          recentLikes:  totalLikes,
-          recentComments: totalComments,
-          recentShares:   totalShares,
-          videos: videos.slice(0, 5),
-        },
-      };
+      const res  = await fetch(`/api/tiktok?action=refresh&token=${encodeURIComponent(creds.accessToken)}`);
+      const data = await res.json();
+      if (!data.ok) return { success: false, error: data.error || 'Refresh failed' };
+      return { success: true, data };
     } catch (e) {
-      // CORS block from browser = save creds, show proxy note
-      if (e.message?.includes('fetch') || e.message?.includes('CORS') || e.message?.includes('Failed to fetch')) {
-        return {
-          success: true,
-          data: { connected: true },
-          warning: 'TikTok API requires a backend proxy for browser access. Credentials saved — data will populate once proxy is configured.',
-        };
-      }
       return { success: false, error: e.message };
     }
   };
@@ -2082,7 +2062,30 @@ const App = () => {
                 </div>
                 <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`${muted} hover:text-rose-500 transition-colors`}><X size={18} /></button>
               </div>
-              {/* Fields */}
+              {/* TikTok: OAuth button instead of credential fields */}
+              {connectModal === 'TikTok for Business' ? (
+                <div className="mb-4">
+                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
+                    Click below to log in with your TikTok account. You’ll be redirected to TikTok and back automatically — no credentials to copy.
+                  </p>
+                  <a
+                    href="/api/tiktok?action=login"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-black text-white transition-colors"
+                    style={{ background: '#010101' }}
+                  >
+                    <PlayCircle size={16} />
+                    Login with TikTok
+                  </a>
+                  <p className={`text-[11px] mt-3 text-center ${subtl}`}>
+                    Requires <code>user.info.basic</code> and <code>video.list</code> permissions
+                  </p>
+                  <button
+                    onClick={() => { setConnectModal(null); setConnectError(null); }}
+                    className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
+                  >Cancel</button>
+                </div>
+              ) : (
+              <>{/* Fields */}
               {fields.map(field => (
                 <div key={field.key} className="mb-4">
                   <label className={`block text-[12px] font-black ${txt2} uppercase tracking-wider mb-1.5`}>{field.label}</label>
@@ -2096,6 +2099,8 @@ const App = () => {
                   {field.hint && <p className={`text-[11px] mt-1 ${subtl}`}>{field.hint}</p>}
                 </div>
               ))}
+              </>
+              )}
               {/* Error / Warning */}
               {connectError && (
                 <div className={`mb-4 p-3 rounded-xl text-sm border ${
@@ -2110,7 +2115,8 @@ const App = () => {
                   Credentials are saved locally. Live data sync for this platform requires the backend API proxy to be configured by your developer.
                 </div>
               )}
-              {/* Actions */}
+              {/* Actions — hidden for TikTok (OAuth handles it) */}
+              {connectModal !== 'TikTok for Business' && (
               <div className="flex gap-3 mt-2">
                 <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
                 <button
@@ -2123,6 +2129,7 @@ const App = () => {
                     : <><Plug size={14} /> Save & Connect</>}
                 </button>
               </div>
+              )}
             </div>
           </div>
         );
