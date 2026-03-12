@@ -2040,6 +2040,7 @@ const App = () => {
               </div>
 
               {importMode === 'upload' && (
+                <>
                 {importNotice && (
                   <div className="mb-4 p-3 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 text-sm text-teal-700 dark:text-teal-300 font-medium flex items-center justify-between">
                     <span>{importNotice}</span>
@@ -2075,6 +2076,7 @@ const App = () => {
                     ))}
                   </div>
                 </div>
+                </>
               )}
 
               {importMode === 'paste' && (
