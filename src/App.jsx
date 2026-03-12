@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { items as wixDataItems } from '@wix/data';
 import { createClient, OAuthStrategy } from '@wix/sdk';
 import {
@@ -75,6 +75,16 @@ const App = () => {
   const [manualData, setManualData]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_manual') || '{}'); } catch { return {}; } });
   const [manualForm, setManualForm]             = useState({});
   const [showQuickAdd, setShowQuickAdd]         = useState(false);
+  const fileInputRef                             = useRef(null);
+  const [pasteCSV, setPasteCSV]                 = useState('');
+  const [pasteDataType, setPasteDataType]       = useState('Social Metrics');
+  const [aiContentType, setAiContentType]       = useState('Social Post');
+  const [aiPlatform, setAiPlatform]             = useState('Facebook');
+  const [aiTone, setAiTone]                     = useState('Empathetic');
+  const [aiTopic, setAiTopic]                   = useState('');
+  const [aiOutput, setAiOutput]                 = useState('');
+  const [aiGenerating, setAiGenerating]         = useState(false);
+  const [importNotice, setImportNotice]         = useState('');
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -297,6 +307,146 @@ const App = () => {
       setLiveData(d => ({ ...d, 'TikTok for Business': agg }));
     }
     setManualForm({});
+  };
+
+  // ── Import helpers ──────────────────────────────────────────────────────
+  const detectTypeFromHeaders = (headers) => {
+    const h = headers.map(x => x.toLowerCase().trim());
+    if (h.some(x => x.includes('keyword') || x.includes('rank'))) return 'SEO Rankings';
+    if (h.some(x => x.includes('spend') || x.includes('cpc') || x.includes('cpl'))) return 'Ad Spend';
+    if (h.some(x => x.includes('sent') || x.includes('open') || x.includes('click') && h.some(y => y.includes('email') || y.includes('campaign')))) return 'Email Stats';
+    if (h.some(x => x.includes('rating') || x.includes('review'))) return 'Reviews';
+    return 'Social Metrics';
+  };
+
+  const batchSaveToManualData = (type, rows) => {
+    const key = type.replace(/\s+/g, '_').toLowerCase();
+    const timestamped = rows.map(r => ({ ...r, _savedAt: new Date().toLocaleString() }));
+    setManualData(prev => {
+      const updated = { ...prev, [key]: [...(prev[key] || []), ...timestamped] };
+      localStorage.setItem('dmd_manual', JSON.stringify(updated));
+      return updated;
+    });
+    return rows.length;
+  };
+
+  const parseCSVText = (text, type) => {
+    if (!text.trim()) { setImportNotice('No data to import.'); return; }
+    try {
+      // Try JSON first
+      const parsed = JSON.parse(text.trim());
+      const rows = Array.isArray(parsed) ? parsed : [parsed];
+      const count = batchSaveToManualData(type, rows);
+      setImportNotice(`Imported ${count} record${count !== 1 ? 's' : ''} into ${type}`);
+      setPasteCSV('');
+      return;
+    } catch (_) {
+      // Fall through to CSV
+    }
+    const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) { setImportNotice('Need at least a header row and one data row.'); return; }
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const detectedType = type || detectTypeFromHeaders(headers);
+    const rows = lines.slice(1).map(line => {
+      const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = vals[i] ?? ''; });
+      return obj;
+    }).filter(r => Object.values(r).some(v => v !== ''));
+    if (rows.length === 0) { setImportNotice('No valid rows found.'); return; }
+    const count = batchSaveToManualData(detectedType, rows);
+    setImportNotice(`Imported ${count} record${count !== 1 ? 's' : ''} into ${detectedType}`);
+    setPasteCSV('');
+  };
+
+  const handleFileUpload = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (ext === 'json') {
+        try {
+          const parsed = JSON.parse(text);
+          const rows = Array.isArray(parsed) ? parsed : [parsed];
+          const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+          const type = detectTypeFromHeaders(headers);
+          const count = batchSaveToManualData(type, rows);
+          setImportNotice(`Imported ${count} record${count !== 1 ? 's' : ''} from ${file.name} into ${type}`);
+        } catch (_) {
+          setImportNotice('Invalid JSON file.');
+        }
+      } else {
+        // CSV / plain text
+        const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+        if (lines.length < 2) { setImportNotice('File needs at least a header row and one data row.'); return; }
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        const type = detectTypeFromHeaders(headers);
+        const rows = lines.slice(1).map(line => {
+          const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+          const obj = {};
+          headers.forEach((h, i) => { obj[h] = vals[i] ?? ''; });
+          return obj;
+        }).filter(r => Object.values(r).some(v => v !== ''));
+        if (rows.length === 0) { setImportNotice('No valid rows found in file.'); return; }
+        const count = batchSaveToManualData(type, rows);
+        setImportNotice(`Imported ${count} record${count !== 1 ? 's' : ''} from ${file.name} into ${type}`);
+      }
+    };
+    reader.onerror = () => setImportNotice('Error reading file.');
+    reader.readAsText(file);
+  };
+
+  // ── AI Content Generator ────────────────────────────────────────────────────
+  const generateAIContent = () => {
+    if (!aiTopic.trim()) { setAiOutput('Please enter a topic or brief before generating.'); return; }
+    setAiGenerating(true);
+
+    const platform = aiPlatform;
+    const tone = aiTone;
+    const type = aiContentType;
+    const topic = aiTopic.trim();
+
+    const toneMap = {
+      'Professional':    ['We are committed to', 'Our team of dedicated specialists ensures', 'Destiny Springs Healthcare delivers'],
+      'Empathetic':      ['We understand how difficult it can be', 'Your mental health matters deeply to us', 'Healing begins with compassionate care'],
+      'Informational':   ['Did you know that', 'Research shows that', 'Understanding your mental health is the first step'],
+      'Motivational':    ['You have the strength to heal', 'Every step toward wellness counts', 'Recovery is a journey, and you're not alone'],
+      'Conversational':  ['Let's talk about', 'Here's something we think you should know', 'We get it — life gets hard'],
+      'Urgent':          ['Don't wait to get the help you deserve', 'Appointments are filling fast — act now', 'Today is the day to prioritize your mental health'],
+    };
+    const opens = toneMap[tone] || toneMap['Empathetic'];
+    const opener = opens[Math.floor(Math.random() * opens.length)];
+
+    const platformHints = {
+      'Facebook':      '👇 Share this with someone who needs to hear it. #MentalHealth #DestinySprings',
+      'Instagram':     '✨ Save this post & tag a friend who needs support 💙\n#MentalHealthAwareness #HealingJourney #ArizonaHealthcare',
+      'LinkedIn':      'At Destiny Springs Healthcare, we believe mental wellness drives personal and professional success.',
+      'TikTok':        '🎵 Drop a ❤️ if this resonates! Follow for more mental health tips from our team. #MentalHealthTok #DestinySpringsDMD',
+      'Email':         'As a valued member of the Destiny Springs community, we want to share something important with you.',
+      'Website Blog':  'At Destiny Springs Healthcare, our multidisciplinary team is dedicated to providing evidence-based mental health treatment in Arizona.',
+    };
+    const platformLine = platformHints[platform] || '';
+
+    let output = '';
+    if (type === 'Social Post') {
+      output = `${opener} ${topic}.\n\nAt Destiny Springs Healthcare, our compassionate team provides personalized mental health care for individuals and families across Arizona.\n\n📍 Scottsdale, AZ | 🌐 destinyspringshealthcare.com | 📞 Call to schedule\n\n${platformLine}`;
+    } else if (type === 'Blog Brief') {
+      output = `BLOG TITLE: "${topic}: What You Need to Know"\n\nINTRO: ${opener} ${topic}. This post explores key insights for patients and families seeking mental health support.\n\nH2 SECTIONS:\n1. Understanding ${topic}\n2. How Destiny Springs Healthcare approaches ${topic}\n3. Treatment options and what to expect\n4. Resources and next steps\n\nCTA: Schedule a consultation at destinyspringshealthcare.com\nWORD COUNT TARGET: 800–1,200 words\nSEO TAGS: mental health Arizona, ${topic.toLowerCase()}, Scottsdale psychiatry`;
+    } else if (type === 'Email Subject Line') {
+      output = `Subject Line Options for "${topic}":\n\n1. "${opener.replace(/,$/,'')}: ${topic}"\n2. "Your guide to ${topic} — from Destiny Springs Healthcare"\n3. "Ready to take the next step? Let's talk about ${topic}"\n4. "New resources available: ${topic} support at Destiny Springs"\n5. "You deserve this — ${topic} care tailored for you"\n\nPreheader: Compassionate, evidence-based mental health care in Arizona.`;
+    } else if (type === 'Ad Copy') {
+      output = `HEADLINE: ${topic} — Expert Care in Scottsdale, AZ\n\nBODY: ${opener} ${topic}. Destiny Springs Healthcare offers personalized, evidence-based treatment from a team that truly cares. New patients welcome. Most insurance accepted.\n\nCTA: Book Your Free Consultation\nURLslug: destinyspringshealthcare.com/appointments\n\nCHARACTER COUNT (approx): Headline 60 | Body 145\nPLATFORM: ${platform}`;
+    } else if (type === 'TikTok Script') {
+      output = `🎬 TIKTOK SCRIPT — "${topic}"\nDURATION: 30–60 seconds | TONE: ${tone}\n\n[HOOK - 0-3s]\n"${toneMap['Urgent'][0]} — especially when it comes to ${topic}."\n\n[CONTENT - 3-25s]\n"${opener} ${topic}. At Destiny Springs Healthcare in Scottsdale, AZ, our team specializes in helping people [benefit related to ${topic}]. Here are 3 things to know: [Point 1], [Point 2], [Point 3]."\n\n[CTA - 25-30s]\n"Follow us for more mental health tips, and drop a ❤️ if this helped. Book at the link in bio."\n\n#MentalHealth #DestinySprings #${topic.replace(/\s+/g,'')} #AZHealthcare`;
+    } else if (type === 'Caption + Hashtags') {
+      output = `CAPTION:\n${opener} ${topic}.\n\nDestiny Springs Healthcare is here to support your mental health journey every step of the way. Whether you're seeking help for the first time or continuing your wellness path — you belong here. 💙\n\n📍 Scottsdale, AZ | Link in bio to schedule\n\nHASHTAGS:\n#DestinySprings #MentalHealthAwareness #${topic.replace(/\s+/g,'')} #ArizonaMentalHealth #HealingJourney #PsychiatryScottsdale #MindfulRecovery #MentalWellness #BreakTheStigma #YouAreNotAlone`;
+    }
+
+    setTimeout(() => {
+      setAiOutput(output);
+      setAiGenerating(false);
+    }, 600);
   };
 
   const disconnectIntegration = (name) => {
@@ -1848,7 +1998,11 @@ const App = () => {
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Upload} color="text-teal-500" title="Import Data" subtitle="Upload files, paste CSV, or enter data manually" />
               <div className="flex gap-2 mb-6">
-                {[['upload','? File Upload'],['paste','? Paste CSV'],['manual','? Manual Entry']].map(([m, label]) => (
+                {[
+                  ['upload',   <><Upload size={12} className="inline mr-1" />File Upload</>],
+                  ['paste',    <><FileText size={12} className="inline mr-1" />Paste CSV</>],
+                  ['manual',   <><Pencil size={12} className="inline mr-1" />Manual Entry</>],
+                ].map(([m, label]) => (
                   <button key={m} onClick={() => setImportMode(m)}
                     className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${importMode===m ? 'bg-teal-600 text-white' : `bg-slate-100 dark:bg-slate-800 ${muted} hover:text-teal-500`}`}>
                     {label}
@@ -1857,12 +2011,33 @@ const App = () => {
               </div>
 
               {importMode === 'upload' && (
-                <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-12 text-center hover:border-teal-500 dark:hover:border-teal-500 transition-colors cursor-pointer group">
+                {importNotice && (
+                  <div className="mb-4 p-3 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 text-sm text-teal-700 dark:text-teal-300 font-medium flex items-center justify-between">
+                    <span>{importNotice}</span>
+                    <button onClick={() => setImportNotice('')} className="ml-3 text-teal-500 hover:text-teal-700"><X size={14} /></button>
+                  </div>
+                )}
+                <div
+                  className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-12 text-center hover:border-teal-500 dark:hover:border-teal-500 transition-colors cursor-pointer group"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFileUpload(f); }}
+                >
                   <Upload size={36} className={`${muted} group-hover:text-teal-500 mx-auto mb-3 transition-colors`} />
                   <p className={`text-sm font-black ${txt} mb-1`}>Drop your CSV, XLSX, or JSON file here</p>
                   <p className={`text-xs ${subtl} mb-5`}>Supports Google Analytics exports, Meta Business Suite, Mailchimp CSV, and any standard format</p>
                   <div className="flex gap-3 justify-center flex-wrap">
-                    <button className="px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">Browse Files</button>
+                    <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept=".csv,.json,.txt"
+                    className="hidden"
+                    onChange={e => { if (e.target.files[0]) handleFileUpload(e.target.files[0]); e.target.value = ''; }}
+                  />
+                  <button
+                    className="px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all"
+                    onClick={() => fileInputRef.current?.click()}
+                  >Browse Files</button>
                     <button className={`px-6 py-2.5 ${card} ${muted} rounded-xl text-sm font-black border hover:text-teal-500 transition-all`}><Download size={13} className="inline mr-1.5" />Download Template</button>
                   </div>
                   <div className="flex gap-2 justify-center mt-5 flex-wrap">
@@ -1877,13 +2052,13 @@ const App = () => {
                 <div>
                   <div className="mb-2 flex items-center justify-between">
                     <label className={`text-xs font-black ${muted} uppercase tracking-wider`}>Paste CSV or JSON Data</label>
-                    <select className={`text-xs p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 ${txt} focus:outline-none`}>
+                    <select value={pasteDataType} onChange={e => setPasteDataType(e.target.value)} className={`text-xs p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 ${txt} focus:outline-none`}>
                       {['Social Metrics','SEO Rankings','Ad Spend','Email Stats','Reviews'].map(o => <option key={o}>{o}</option>)}
                     </select>
                   </div>
-                  <textarea className={`w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} font-mono h-44 resize-none focus:outline-none focus:border-teal-500 mb-4`}
+                  <textarea value={pasteCSV} onChange={e => setPasteCSV(e.target.value)} className={`w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} font-mono h-44 resize-none focus:outline-none focus:border-teal-500 mb-4`}
                     placeholder={'month,sessions,leads,reach\nJan,1200,45,8500\nFeb,1350,52,9200\nMar,1580,61,10400'} />
-                  <button className="px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">Parse &amp; Import</button>
+                  <button onClick={() => parseCSVText(pasteCSV, pasteDataType)} className="px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">Parse &amp; Import</button>
                 </div>
               )}
 
@@ -2190,32 +2365,60 @@ const App = () => {
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <SectionHeader icon={Bot} color="text-purple-500" title="AI Content Generator" subtitle="Generate marketing content – Connect Sintra AI or MarkyAI to enable" />
+              <SectionHeader icon={Bot} color="text-purple-500" title="AI Content Generator" subtitle="Generate healthcare marketing content for any platform and tone" />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-                {[
-                  { label: 'Content Type', opts: ['Social Post','Blog Brief','Email Subject Line','Ad Copy','TikTok Script','Caption + Hashtags'] },
-                  { label: 'Platform',     opts: ['Facebook','Instagram','LinkedIn','TikTok','Email','Website Blog'] },
-                  { label: 'Tone',         opts: ['Professional','Empathetic','Informational','Motivational','Conversational','Urgent'] },
-                ].map(f => (
-                  <div key={f.label}>
-                    <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
-                    <select disabled className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none opacity-60 cursor-not-allowed`}>
-                      {f.opts.map(o => <option key={o}>{o}</option>)}
-                    </select>
-                  </div>
-                ))}
+                <div>
+                  <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>Content Type</label>
+                  <select value={aiContentType} onChange={e => setAiContentType(e.target.value)} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-purple-500`}>
+                    {['Social Post','Blog Brief','Email Subject Line','Ad Copy','TikTok Script','Caption + Hashtags'].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>Platform</label>
+                  <select value={aiPlatform} onChange={e => setAiPlatform(e.target.value)} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-purple-500`}>
+                    {['Facebook','Instagram','LinkedIn','TikTok','Email','Website Blog'].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>Tone</label>
+                  <select value={aiTone} onChange={e => setAiTone(e.target.value)} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-purple-500`}>
+                    {['Professional','Empathetic','Informational','Motivational','Conversational','Urgent'].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="mb-5">
                 <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>Topic / Brief</label>
-                <textarea disabled className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-24 resize-none focus:outline-none opacity-60 cursor-not-allowed`}
+                <textarea value={aiTopic} onChange={e => setAiTopic(e.target.value)} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-24 resize-none focus:outline-none focus:border-purple-500`}
                   placeholder="e.g. Mental health awareness week post – focus on reducing stigma in Arizona healthcare..." />
               </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <button disabled className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-black opacity-50 cursor-not-allowed">
-                  <Bot size={14} /> Generate Content
+              <div className="flex items-center gap-3 flex-wrap mb-5">
+                <button
+                  onClick={generateAIContent}
+                  disabled={aiGenerating}
+                  className={`flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-black hover:bg-purple-500 transition-all ${aiGenerating ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  <Bot size={14} /> {aiGenerating ? "Generating..." : "Generate Content"}
                 </button>
-                <span className={`text-xs ${subtl} italic`}>Connect Sintra AI or MarkyAI to enable AI content generation</span>
+                {aiOutput && (
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(aiOutput).catch(()=>{}); }}
+                    className={`flex items-center gap-2 px-4 py-2.5 ${card} ${muted} rounded-xl text-sm font-black border hover:text-purple-500 transition-all`}
+                  >
+                    <FileText size={13} /> Copy to Clipboard
+                  </button>
+                )}
+                {aiOutput && (
+                  <button onClick={() => { setAiOutput(""); setAiTopic(""); }} className={`flex items-center gap-2 px-4 py-2.5 ${card} ${muted} rounded-xl text-sm font-black border hover:text-red-400 transition-all`}>
+                    <X size={13} /> Clear
+                  </button>
+                )}
               </div>
+              {aiOutput && (
+                <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800">
+                  <p className={`text-[13px] font-black ${muted} uppercase tracking-wider mb-2`}>Generated Content</p>
+                  <pre className={`text-sm ${txt} whitespace-pre-wrap font-sans leading-relaxed`}>{aiOutput}</pre>
+                </div>
+              )}
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
