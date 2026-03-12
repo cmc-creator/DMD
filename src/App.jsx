@@ -72,6 +72,8 @@ const App = () => {
   const [connectError, setConnectError]         = useState(null);
   const [syncStatus, setSyncStatus]             = useState({});
   const [liveData, setLiveData]                 = useState({});
+  const [manualData, setManualData]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_manual') || '{}'); } catch { return {}; } });
+  const [manualForm, setManualForm]             = useState({});
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -284,6 +286,29 @@ const App = () => {
     setConnectModal(null);
     setConnectFormData({});
     setConnectError(null);
+  };
+
+  const saveManualEntry = (type) => {
+    const key  = type.replace(/\s+/g, '_').toLowerCase();
+    const entry = { ...manualForm, _savedAt: new Date().toLocaleString() };
+    const updated = { ...manualData, [key]: [...(manualData[key] || []), entry] };
+    setManualData(updated);
+    localStorage.setItem('dmd_manual', JSON.stringify(updated));
+    // Feed TikTok post entries into liveData so Social tab updates
+    if (type === 'TikTok Posts') {
+      const all = updated[key];
+      const agg = {
+        recentPosts:    all.length,
+        recentViews:    all.reduce((s, e) => s + (Number(e.views)    || 0), 0),
+        recentLikes:    all.reduce((s, e) => s + (Number(e.likes)    || 0), 0),
+        recentComments: all.reduce((s, e) => s + (Number(e.comments) || 0), 0),
+        recentShares:   all.reduce((s, e) => s + (Number(e.shares)   || 0), 0),
+        followers:      Number(manualForm.followers) || liveData['TikTok for Business']?.followers || 0,
+        manuallyEntered: true,
+      };
+      setLiveData(d => ({ ...d, 'TikTok for Business': agg }));
+    }
+    setManualForm({});
   };
 
   const disconnectIntegration = (name) => {
@@ -1673,13 +1698,69 @@ const App = () => {
               {importMode === 'manual' && (
                 <div>
                   <div className="flex gap-2 mb-5 flex-wrap">
-                    {['Social Metrics','SEO Rankings','Ad Spend','Email Stats','Reviews'].map(dt => (
+                    {['TikTok Posts','Social Metrics','SEO Rankings','Ad Spend','Email Stats','Reviews'].map(dt => (
                       <button key={dt} onClick={() => setImportDataType(dt)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${importDataType===dt ? 'bg-teal-600 text-white' : `bg-slate-100 dark:bg-slate-800 ${muted} hover:text-teal-500`}`}>
                         {dt}
                       </button>
                     ))}
                   </div>
+                  {importDataType === 'TikTok Posts' && (
+                    <div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {[
+                          { key: 'title',    label: 'Video Title',           type: 'text',   ph: 'e.g. 5 Signs You Need Support' },
+                          { key: 'date',     label: 'Post Date',             type: 'date'   },
+                          { key: 'views',    label: 'Video Views',           type: 'number', ph: '0' },
+                          { key: 'likes',    label: 'Likes',                 type: 'number', ph: '0' },
+                          { key: 'comments', label: 'Comments',              type: 'number', ph: '0' },
+                          { key: 'shares',   label: 'Shares',                type: 'number', ph: '0' },
+                          { key: 'watchTime',label: 'Avg Watch Time (sec)',  type: 'number', ph: '0' },
+                          { key: 'followers',label: 'Followers (current)',   type: 'number', ph: '0' },
+                        ].map(f => (
+                          <div key={f.key}>
+                            <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{f.label}</label>
+                            <input
+                              type={f.type}
+                              placeholder={f.ph || ''}
+                              value={manualForm[f.key] || ''}
+                              onChange={e => setManualForm(p => ({ ...p, [f.key]: e.target.value }))}
+                              className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      {/* Saved entries table */}
+                      {(manualData['tiktok_posts'] || []).length > 0 && (
+                        <div className="mt-6">
+                          <p className={`text-[13px] font-black ${muted} uppercase tracking-wider mb-3`}>Saved Posts ({manualData['tiktok_posts'].length})</p>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[13px]">
+                              <thead>
+                                <tr className={`border-b ${brd}`}>
+                                  {['Title','Date','Views','Likes','Comments','Shares'].map(h => (
+                                    <th key={h} className={`text-left pb-2 font-black ${muted} uppercase tracking-wider pr-4`}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className={`divide-y ${divdr}`}>
+                                {[...(manualData['tiktok_posts'] || [])].reverse().slice(0, 10).map((e, i) => (
+                                  <tr key={i} className={rowCls}>
+                                    <td className={`py-2 pr-4 font-bold ${txt} max-w-[140px] truncate`}>{e.title || '—'}</td>
+                                    <td className={`py-2 pr-4 ${txt2}`}>{e.date || '—'}</td>
+                                    <td className={`py-2 pr-4 font-black text-teal-500`}>{Number(e.views || 0).toLocaleString()}</td>
+                                    <td className={`py-2 pr-4 ${txt2}`}>{Number(e.likes || 0).toLocaleString()}</td>
+                                    <td className={`py-2 pr-4 ${txt2}`}>{Number(e.comments || 0).toLocaleString()}</td>
+                                    <td className={`py-2 pr-4 ${txt2}`}>{Number(e.shares || 0).toLocaleString()}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {importDataType === 'Social Metrics' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
@@ -1783,7 +1864,9 @@ const App = () => {
                       ))}
                     </div>
                   )}
-                  <button className="mt-5 flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">
+                  <button
+                    onClick={() => saveManualEntry(importDataType)}
+                    className="mt-5 flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">
                     <Plus size={13} /> Save Entry
                   </button>
                 </div>
