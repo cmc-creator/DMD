@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { items as wixDataItems } from '@wix/data';
 import { createClient, OAuthStrategy } from '@wix/sdk';
 import {
@@ -13,7 +13,7 @@ import {
   Target, Award, Bell, TrendingDown, Sun, Moon, Printer,
   Calendar, DollarSign, Plug, Trophy, Heart, WifiOff,
   RefreshCw, Pencil, Send, Zap, BadgeCheck, ShieldCheck, Megaphone,
-  ChevronLeft, Upload, Plus, Download, ExternalLink, Bot, X,
+  ChevronLeft, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
 } from 'lucide-react';
 
 // ─── Shared style helpers ───────────────────────────────────────────────────
@@ -74,6 +74,7 @@ const App = () => {
   const [liveData, setLiveData]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_livedata') || '{}'); } catch { return {}; } });
   const [manualData, setManualData]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_manual') || '{}'); } catch { return {}; } });
   const [manualForm, setManualForm]             = useState({});
+  const [showQuickAdd, setShowQuickAdd]         = useState(false);
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -84,6 +85,8 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('dmd_livedata', JSON.stringify(liveData));
   }, [liveData]);
+
+  useEffect(() => { setShowQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
 
   // Handle TikTok OAuth redirect — parse ?tiktok_data= on first load
   useEffect(() => {
@@ -437,14 +440,16 @@ const App = () => {
 
   // ── Ad Performance ───────────────────────────────────────────────────────────
   const adPerformance = _adSpend.map(e => ({
-    platform: e.platform || 'Platform',
-    spend:    Number(e.spend  || 0),
-    leads:    Number(e.leads  || 0),
-    clicks:   Number(e.clicks || 0),
-    cpl:      e.cpl   ? '$' + Number(e.cpl).toFixed(0)  : (e.spend && e.leads ? '$' + (Number(e.spend) / Number(e.leads)).toFixed(0) : '—'),
-    roas:     e.roas  ? Number(e.roas).toFixed(1) + 'x'  : '—',
-    month:    e.month || '',
+    platform:    e.platform || 'Platform',
+    spend:       Number(e.spend  || 0),
+    leads:       Number(e.leads  || 0),
+    clicks:      Number(e.clicks || 0),
+    impressions: Number(e.impressions || 0),
+    cpl:         e.cpl ? '$' + Number(e.cpl).toFixed(0) : (e.spend && e.leads ? '$' + (Number(e.spend) / Number(e.leads)).toFixed(0) : '---'),
+    roas:        e.roas ? Number(e.roas).toFixed(1) + 'x' : '---',
+    month:       e.month || '',
   }));
+  const _totalImpressions = _adSpend.reduce((s,e)=>s+Number(e.impressions||0),0);
 
   // ── NPS Breakdown ─────────────────────────────────────────────────────────────
   const npsData = [
@@ -533,11 +538,30 @@ const App = () => {
   };
 
   // ── Review Management data ──────────────────────────────────────────────────
-  const recentReviews = [];
-
-  const reviewTrend = [];
-
-  const promoters = [];
+  const recentReviews = _reviews.slice().reverse().slice(0, 8).map(r => ({
+    author:    r.name || 'Anonymous',
+    rating:    Number(r.rating) || 5,
+    date:      r.date || '',
+    text:      r.text || 'No review text provided.',
+    responded: Number(r.rating) >= 4,
+    platform:  r.platform || 'Google',
+  }));
+  const _revTrendMap = {};
+  _reviews.forEach(r => {
+    const mon = r.date ? r.date.slice(0, 7) : null;
+    if (!mon) return;
+    if (!_revTrendMap[mon]) _revTrendMap[mon] = { month: mon, reviews: 0, total: 0 };
+    _revTrendMap[mon].reviews++;
+    _revTrendMap[mon].total += Number(r.rating) || 0;
+  });
+  const reviewTrend = Object.values(_revTrendMap)
+    .sort((a, b) => a.month.localeCompare(b.month)).slice(-6)
+    .map(m => ({ ...m, rating: m.reviews ? +(m.total / m.reviews).toFixed(1) : 0 }));
+  const promoters = _reviews.filter(r => Number(r.rating) >= 4).slice(0, 8).map(r => ({
+    name:   r.name || 'Anonymous Client',
+    nps:    Number(r.rating) || 5,
+    status: 'pending',
+  }));
 
   // ── Integrations data ───────────────────────────────────────────────────────
   const integrationsBase = [
@@ -753,7 +777,7 @@ const App = () => {
               <StatCard title="Google Rating"     value={metrics.googleScore}    trend={metrics.googleTrend} icon={Star}        color="bg-amber-500"   sub="Review Cleanup Performance" onClick={() => setActiveTab('reviews')} />
               <StatCard title="Monthly Sessions"  value={metrics.wixSessions}    trend={null}                icon={Layout}      color="bg-teal-600"    sub="Wix Website Traffic"        onClick={() => setActiveTab('seo')} />
               <StatCard title="Avg Read Time"     value={metrics.avgReadTime}    trend={null}                icon={Clock}       color="bg-emerald-600" sub="Blog & Education Retention"  onClick={() => setActiveTab('seo')} />
-              <StatCard title="Omnichannel Reach" value="🔗"                      trend={null}                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"        onClick={() => setActiveTab('social')} />
+              <StatCard title="Omnichannel Reach" value={_socialMet.reduce((s,e)=>s+Number(e.reach||0),0)>0 ? _socialMet.reduce((s,e)=>s+Number(e.reach||0),0).toLocaleString() : '---'}                      trend={null}                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"        onClick={() => setActiveTab('social')} />
               </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Total Leads"       value={metrics.totalLeads}     trend={metrics.leadsGrowth} icon={Target}      color="bg-rose-500"    sub="Monthly Lead Volume"         onClick={() => setActiveTab('pipeline')} />
@@ -893,7 +917,7 @@ const App = () => {
                   {[
                     { val: metrics.blogVelocity,   label: 'Blogs / Mo',  bg: 'bg-purple-50 dark:bg-purple-900/30', tx: 'text-purple-900 dark:text-purple-200', sm: 'text-purple-500' },
                     { val: metrics.tiktokVelocity, label: 'TikToks / Mo',bg: 'bg-pink-50 dark:bg-pink-900/30',     tx: 'text-pink-900 dark:text-pink-200',     sm: 'text-pink-500'   },
-                    { val: '90',                    label: 'Social Posts', bg: 'bg-teal-50 dark:bg-teal-900/30',   tx: 'text-teal-900 dark:text-teal-200',     sm: 'text-teal-500'   },
+                    { val: _socialMet.reduce((s,e)=>s+Number(e.posts||0),0) || metrics.socialPostsMonthly || '---', label: 'Social Posts', bg: 'bg-teal-50 dark:bg-teal-900/30',   tx: 'text-teal-900 dark:text-teal-200',     sm: 'text-teal-500'   },
                     { val: metrics.videoViews,      label: 'Video Views',  bg: 'bg-amber-50 dark:bg-amber-900/30', tx: 'text-amber-900 dark:text-amber-200',   sm: 'text-amber-500'  },
                   ].map(s => (
                     <div key={s.label} className={`p-4 ${s.bg} rounded-3xl text-center`}>
@@ -993,6 +1017,33 @@ const App = () => {
                 )}
               </div>
             </div>
+            {/* Quick-Add: Social Metrics */}
+            <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
+              <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowQuickAdd(p => !p)}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
+                  <div>
+                    <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Social Metrics Entry</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log data here — charts update instantly</p>
+                  </div>
+                </div>
+                <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
+              </div>
+              {showQuickAdd && (
+                <div className="mt-5 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <select value={manualForm.platform||''} onChange={e=>setManualForm(p=>({...p,platform:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full">
+                      <option value="">Platform</option>
+                      {['Facebook','Instagram','LinkedIn','TikTok','Twitter','YouTube'].map(o=><option key={o} value={o}>{o}</option>)}
+                    </select>
+                    {[['month','Month','month'],['followers','Followers','number'],['reach','Reach','number'],['impressions','Impressions','number'],['engagement','Engagement %','number'],['clicks','Clicks','number'],['posts','Posts','number']].map(([k,lbl,t])=>(
+                      <input key={k} type={t} placeholder={lbl} value={manualForm[k]||''} onChange={e=>setManualForm(p=>({...p,[k]:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
+                    ))}
+                  </div>
+                  <button onClick={()=>{saveManualEntry('Social Metrics');setShowQuickAdd(false);}} className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl">Save Social Entry</button>
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -1072,6 +1123,29 @@ const App = () => {
                 ))}
               </div>
             </div>
+            {/* Quick-Add: SEO Rankings */}
+            <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
+              <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowQuickAdd(p => !p)}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
+                  <div>
+                    <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add SEO Rankings Entry</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log keyword data — charts update instantly</p>
+                  </div>
+                </div>
+                <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
+              </div>
+              {showQuickAdd && (
+                <div className="mt-5 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {[['keyword','Keyword','text'],['rank','Current Rank','number'],['prevRank','Previous Rank','number'],['searchVol','Search Volume','number'],['clicks','Organic Clicks','number'],['month','Month','month']].map(([k,lbl,t])=>(
+                      <input key={k} type={t} placeholder={lbl} value={manualForm[k]||''} onChange={e=>setManualForm(p=>({...p,[k]:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
+                    ))}
+                  </div>
+                  <button onClick={()=>{saveManualEntry('SEO Rankings');setShowQuickAdd(false);}} className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl">Save SEO Entry</button>
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -1079,10 +1153,10 @@ const App = () => {
         {activeTab === 'ads' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Total Ad Spend"    value="—"      trend={null}     icon={Target}      color="bg-indigo-600" sub="Monthly Budget"      />
-              <StatCard title="Total Leads"       value="—"      trend={null}     icon={Users}       color="bg-teal-600"  sub="From Paid Channels" />
-              <StatCard title="Avg CPL"           value="—"      trend={null}      icon={TrendingDown} color="bg-blue-600" sub="Cost Per Lead" />
-              <StatCard title="Total Impressions" value="—"      trend={null}     icon={Eye}         color="bg-amber-600" sub="Paid Visibility"     />
+              <StatCard title="Total Ad Spend"    value={_totalSpend > 0 ? '$'+_totalSpend.toLocaleString() : '---'}  trend={null} icon={Target}      color="bg-indigo-600" sub="Monthly Budget"      onClick={() => setActiveTab('import')} />
+              <StatCard title="Total Leads"       value={_totalLeads > 0 ? _totalLeads.toLocaleString() : '---'}        trend={null} icon={Users}       color="bg-teal-600"  sub="From Paid Channels" onClick={() => setActiveTab('import')} />
+              <StatCard title="Avg CPL"           value={metrics.costPerLead}                                             trend={null} icon={TrendingDown} color="bg-blue-600" sub="Cost Per Lead" />
+              <StatCard title="Total Impressions" value={_totalImpressions > 0 ? _totalImpressions.toLocaleString() : '---'} trend={null} icon={Eye}  color="bg-amber-600" sub="Paid Visibility" />
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={BarChart3} color="text-indigo-500" title="Paid Channel Performance" subtitle="Google, Meta & LinkedIn Ads" />
@@ -1096,16 +1170,18 @@ const App = () => {
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${divdr}`}>
-                    {adPerformance.map(ad => (
-                      <tr key={ad.channel}>
-                        <td className={`py-3 pr-4 text-sm font-bold ${txt}`}>{ad.channel}</td>
+                    {adPerformance.length === 0 ? (
+                      <tr><td colSpan={6} className="py-8 text-center text-sm text-slate-400">No ad data yet — add an entry below</td></tr>
+                    ) : adPerformance.map(ad => (
+                      <tr key={ad.platform}>
+                        <td className={`py-3 pr-4 text-sm font-bold ${txt}`}>{ad.platform}</td>
                         <td className={`py-3 px-4 text-right text-sm font-bold ${txt2}`}>${ad.spend.toLocaleString()}</td>
                         <td className={`py-3 px-4 text-right text-sm font-bold ${txt2}`}>{ad.impressions.toLocaleString()}</td>
                         <td className={`py-3 px-4 text-right text-sm font-bold ${txt2}`}>{ad.clicks.toLocaleString()}</td>
                         <td className="py-3 px-4 text-right">
                           <span className="bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-xs font-black px-3 py-1 rounded-full">{ad.leads}</span>
                         </td>
-                        <td className={`py-3 pl-4 text-right text-sm font-black ${txt}`}>${ad.cpl.toFixed(2)}</td>
+                        <td className={`py-3 pl-4 text-right text-sm font-black ${txt}`}>{ad.cpl}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1126,6 +1202,33 @@ const App = () => {
                 </ResponsiveContainer>
               </div>
             </div>
+            {/* Quick-Add: Ad Spend */}
+            <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
+              <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowQuickAdd(p => !p)}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
+                  <div>
+                    <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Ad Spend Entry</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log campaign data — performance table updates instantly</p>
+                  </div>
+                </div>
+                <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
+              </div>
+              {showQuickAdd && (
+                <div className="mt-5 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <select value={manualForm.platform||''} onChange={e=>setManualForm(p=>({...p,platform:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full">
+                      <option value="">Platform</option>
+                      {['Google Ads','Meta Ads','LinkedIn Ads','TikTok Ads','Display Ads'].map(o=><option key={o} value={o}>{o}</option>)}
+                    </select>
+                    {[['month','Month','month'],['spend','Spend ($)','number'],['impressions','Impressions','number'],['clicks','Clicks','number'],['leads','Leads','number'],['cpl','Cost Per Lead ($)','number'],['roas','ROAS (x)','number']].map(([k,lbl,t])=>(
+                      <input key={k} type={t} placeholder={lbl} value={manualForm[k]||''} onChange={e=>setManualForm(p=>({...p,[k]:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
+                    ))}
+                  </div>
+                  <button onClick={()=>{saveManualEntry('Ad Spend');setShowQuickAdd(false);}} className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl">Save Ad Entry</button>
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -1134,9 +1237,9 @@ const App = () => {
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Avg Open Rate"     value={metrics.emailOpenRate} trend={null}  icon={Mail}        color="bg-teal-600"   sub="All Campaigns"      />
-              <StatCard title="Total Subscribers" value="—"                    trend={null}  icon={Users}       color="bg-purple-600" sub="Active List Size"   />
-              <StatCard title="Click Rate"        value="—"                    trend={null}  icon={MousePointer}color="bg-emerald-600"sub="Avg CTR"            />
-              <StatCard title="Conversions"       value="—"                    trend={null}  icon={CheckCircle} color="bg-amber-600"  sub="Email-Attributed"  />
+              <StatCard title="Total Sent"        value={emailCampaigns.reduce((s,c)=>s+c.sent,0)>0 ? emailCampaigns.reduce((s,c)=>s+c.sent,0).toLocaleString() : '---'} trend={null} icon={Users} color="bg-purple-600" sub="Total Emails Sent" />
+              <StatCard title="Avg Click Rate"    value={emailCampaigns.length>0 ? (emailCampaigns.reduce((s,c)=>s+c.clicked,0)/Math.max(1,emailCampaigns.reduce((s,c)=>s+c.sent,0))*100).toFixed(1)+'%' : '---'} trend={null} icon={MousePointer} color="bg-emerald-600" sub="Avg CTR" />
+              <StatCard title="Conversions"       value={emailCampaigns.reduce((s,c)=>s+(c.conversions||0),0)||'---'} trend={null} icon={CheckCircle} color="bg-amber-600" sub="Email-Attributed" />
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Mail} color="text-teal-500" title="Email Campaign Performance" subtitle="Sends, Opens, Clicks & Conversions" />
@@ -1179,6 +1282,29 @@ const App = () => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+            </div>
+            {/* Quick-Add: Email Campaign */}
+            <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
+              <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowQuickAdd(p => !p)}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
+                  <div>
+                    <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Email Campaign Entry</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log campaign stats — metrics update instantly</p>
+                  </div>
+                </div>
+                <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
+              </div>
+              {showQuickAdd && (
+                <div className="mt-5 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {[['campaign','Campaign Name','text'],['date','Date','date'],['sent','Emails Sent','number'],['opened','Opened','number'],['clicked','Clicked','number'],['conversions','Conversions','number'],['unsub','Unsubscribes','number'],['revenue','Revenue ($)','number']].map(([k,lbl,t])=>(
+                      <input key={k} type={t} placeholder={lbl} value={manualForm[k]||''} onChange={e=>setManualForm(p=>({...p,[k]:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
+                    ))}
+                  </div>
+                  <button onClick={()=>{saveManualEntry('Email Stats');setShowQuickAdd(false);}} className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl">Save Email Entry</button>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1566,6 +1692,34 @@ const App = () => {
                   <p className="text-sm text-teal-600 dark:text-teal-400">Convert all pipeline promoters to 5-star reviews ? Push rating above 4.5 ?</p>
                 </div>
               </div>
+            </div>
+            {/* Quick-Add: Patient Review */}
+            <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
+              <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowQuickAdd(p => !p)}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
+                  <div>
+                    <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Patient Review</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log reviews here — star rating and trends update instantly</p>
+                  </div>
+                </div>
+                <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
+              </div>
+              {showQuickAdd && (
+                <div className="mt-5 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <input type="text" placeholder="Patient Name" value={manualForm.name||''} onChange={e=>setManualForm(p=>({...p,name:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
+                    <input type="number" min="1" max="5" placeholder="Rating (1-5)" value={manualForm.rating||''} onChange={e=>setManualForm(p=>({...p,rating:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
+                    <input type="date" value={manualForm.date||''} onChange={e=>setManualForm(p=>({...p,date:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
+                    <select value={manualForm.platform||''} onChange={e=>setManualForm(p=>({...p,platform:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full">
+                      <option value="">Platform</option>
+                      {['Google','Yelp','Healthgrades','Facebook','ZocDoc'].map(o=><option key={o} value={o}>{o}</option>)}
+                    </select>
+                    <textarea placeholder="Review text..." value={manualForm.text||''} onChange={e=>setManualForm(p=>({...p,text:e.target.value}))} rows={3} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full col-span-full" />
+                  </div>
+                  <button onClick={()=>{saveManualEntry('Reviews');setShowQuickAdd(false);}} className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl">Save Review</button>
+                </div>
+              )}
             </div>
           </>
         )}
