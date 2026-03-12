@@ -413,9 +413,9 @@ const App = () => {
       'Professional':    ['We are committed to', 'Our team of dedicated specialists ensures', 'Destiny Springs Healthcare delivers'],
       'Empathetic':      ['We understand how difficult it can be', 'Your mental health matters deeply to us', 'Healing begins with compassionate care'],
       'Informational':   ['Did you know that', 'Research shows that', 'Understanding your mental health is the first step'],
-      'Motivational':    ['You have the strength to heal', 'Every step toward wellness counts', 'Recovery is a journey, and you're not alone'],
-      'Conversational':  ['Let's talk about', 'Here's something we think you should know', 'We get it — life gets hard'],
-      'Urgent':          ['Don't wait to get the help you deserve', 'Appointments are filling fast — act now', 'Today is the day to prioritize your mental health'],
+      'Motivational':    ['You have the strength to heal', 'Every step toward wellness counts', "Recovery is a journey, and you're not alone"],
+      'Conversational':  ["Let's talk about", "Here's something we think you should know", 'We get it — life gets hard'],
+      'Urgent':          ["Don't wait to get the help you deserve", 'Appointments are filling fast — act now', 'Today is the day to prioritize your mental health'],
     };
     const opens = toneMap[tone] || toneMap['Empathetic'];
     const opener = opens[Math.floor(Math.random() * opens.length)];
