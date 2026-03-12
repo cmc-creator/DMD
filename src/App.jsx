@@ -60,6 +60,7 @@ const App = () => {
   const [activeTab, setActiveTab]               = useState('overview');
   const [darkMode, setDarkMode]                 = useState(true);
   const [calFilter, setCalFilter]               = useState('All');
+  const [calView, setCalView]                   = useState('grid');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showAddPost, setShowAddPost]           = useState(false);
   const [importMode, setImportMode]             = useState('upload');
@@ -1434,23 +1435,94 @@ const App = () => {
               ))}
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="Upcoming Posts &amp; Deadlines" />
-              <div className="space-y-3">
-                {filteredContent.map((item, i) => (
-                  <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
-                    <div className={`shrink-0 text-center w-12 ${card} px-2 py-1.5 rounded-xl`}>
-                      <div className={`text-[13px] font-black uppercase ${subtl}`}>{item.date.split(' ')[0]}</div>
-                      <div className={`text-lg font-black ${txt}`}>{item.date.split(' ')[1]}</div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold ${txt} truncate`}>{item.title}</p>
-                      <p className={`text-[13px] ${muted} font-medium mt-0.5`}>{item.platform}</p>
-                    </div>
-                    <span className={`shrink-0 text-[13px] font-black px-2 py-1 rounded-full ${typeColor[item.type]||''}`}>{item.type}</span>
-                    <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full capitalize ${statusColor[item.status]||''}`}>{item.status}</span>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100 dark:border-white/[0.05] gap-4 flex-wrap">
+                <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="Upcoming Posts &amp; Deadlines" />
+                <div className="flex gap-2 no-print shrink-0 -mt-4">
+                  {[['grid','⊞ Grid'],['list','≡ List']].map(([v,label]) => (
+                    <button key={v} onClick={() => setCalView(v)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                        calView === v ? 'bg-teal-600 text-white shadow-sm' : `${card} ${muted} hover:text-teal-500`}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {calView === 'list' ? (
+                <div className="space-y-3">
+                  {filteredContent.map((item, i) => (
+                    <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
+                      <div className={`shrink-0 text-center w-12 ${card} px-2 py-1.5 rounded-xl`}>
+                        <div className={`text-[13px] font-black uppercase ${subtl}`}>{item.date.split(' ')[0]}</div>
+                        <div className={`text-lg font-black ${txt}`}>{item.date.split(' ')[1]}</div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold ${txt} truncate`}>{item.title}</p>
+                        <p className={`text-[13px] ${muted} font-medium mt-0.5`}>{item.platform}</p>
+                      </div>
+                      <span className={`shrink-0 text-[13px] font-black px-2 py-1 rounded-full ${typeColor[item.type]||''}`}>{item.type}</span>
+                      <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full capitalize ${statusColor[item.status]||''}`}>{item.status}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (() => {
+                const _now      = new Date();
+                const _yr       = _now.getFullYear();
+                const _mo       = _now.getMonth();
+                const _days     = new Date(_yr, _mo + 1, 0).getDate();
+                const _first    = new Date(_yr, _mo, 1).getDay(); // 0=Sun
+                const _today    = _now.getDate();
+                const _byDay    = {};
+                filteredContent.forEach(item => {
+                  const n = parseInt(item.date.split(' ').pop());
+                  if (!isNaN(n)) { if (!_byDay[n]) _byDay[n] = []; _byDay[n].push(item); }
+                });
+                const _cells = [];
+                for (let i = 0; i < _first; i++) _cells.push(null);
+                for (let d = 1; d <= _days; d++) _cells.push(d);
+                while (_cells.length % 7 !== 0) _cells.push(null);
+                return (
+                  <div>
+                    <div className="grid grid-cols-7 mb-1">
+                      {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                        <div key={d} className={`text-center text-[11px] font-black uppercase tracking-wider pb-2 ${subtl}`}>{d}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1">
+                      {_cells.map((day, i) => (
+                        <div key={i} className={`min-h-[96px] rounded-xl p-1.5 border transition-colors ${
+                          !day
+                            ? 'border-transparent'
+                            : day === _today
+                              ? 'border-teal-500/60 bg-teal-500/5 dark:bg-teal-500/10'
+                              : 'border-slate-100 dark:border-white/[0.05] hover:border-teal-500/30'
+                        }`}>
+                          {day && (
+                            <>
+                              <div className={`text-[11px] font-black mb-1 w-5 h-5 flex items-center justify-center rounded-full ${
+                                day === _today ? 'bg-teal-500 text-white' : muted
+                              }`}>{day}</div>
+                              <div className="space-y-0.5">
+                                {(_byDay[day] || []).slice(0, 2).map((item, j) => (
+                                  <div key={j} title={`${item.title} · ${item.platform}`}
+                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded truncate leading-tight ${typeColor[item.type] || ''}`}>
+                                    {item.title.length > 20 ? item.title.slice(0, 18) + '…' : item.title}
+                                  </div>
+                                ))}
+                                {(_byDay[day] || []).length > 2 && (
+                                  <div className={`text-[10px] font-black px-1.5 py-0.5 ${subtl}`}>
+                                    +{(_byDay[day] || []).length - 2} more
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </>
         )}
