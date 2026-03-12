@@ -85,6 +85,8 @@ const App = () => {
   const [aiOutput, setAiOutput]                 = useState('');
   const [aiGenerating, setAiGenerating]         = useState(false);
   const [importNotice, setImportNotice]         = useState('');
+  const [reviewOverrides, setReviewOverrides]     = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_overrides') || '{}'); } catch { return {}; } });
+  const [reviewOverrideForm, setReviewOverrideForm] = useState({ rating: '', totalReviews: '' });
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -510,7 +512,8 @@ const App = () => {
   const _metaLive   = liveData['Meta Business Suite'] || {};
   const _wixLive    = liveData['Wix Analytics']      || {};
   const _tikLive    = liveData['TikTok for Business'] || {};
-  const _avgRating  = _reviews.length ? (_reviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) / _reviews.length).toFixed(1) : null;
+  const _avgRating  = reviewOverrides.rating ? reviewOverrides.rating : (_reviews.length ? (_reviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) / _reviews.length).toFixed(1) : null);
+  const _totalReviewCount = reviewOverrides.totalReviews ? Number(reviewOverrides.totalReviews) : _reviews.length;
   const _totalLeads = _adSpend.reduce((s, e) => s + (Number(e.leads) || 0), 0);
   const _totalSpend = _adSpend.reduce((s, e) => s + (Number(e.spend) || 0), 0);
   const _latestSocial = {};
@@ -1771,37 +1774,62 @@ const App = () => {
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Current Rating"  value={_avgRating ? _avgRating + ' ★' : '—'} trend={null} icon={Star} color="bg-amber-500" sub="Google Business Profile" />
-              <StatCard title="Total Reviews"   value={_reviews.length || '—'} trend={null} icon={MessageSquare} color="bg-teal-600" sub="All Time" />
+              <StatCard title="Total Reviews"   value={_totalReviewCount || '—'} trend={null} icon={MessageSquare} color="bg-teal-600" sub="All Time" />
               <StatCard title="Promoters Ready" value={_reviews.filter(r=>Number(r.rating)>=4).length || '—'} trend={null} icon={ThumbsUp} color="bg-emerald-600" sub="4-5 Star Reviews" />
               <StatCard title="Response Rate"   value={_reviews.length ? _reviews.filter(r=>Number(r.rating)>=4).length+' of '+_reviews.length : '—'} trend={null} icon={Send} color="bg-purple-600" sub="High-Rating Reviews" />
             </div>
 
-            {/* ── Add Review form — always visible ── */}
+            {/* ── Review Score Override — simple manual entry ── */}
             <div className={`${card} p-6 rounded-[2rem] mb-8`}>
               <div className="flex items-center gap-3 mb-5">
                 <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><Star size={16} className="text-amber-500" /></div>
                 <div>
-                  <p className={`text-sm font-black ${txt}`}>Log a Patient Review</p>
-                  <p className={`text-xs ${subtl}`}>KPI cards, chart, and tables update the moment you save</p>
+                  <p className={`text-sm font-black ${txt}`}>Set Your Review Score</p>
+                  <p className={`text-xs ${subtl}`}>Enter your current rating and total review count — KPI cards update instantly</p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-                <input type="text" placeholder="Patient Name" value={manualForm.name||''} onChange={e=>setManualForm(p=>({...p,name:e.target.value}))} className={`px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-full focus:outline-none focus:border-amber-400`} />
-                <input type="number" min="1" max="5" placeholder="Rating (1–5)" value={manualForm.rating||''} onChange={e=>setManualForm(p=>({...p,rating:e.target.value}))} className={`px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-full focus:outline-none focus:border-amber-400`} />
-                <input type="date" value={manualForm.date||''} onChange={e=>setManualForm(p=>({...p,date:e.target.value}))} className={`px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-full focus:outline-none focus:border-amber-400`} />
-                <select value={manualForm.platform||''} onChange={e=>setManualForm(p=>({...p,platform:e.target.value}))} className={`px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-full focus:outline-none focus:border-amber-400`}>
-                  <option value="">Platform</option>
-                  {['Google','Yelp','Healthgrades','Facebook','ZocDoc'].map(o=><option key={o} value={o}>{o}</option>)}
-                </select>
+              <div className="flex flex-wrap gap-3 items-end">
+                <div>
+                  <label className={`block text-[11px] font-black uppercase tracking-wider ${subtl} mb-1`}>Overall Rating (e.g. 4.7)</label>
+                  <input
+                    type="number" min="1" max="5" step="0.1"
+                    placeholder={reviewOverrides.rating || '4.7'}
+                    value={reviewOverrideForm.rating}
+                    onChange={e => setReviewOverrideForm(f => ({...f, rating: e.target.value}))}
+                    className={`px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-36 focus:outline-none focus:border-amber-400`}
+                  />
+                </div>
+                <div>
+                  <label className={`block text-[11px] font-black uppercase tracking-wider ${subtl} mb-1`}>Total Reviews (e.g. 167)</label>
+                  <input
+                    type="number" min="0"
+                    placeholder={reviewOverrides.totalReviews || '167'}
+                    value={reviewOverrideForm.totalReviews}
+                    onChange={e => setReviewOverrideForm(f => ({...f, totalReviews: e.target.value}))}
+                    className={`px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-36 focus:outline-none focus:border-amber-400`}
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    const updated = {
+                      ...reviewOverrides,
+                      ...(reviewOverrideForm.rating      ? { rating:       reviewOverrideForm.rating }      : {}),
+                      ...(reviewOverrideForm.totalReviews ? { totalReviews: reviewOverrideForm.totalReviews } : {}),
+                    };
+                    setReviewOverrides(updated);
+                    localStorage.setItem('dmd_review_overrides', JSON.stringify(updated));
+                    setReviewOverrideForm({ rating: '', totalReviews: '' });
+                  }}
+                  className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-white text-sm font-black rounded-xl transition-all"
+                >Save</button>
+                {(reviewOverrides.rating || reviewOverrides.totalReviews) && (
+                  <div className={`flex items-center gap-3 text-xs ${subtl}`}>
+                    {reviewOverrides.rating && <span className="px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-black">Rating: {reviewOverrides.rating} ★</span>}
+                    {reviewOverrides.totalReviews && <span className="px-2 py-1 rounded-full bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 font-black">{reviewOverrides.totalReviews} reviews</span>}
+                    <button onClick={() => { setReviewOverrides({}); localStorage.removeItem('dmd_review_overrides'); }} className="text-slate-400 hover:text-red-400 transition-all">clear</button>
+                  </div>
+                )}
               </div>
-              <textarea placeholder="Review text..." value={manualForm.text||''} onChange={e=>setManualForm(p=>({...p,text:e.target.value}))} rows={2} className={`px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-full resize-none focus:outline-none focus:border-amber-400 mb-3`} />
-              <button
-                onClick={() => saveManualEntry('Reviews')}
-                className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-white text-sm font-black rounded-xl transition-all"
-              >Save Review</button>
-              {_reviews.length > 0 && (
-                <span className={`ml-4 text-xs ${subtl}`}>{_reviews.length} review{_reviews.length !== 1 ? 's' : ''} logged</span>
-              )}
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
