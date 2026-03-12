@@ -1776,6 +1776,34 @@ const App = () => {
               <StatCard title="Response Rate"   value={_reviews.length ? _reviews.filter(r=>Number(r.rating)>=4).length+' of '+_reviews.length : '—'} trend={null} icon={Send} color="bg-purple-600" sub="High-Rating Reviews" />
             </div>
 
+            {/* ── Add Review form — always visible ── */}
+            <div className={`${card} p-6 rounded-[2rem] mb-8`}>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><Star size={16} className="text-amber-500" /></div>
+                <div>
+                  <p className={`text-sm font-black ${txt}`}>Log a Patient Review</p>
+                  <p className={`text-xs ${subtl}`}>KPI cards, chart, and tables update the moment you save</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                <input type="text" placeholder="Patient Name" value={manualForm.name||''} onChange={e=>setManualForm(p=>({...p,name:e.target.value}))} className={`px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-full focus:outline-none focus:border-amber-400`} />
+                <input type="number" min="1" max="5" placeholder="Rating (1–5)" value={manualForm.rating||''} onChange={e=>setManualForm(p=>({...p,rating:e.target.value}))} className={`px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-full focus:outline-none focus:border-amber-400`} />
+                <input type="date" value={manualForm.date||''} onChange={e=>setManualForm(p=>({...p,date:e.target.value}))} className={`px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-full focus:outline-none focus:border-amber-400`} />
+                <select value={manualForm.platform||''} onChange={e=>setManualForm(p=>({...p,platform:e.target.value}))} className={`px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-full focus:outline-none focus:border-amber-400`}>
+                  <option value="">Platform</option>
+                  {['Google','Yelp','Healthgrades','Facebook','ZocDoc'].map(o=><option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <textarea placeholder="Review text..." value={manualForm.text||''} onChange={e=>setManualForm(p=>({...p,text:e.target.value}))} rows={2} className={`px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-full resize-none focus:outline-none focus:border-amber-400 mb-3`} />
+              <button
+                onClick={() => saveManualEntry('Reviews')}
+                className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-white text-sm font-black rounded-xl transition-all"
+              >Save Review</button>
+              {_reviews.length > 0 && (
+                <span className={`ml-4 text-xs ${subtl}`}>{_reviews.length} review{_reviews.length !== 1 ? 's' : ''} logged</span>
+              )}
+            </div>
+
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={TrendingUp} color="text-amber-500" title="Google Rating Trend" subtitle="6-Month Review & Rating Growth" />
               <div className="h-64">
@@ -1843,34 +1871,7 @@ const App = () => {
                 </div>
               </div>
             </div>
-            {/* Quick-Add: Patient Review */}
-            <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
-              <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowQuickAdd(p => !p)}>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
-                  <div>
-                    <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Patient Review</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Log reviews here — star rating and trends update instantly</p>
-                  </div>
-                </div>
-                <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
-              </div>
-              {showQuickAdd && (
-                <div className="mt-5 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <input type="text" placeholder="Patient Name" value={manualForm.name||''} onChange={e=>setManualForm(p=>({...p,name:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
-                    <input type="number" min="1" max="5" placeholder="Rating (1-5)" value={manualForm.rating||''} onChange={e=>setManualForm(p=>({...p,rating:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
-                    <input type="date" value={manualForm.date||''} onChange={e=>setManualForm(p=>({...p,date:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
-                    <select value={manualForm.platform||''} onChange={e=>setManualForm(p=>({...p,platform:e.target.value}))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full">
-                      <option value="">Platform</option>
-                      {['Google','Yelp','Healthgrades','Facebook','ZocDoc'].map(o=><option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <textarea placeholder="Review text..." value={manualForm.text||''} onChange={e=>setManualForm(p=>({...p,text:e.target.value}))} rows={3} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full col-span-full" />
-                  </div>
-                  <button onClick={()=>{saveManualEntry('Reviews');setShowQuickAdd(false);}} className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl">Save Review</button>
-                </div>
-              )}
-            </div>
+
           </>
         )}
 
