@@ -831,7 +831,7 @@ const App = () => {
       const { reply, error } = await r.json();
       setAiInsights(error ? `⚠️ ${error}` : reply);
     } catch {
-      setAiInsights('⚠️ Could not reach AI. Make sure OPENAI_API_KEY is set in Vercel environment variables.');
+      setAiInsights('⚠️ Could not reach AI. Make sure GEMINI_API_KEY is set in Vercel environment variables. Get a free key at aistudio.google.com');
     }
     setAiInsightsLoading(false);
   };
@@ -862,7 +862,7 @@ const App = () => {
       const { reply, error } = await r.json();
       setChatMessages(m => [...m, { role: 'assistant', content: error ? `Oops: ${error}` : reply }]);
     } catch {
-      setChatMessages(m => [...m, { role: 'assistant', content: "My circuits are jammed! 🔧 Make sure OPENAI_API_KEY is set in your Vercel project. I'll be back once fed some API keys." }]);
+      setChatMessages(m => [...m, { role: 'assistant', content: "My circuits are jammed! 🔧 Make sure GEMINI_API_KEY is set in your Vercel project. Get a free key at aistudio.google.com — I'll be back once fed." }]);
     }
     setChatLoading(false);
   };
