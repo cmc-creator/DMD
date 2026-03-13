@@ -1371,7 +1371,7 @@ const App = () => {
                       {/* Combined platform ratings — merges auto-scraped + manually-fetched scores */}
                       {(() => {
                         const fetchedScores = Object.entries(reviewPlatformData)
-                          .filter(([, p]) => p.rating && !isNaN(Number(p.rating)))
+                          .filter(([k, p]) => k !== 'facebook' && p.rating && !isNaN(Number(p.rating)) && Number(p.rating) > 0)
                           .map(([k, p]) => ({ source: k.charAt(0).toUpperCase() + k.slice(1), rating: Number(p.rating), reviewCount: p.count ? Number(p.count) : null }));
                         const fetchedKeys = new Set(fetchedScores.map(p => p.source.toLowerCase()));
                         const autoScores = allRatings.filter(r => r.rating && !fetchedKeys.has(r.source.toLowerCase().split(' ')[0]));
