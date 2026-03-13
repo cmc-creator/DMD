@@ -77,6 +77,10 @@ const App = () => {
   const [manualForm, setManualForm]             = useState({});
   const [showQuickAdd, setShowQuickAdd]         = useState(false);
   const fileInputRef                             = useRef(null);
+  const cloudLoadedRef                           = useRef(false);
+  const skipNextPushRef                          = useRef(false);
+  const pushTimerRef                             = useRef(null);
+  const [cloudSynced, setCloudSynced]            = useState('loading'); // 'loading'|'ok'|'syncing'|'error'|'offline'
   const [pasteCSV, setPasteCSV]                 = useState('');
   const [pasteDataType, setPasteDataType]       = useState('Social Metrics');
   const [aiContentType, setAiContentType]       = useState('Social Post');
@@ -118,6 +122,48 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('dmd_livedata', JSON.stringify(liveData));
   }, [liveData]);
+
+  // ── Cloud sync: pull shared data from Vercel KV on mount ────────────────────
+  useEffect(() => {
+    fetch('/api/data')
+      .then(r => r.ok ? r.json() : Promise.reject('http-' + r.status))
+      .then(({ data, error }) => {
+        if (error || !data) { cloudLoadedRef.current = true; setCloudSynced('offline'); return; }
+        // Mark that we're restoring from cloud so the auto-push doesn't immediately mirror back
+        skipNextPushRef.current = true;
+        if (data.dmd_destiny)          { setDestinyData(data.dmd_destiny);                 localStorage.setItem('dmd_destiny',          JSON.stringify(data.dmd_destiny)); }
+        if (data.dmd_review_platforms) { setReviewPlatformData(data.dmd_review_platforms); localStorage.setItem('dmd_review_platforms',  JSON.stringify(data.dmd_review_platforms)); }
+        if (data.dmd_manual)           { setManualData(data.dmd_manual);                   localStorage.setItem('dmd_manual',            JSON.stringify(data.dmd_manual)); }
+        if (data.dmd_wix)              { setWixData(data.dmd_wix);                         localStorage.setItem('dmd_wix',               JSON.stringify(data.dmd_wix)); }
+        if (data.dmd_livedata)         { setLiveData(data.dmd_livedata);                   localStorage.setItem('dmd_livedata',           JSON.stringify(data.dmd_livedata)); }
+        cloudLoadedRef.current = true;
+        setCloudSynced('ok');
+        setTimeout(() => { skipNextPushRef.current = false; }, 600);
+      })
+      .catch(() => { cloudLoadedRef.current = true; setCloudSynced('offline'); });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Cloud sync: auto-push whenever data changes (debounced 3 s) ─────────────
+  useEffect(() => {
+    if (!cloudLoadedRef.current || skipNextPushRef.current) return;
+    clearTimeout(pushTimerRef.current);
+    pushTimerRef.current = setTimeout(() => {
+      const payload = {
+        dmd_destiny:          (() => { try { return JSON.parse(localStorage.getItem('dmd_destiny')          || 'null'); } catch { return null; } })(),
+        dmd_review_platforms: (() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}');   } catch { return {}; } })(),
+        dmd_manual:           (() => { try { return JSON.parse(localStorage.getItem('dmd_manual')           || '{}');   } catch { return {}; } })(),
+        dmd_wix:              (() => { try { return JSON.parse(localStorage.getItem('dmd_wix')              || 'null'); } catch { return null; } })(),
+        dmd_livedata:         (() => { try { return JSON.parse(localStorage.getItem('dmd_livedata')         || '{}');   } catch { return {}; } })(),
+        _updatedAt:           new Date().toISOString(),
+      };
+      setCloudSynced('syncing');
+      fetch('/api/data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        .then(r => r.json())
+        .then(({ ok, error }) => setCloudSynced(ok ? 'ok' : (error?.includes?.('not configured') ? 'offline' : 'error')))
+        .catch(() => setCloudSynced('error'));
+    }, 3000);
+    return () => clearTimeout(pushTimerRef.current);
+  }, [destinyData, reviewPlatformData, manualData, wixData, liveData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { setShowQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
 
@@ -1302,10 +1348,11 @@ const App = () => {
               <Calendar size={11} />
               <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
             </button>
-            <div className="topbar-live">
-              <div className="live-dot" />
-              <span>Live</span>
-            </div>
+            {cloudSynced === 'loading'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Connecting</span></div>}
+            {cloudSynced === 'ok'       && <div className="topbar-live"><div className="live-dot" /><span>Synced</span></div>}
+            {cloudSynced === 'syncing'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Saving…</span></div>}
+            {cloudSynced === 'error'    && <div className="topbar-live" style={{borderColor:'rgba(239,68,68,0.2)',background:'rgba(239,68,68,0.07)',color:'#f87171'}}><div className="live-dot" style={{background:'#f87171'}} /><span>Sync error</span></div>}
+            {cloudSynced === 'offline'  && <div className="topbar-live" style={{borderColor:'rgba(148,163,184,0.2)',background:'rgba(148,163,184,0.07)',color:'#94a3b8'}}><WifiOff size={10} /><span>Local only</span></div>}
             <button onClick={() => setDarkMode(d => !d)} className="topbar-btn topbar-btn-ghost">
               {darkMode ? <Sun size={13} /> : <Moon size={13} />}
               <span>{darkMode ? 'Light' : 'Dark'}</span>
@@ -3408,11 +3455,35 @@ const App = () => {
 
             {/* ── Backup & Sync card ──────────────────────────────────────── */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
-              <SectionHeader icon={RefreshCw} color="text-indigo-500" title="Backup & Sync" subtitle="Export your data to a file, then import it on any other device" />
+              <SectionHeader icon={RefreshCw} color="text-indigo-500" title="Cloud Sync" subtitle="All data syncs automatically across every device in real time" />
+
+              {/* Cloud status banner */}
+              {cloudSynced === 'offline' ? (
+                <div className="mb-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
+                  <p className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-1">☁️ Cloud sync not configured yet</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mb-3">To enable automatic cross-device sync, connect a Vercel KV database to this project:</p>
+                  <ol className="text-xs text-amber-600 dark:text-amber-500 space-y-1 list-decimal list-inside mb-3">
+                    <li>Go to your <strong>Vercel dashboard</strong> → this project → <strong>Storage</strong> tab</li>
+                    <li>Click <strong>Create Database</strong> → <strong>KV</strong> → give it a name → <strong>Create</strong></li>
+                    <li>Click <strong>Connect Project</strong> — Vercel adds the env vars automatically</li>
+                    <li>Redeploy (or push any commit) and cloud sync will activate</li>
+                  </ol>
+                  <p className="text-xs text-amber-500 dark:text-amber-600">Until then, use the <strong>Export Backup</strong> button below to manually move data between devices.</p>
+                </div>
+              ) : (
+                <div className="mb-4 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/40 flex items-center gap-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Auto-sync active</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-500">Data saves automatically — open this dashboard on any device and you'll see the latest data instantly.</p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
                 <div className="flex-1">
-                  <p className={`text-sm font-bold ${txt} mb-1`}>Sync between desktop and mobile</p>
-                  <p className={`text-xs ${subtl}`}>Click <strong>Export Backup</strong> on your desktop, then open the dashboard on your phone and use <strong>Import Backup</strong> to restore everything — ratings, social data, review scores, integrations, and all manually-entered data.</p>
+                  <p className={`text-sm font-bold ${txt} mb-1`}>Manual backup (optional fallback)</p>
+                  <p className={`text-xs ${subtl}`}>Export a full JSON backup of all dashboard data. Useful for archival or restoring to a brand-new Vercel deployment.</p>
                 </div>
                 <button
                   onClick={exportBackup}
@@ -3420,9 +3491,6 @@ const App = () => {
                 >
                   <Download size={15} /> Export Backup
                 </button>
-              </div>
-              <div className={`mt-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border ${brd} text-xs ${subtl}`}>
-                💡 <strong>On mobile:</strong> tap <strong>File Upload</strong> below, then select your backup file. All your data will be restored instantly.
               </div>
             </div>
 
