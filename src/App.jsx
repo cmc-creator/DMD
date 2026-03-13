@@ -3461,12 +3461,12 @@ const App = () => {
               {cloudSynced === 'offline' ? (
                 <div className="mb-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
                   <p className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-1">☁️ Cloud sync not configured yet</p>
-                  <p className="text-xs text-amber-600 dark:text-amber-500 mb-3">To enable automatic cross-device sync, connect a Vercel KV database to this project:</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mb-3">To enable automatic cross-device sync, create a free Upstash Redis database (takes ~2 min):</p>
                   <ol className="text-xs text-amber-600 dark:text-amber-500 space-y-1 list-decimal list-inside mb-3">
-                    <li>Go to your <strong>Vercel dashboard</strong> → this project → <strong>Storage</strong> tab</li>
-                    <li>Click <strong>Create Database</strong> → <strong>KV</strong> → give it a name → <strong>Create</strong></li>
-                    <li>Click <strong>Connect Project</strong> — Vercel adds the env vars automatically</li>
-                    <li>Redeploy (or push any commit) and cloud sync will activate</li>
+                    <li>Go to <strong>upstash.com</strong> → sign in → <strong>Create Database</strong> → Redis → any region → <strong>Create</strong></li>
+                    <li>Open the database → <strong>REST API</strong> tab → copy <strong>UPSTASH_REDIS_REST_URL</strong> and <strong>UPSTASH_REDIS_REST_TOKEN</strong></li>
+                    <li>Go to your <strong>Vercel project</strong> → <strong>Settings</strong> → <strong>Environment Variables</strong></li>
+                    <li>Add both variables, then <strong>Redeploy</strong> — sync activates instantly</li>
                   </ol>
                   <p className="text-xs text-amber-500 dark:text-amber-600">Until then, use the <strong>Export Backup</strong> button below to manually move data between devices.</p>
                 </div>

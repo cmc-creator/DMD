@@ -1,19 +1,20 @@
 // /api/data.js — shared cloud store for the DMD dashboard
-// Backed by Vercel KV (Upstash Redis). All devices read/write the same data.
-// Setup: Vercel dashboard → Storage → Create KV database → Connect to project.
-// Vercel auto-adds KV_REST_API_URL and KV_REST_API_TOKEN as env vars.
+// Backed by Upstash Redis (free tier). All devices read/write the same data.
+// Setup: upstash.com → Create Database (Redis) → copy REST URL + token
+//        → add as UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN in Vercel env vars.
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const KV_URL   = process.env.KV_REST_API_URL;
-  const KV_TOKEN = process.env.KV_REST_API_TOKEN;
+  // Support both direct Upstash env vars and Vercel KV integration env vars
+  const KV_URL   = process.env.UPSTASH_REDIS_REST_URL   || process.env.KV_REST_API_URL;
+  const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 
   if (!KV_URL || !KV_TOKEN) {
     return res.status(503).json({
-      error: 'KV_REST_API_URL / KV_REST_API_TOKEN not configured. Go to Vercel dashboard → Storage → Create KV → connect to this project.',
+      error: 'not configured — add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to Vercel env vars.',
     });
   }
 
