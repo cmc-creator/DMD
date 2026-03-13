@@ -107,7 +107,7 @@ const App = () => {
   // ── Destiny Springs auto-profile state ──────────────────────────────────────
   const [destinyData, setDestinyData]           = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_destiny') || 'null'); } catch { return null; } });
   const [destinyLoading, setDestinyLoading]     = useState(false);
-  const [destinyError, setDestinyError]         = useState('');>>>>>>> 6e26497 (feat: multi-platform review tracker — Google, Yelp, Glassdoor, Indeed, Healthgrades, ZocDoc, Facebook)
+  const [destinyError, setDestinyError]         = useState('');
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
