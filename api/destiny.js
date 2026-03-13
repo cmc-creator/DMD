@@ -85,8 +85,18 @@ async function scrapeWebsite() {
   const h1  = h1m ? strip(h1m[1]) : null;
   const h2s = []; const h2Rx = /<h2[^>]*>([\s\S]*?)<\/h2>/gi; let hm;
   while ((hm = h2Rx.exec(html)) && h2s.length < 8) { const t = strip(hm[1]); if (t.length>2&&t.length<140) h2s.push(t); }
-  const phones = []; const pRx = /\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}/g; let pm2;
-  while ((pm2 = pRx.exec(html)) && phones.length < 3) phones.push(pm2[0]);
+  // Phones — prefer tel: links (authoritative), fall back to stripped text only
+  const phones = [];
+  const telRx = /href=["']tel:([\d\s().+\-]+)["']/gi; let tm;
+  while ((tm = telRx.exec(html)) && phones.length < 3) {
+    const digits = tm[1].replace(/\D/g, '');
+    if (digits.length >= 10) phones.push(tm[1].trim());
+  }
+  if (phones.length === 0) {
+    const textOnly = html.replace(/<[^>]+>/g, ' ');
+    const pRx = /\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}/g; let pm2;
+    while ((pm2 = pRx.exec(textOnly)) && phones.length < 3) phones.push(pm2[0]);
+  }
   const kws = ['mental health','behavioral health','therapy','counseling','psychiatry','depression','anxiety','ptsd','trauma','addiction','substance','bipolar','outpatient','inpatient','iop','php','adolescent','telehealth'];
   const lo  = html.toLowerCase();
   const services = kws.filter(k => lo.includes(k));
