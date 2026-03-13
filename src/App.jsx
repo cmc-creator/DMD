@@ -440,6 +440,33 @@ const App = () => {
         });
         setSyncStatus(s => ({ ...s, 'Google Business': 'ok' }));
       }
+      // ── Feed social media liveData (feeds Social tab with real follower counts) ──
+      if (data.instagram || data.facebook || data.tiktok) {
+        setLiveData(d => ({
+          ...d,
+          ...(data.instagram && !data.instagram.error ? {
+            'Meta Business Suite': { ...d['Meta Business Suite'],
+              instagramFollowers: data.instagram.followers,
+              instagramPosts:     data.instagram.posts,
+              instagramBio:       data.instagram.bio,
+            }
+          } : {}),
+          ...(data.facebook && !data.facebook.error ? {
+            'Meta Ads Manager': { ...d['Meta Ads Manager'],
+              facebookFollowers: data.facebook.followers,
+              facebookLikes:     data.facebook.likes,
+              facebookName:      data.facebook.name,
+            }
+          } : {}),
+          ...(data.tiktok && !data.tiktok.error ? {
+            'TikTok for Business': { ...d['TikTok for Business'],
+              followers:  data.tiktok.followers,
+              totalLikes: data.tiktok.likes,
+              videos:     data.tiktok.videos,
+            }
+          } : {}),
+        }));
+      }
     } catch (e) { setDestinyError(e.message); }
     setDestinyLoading(false);
   };
@@ -1362,6 +1389,109 @@ const App = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* ── Social Media Stats Row ───────────────────────────── */}
+                  {(destinyData?.facebook || destinyData?.instagram || destinyData?.tiktok || destinyLoading) && (
+                    <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-700">
+                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3 flex items-center gap-1.5`}>
+                        <Activity size={11} className="text-purple-500" /> Social Media Profiles
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* Facebook */}
+                        {(() => {
+                          const fb = destinyData?.facebook;
+                          const hasFb = fb && !fb.error;
+                          return (
+                            <div className={`p-4 rounded-2xl ${hasFb ? 'bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0"><span className="text-white text-[10px] font-black">f</span></div>
+                                <span className={`text-xs font-black ${hasFb ? 'text-blue-700 dark:text-blue-300' : subtl}`}>Facebook</span>
+                              </div>
+                              {destinyLoading && !fb && <p className={`text-[11px] ${subtl}`}>Fetching…</p>}
+                              {hasFb ? (
+                                <div className="space-y-1">
+                                  {fb.name && <p className={`text-xs font-black ${txt} leading-tight`}>{fb.name}</p>}
+                                  {fb.followers != null && <p className="text-xl font-black text-blue-600 dark:text-blue-400">{Number(fb.followers).toLocaleString()} <span className={`text-xs font-normal ${subtl}`}>followers</span></p>}
+                                  {fb.likes != null && fb.likes !== fb.followers && <p className={`text-xs ${subtl}`}>{Number(fb.likes).toLocaleString()} likes</p>}
+                                  {fb.about && <p className={`text-[11px] ${subtl} mt-1 line-clamp-2`}>{fb.about}</p>}
+                                  <a href={fb.url || destinyData?.website?.socialLinks?.facebook} target="_blank" rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-black text-blue-500 hover:text-blue-400 mt-1">
+                                    <ExternalLink size={9} /> View Page
+                                  </a>
+                                </div>
+                              ) : fb?.error ? (
+                                <p className={`text-[11px] text-rose-500`}>Could not load: {fb.error}</p>
+                              ) : (
+                                <p className={`text-[11px] ${subtl}`}>Sync to load</p>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        {/* Instagram */}
+                        {(() => {
+                          const ig = destinyData?.instagram;
+                          const hasIg = ig && !ig.error;
+                          return (
+                            <div className={`p-4 rounded-2xl ${hasIg ? 'bg-pink-50 dark:bg-pink-900/10 border border-pink-200 dark:border-pink-800' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 via-pink-600 to-orange-400 flex items-center justify-center flex-shrink-0"><span className="text-white text-[10px] font-black">IG</span></div>
+                                <span className={`text-xs font-black ${hasIg ? 'text-pink-700 dark:text-pink-300' : subtl}`}>Instagram</span>
+                              </div>
+                              {destinyLoading && !ig && <p className={`text-[11px] ${subtl}`}>Fetching…</p>}
+                              {hasIg ? (
+                                <div className="space-y-1">
+                                  {(ig.fullName || ig.username) && <p className={`text-xs font-black ${txt} leading-tight`}>{ig.fullName || '@' + ig.username}</p>}
+                                  {ig.followers != null && <p className="text-xl font-black text-pink-600 dark:text-pink-400">{Number(ig.followers).toLocaleString()} <span className={`text-xs font-normal ${subtl}`}>followers</span></p>}
+                                  {ig.posts    != null && <p className={`text-xs ${subtl}`}>{Number(ig.posts).toLocaleString()} posts</p>}
+                                  {ig.bio && <p className={`text-[11px] ${subtl} mt-1 line-clamp-2`}>{ig.bio}</p>}
+                                  {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500 mt-1">✓ Verified</span>}
+                                  <a href={ig.url || destinyData?.website?.socialLinks?.instagram} target="_blank" rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400 mt-1">
+                                    <ExternalLink size={9} /> View Profile
+                                  </a>
+                                </div>
+                              ) : ig?.error ? (
+                                <p className={`text-[11px] text-rose-500`}>Could not load: {ig.error}</p>
+                              ) : (
+                                <p className={`text-[11px] ${subtl}`}>Sync to load</p>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        {/* TikTok */}
+                        {(() => {
+                          const tt = destinyData?.tiktok;
+                          const hasTt = tt && !tt.error;
+                          return (
+                            <div className={`p-4 rounded-2xl ${hasTt ? 'bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-6 h-6 rounded-lg bg-black flex items-center justify-center flex-shrink-0"><span className="text-white text-[9px] font-black">TT</span></div>
+                                <span className={`text-xs font-black ${hasTt ? txt : subtl}`}>TikTok</span>
+                              </div>
+                              {destinyLoading && !tt && <p className={`text-[11px] ${subtl}`}>Fetching…</p>}
+                              {hasTt ? (
+                                <div className="space-y-1">
+                                  {(tt.nickname || tt.username) && <p className={`text-xs font-black ${txt} leading-tight`}>{tt.nickname || '@' + tt.username}</p>}
+                                  {tt.followers != null && <p className={`text-xl font-black ${txt}`}>{Number(tt.followers).toLocaleString()} <span className={`text-xs font-normal ${subtl}`}>followers</span></p>}
+                                  {tt.likes    != null && <p className={`text-xs ${subtl}`}>{Number(tt.likes).toLocaleString()} total likes</p>}
+                                  {tt.videos   != null && <p className={`text-xs ${subtl}`}>{tt.videos} videos</p>}
+                                  {tt.bio && <p className={`text-[11px] ${subtl} mt-1 line-clamp-2`}>{tt.bio}</p>}
+                                  <a href={tt.url || destinyData?.website?.socialLinks?.tiktok} target="_blank" rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-black hover:opacity-70 mt-1">
+                                    <ExternalLink size={9} /> View Profile
+                                  </a>
+                                </div>
+                              ) : tt?.error ? (
+                                <p className={`text-[11px] text-rose-500`}>Could not load: {tt.error}</p>
+                              ) : (
+                                <p className={`text-[11px] ${subtl}`}>Sync to load</p>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}

@@ -329,10 +329,16 @@ export default async function handler(req, res) {
     // ── Default: run everything in parallel ─────────────────────────────────
     const result = { ok: true, fetchedAt: new Date().toISOString() };
 
-    // 1. Website + JSON-LD schema (always free)
-    const websiteP = scrapeWebsite()
-      .then(d  => { result.website = d; })
-      .catch(e => { result.websiteError = e.message; });
+    // 1. Website + JSON-LD schema (always free) — run FIRST so we get social URLs
+    let websiteData = null;
+    try { websiteData = await scrapeWebsite(); result.website = websiteData; }
+    catch (e) { result.websiteError = e.message; }
+
+    // Extract social URLs found on the website (use as inputs for social scraper)
+    const social = websiteData?.socialLinks || {};
+    const fbUrl  = social.facebook  || '';
+    const igUrl  = social.instagram || '';
+    const ttUrl  = social.tiktok    || '';
 
     // 2. Healthgrades (always free, no key)
     const hgP = scrapeHealthgrades()
@@ -356,7 +362,30 @@ export default async function handler(req, res) {
         })()
       : Promise.resolve().then(() => { result.googleSkipped = true; });
 
-    await Promise.all([websiteP, hgP, gSearchP, placesP]);
+    // 5. Social media public profile scrapes (Facebook, Instagram, TikTok)
+    //    Calls our own /api/social endpoint so scraping logic stays in one place.
+    //    Pass the URLs discovered on the website (fallback handles are in social.js).
+    const socialP = (async () => {
+      try {
+        const qs = new URLSearchParams();
+        if (fbUrl) qs.set('fbUrl', fbUrl);
+        if (igUrl) qs.set('igUrl', igUrl);
+        if (ttUrl) qs.set('ttUrl', ttUrl);
+        // Build absolute URL — in Vercel serverless we need the host from the request
+        const host  = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:3000';
+        const proto = req.headers['x-forwarded-proto'] || 'https';
+        const socialUrl = `${proto}://${host}/api/social?${qs.toString()}`;
+        const r = await fetch(socialUrl, { signal: AbortSignal.timeout(12000) });
+        if (r.ok) {
+          const d = await r.json();
+          if (d.facebook)  result.facebook  = d.facebook;
+          if (d.instagram) result.instagram = d.instagram;
+          if (d.tiktok)    result.tiktok    = d.tiktok;
+        }
+      } catch (e) { result.socialError = e.message; }
+    })();
+
+    await Promise.all([hgP, gSearchP, placesP, socialP]);
 
     // ── Build a merged "best rating" from all available sources ─────────────
     // Priority: Google Places > Google Search > Website JSON-LD > Healthgrades
