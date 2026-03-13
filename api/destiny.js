@@ -15,7 +15,7 @@
 // Debug endpoint:      GET /api/destiny?debug=1
 
 // ── Hardcoded Destiny Springs social handles ──────────────────────────────────
-const DS_FB  = 'https://www.facebook.com/destinyspringshealthcare';
+const DS_FB  = 'https://www.facebook.com/profile.php?id=61581511228047';
 const DS_IG  = 'https://www.instagram.com/destinyspringshealthcare/';
 const DS_TT  = 'https://www.tiktok.com/@destinyspringshealthcare';
 const DS_WEB = 'https://destinyspringshealthcare.com';

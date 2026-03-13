@@ -446,30 +446,39 @@ const App = () => {
       }
       // ── Feed social media liveData (feeds Social tab with real follower counts) ──
       if (data.instagram || data.facebook || data.tiktok) {
-        setLiveData(d => ({
-          ...d,
-          ...(data.instagram && !data.instagram.error ? {
-            'Meta Business Suite': { ...d['Meta Business Suite'],
-              instagramFollowers: data.instagram.followers,
-              instagramPosts:     data.instagram.posts,
-              instagramBio:       data.instagram.bio,
-            }
-          } : {}),
-          ...(data.facebook && !data.facebook.error ? {
-            'Meta Ads Manager': { ...d['Meta Ads Manager'],
-              facebookFollowers: data.facebook.followers,
-              facebookLikes:     data.facebook.likes,
-              facebookName:      data.facebook.name,
-            }
-          } : {}),
-          ...(data.tiktok && !data.tiktok.error ? {
-            'TikTok for Business': { ...d['TikTok for Business'],
-              followers:  data.tiktok.followers,
-              totalLikes: data.tiktok.likes,
-              videos:     data.tiktok.videos,
-            }
-          } : {}),
-        }));
+        setLiveData(d => {
+          const prev = d['_social'] || {};
+          return {
+            ...d,
+            ...(data.instagram && !data.instagram.error ? {
+              'Meta Business Suite': { ...d['Meta Business Suite'],
+                instagramFollowers: data.instagram.followers,
+                instagramPosts:     data.instagram.posts,
+                instagramBio:       data.instagram.bio,
+              }
+            } : {}),
+            ...(data.facebook && !data.facebook.error ? {
+              'Meta Ads Manager': { ...d['Meta Ads Manager'],
+                facebookFollowers: data.facebook.followers,
+                facebookLikes:     data.facebook.likes,
+                facebookName:      data.facebook.name,
+              }
+            } : {}),
+            ...(data.tiktok && !data.tiktok.error ? {
+              'TikTok for Business': { ...d['TikTok for Business'],
+                followers:  data.tiktok.followers,
+                totalLikes: data.tiktok.likes,
+                videos:     data.tiktok.videos,
+              }
+            } : {}),
+            '_social': {
+              fetchedAt: new Date().toISOString(),
+              facebook:  (data.facebook  && !data.facebook.error)  ? data.facebook  : prev.facebook,
+              instagram: (data.instagram && !data.instagram.error) ? data.instagram : prev.instagram,
+              tiktok:    (data.tiktok    && !data.tiktok.error)    ? data.tiktok    : prev.tiktok,
+            },
+          };
+        });
       }
     } catch (e) { setDestinyError(e.message); }
     setDestinyLoading(false);
@@ -851,6 +860,10 @@ const App = () => {
   const _metaLive   = liveData['Meta Business Suite'] || {};
   const _wixLive    = liveData['Wix Analytics']      || {};
   const _tikLive    = liveData['TikTok for Business'] || {};
+  const _socialLive = liveData['_social']             || {};
+  const _fbLive     = _socialLive.facebook            || {};
+  const _igLive     = _socialLive.instagram           || {};
+  const _ttLive     = _socialLive.tiktok              || {};
   const _platformEntries = Object.values(reviewPlatformData).filter(p => p.count && Number(p.count) > 0);
   const _totalReviewCount = _platformEntries.length
     ? _platformEntries.reduce((s, p) => s + (Number(p.count) || 0), 0)
@@ -890,10 +903,10 @@ const App = () => {
 
   // ── Social Analytics ─────────────────────────────────────────────────────────
   const socialAnalytics = [
-    { platform: 'Facebook',  color: '#1877F2', reach: Number(_latestSocial['Facebook']?.reach  || _metaLive.reach   || 0), engagement: Number(_latestSocial['Facebook']?.engagement  || 0), clicks: Number(_latestSocial['Facebook']?.clicks  || 0), followers: Number(_latestSocial['Facebook']?.followers  || _metaLive.fanCount || 0) },
-    { platform: 'Instagram', color: '#E4405F', reach: Number(_latestSocial['Instagram']?.reach || 0),                      engagement: Number(_latestSocial['Instagram']?.engagement || 0), clicks: Number(_latestSocial['Instagram']?.clicks || 0), followers: Number(_latestSocial['Instagram']?.followers || 0) },
-    { platform: 'LinkedIn',  color: '#0A66C2', reach: Number(_latestSocial['LinkedIn']?.reach  || 0),                      engagement: Number(_latestSocial['LinkedIn']?.engagement  || 0), clicks: Number(_latestSocial['LinkedIn']?.clicks  || 0), followers: Number(_latestSocial['LinkedIn']?.followers  || 0) },
-    { platform: 'TikTok',    color: '#00f2ea', reach: Number(_latestSocial['TikTok']?.reach    || _tikLive.recentViews || 0), engagement: 0, clicks: 0, followers: Number(_latestSocial['TikTok']?.followers || _tikLive.followers || 0) },
+    { platform: 'Facebook',  color: '#1877F2', reach: Number(_latestSocial['Facebook']?.reach  || _metaLive.reach   || 0), engagement: Number(_latestSocial['Facebook']?.engagement  || 0), clicks: Number(_latestSocial['Facebook']?.clicks  || 0), followers: Number(_fbLive.followers || _latestSocial['Facebook']?.followers  || _metaLive.fanCount || 0), posts: null,  videos: null, totalLikes: Number(_fbLive.likes     || 0) },
+    { platform: 'Instagram', color: '#E4405F', reach: Number(_latestSocial['Instagram']?.reach || 0),                      engagement: Number(_latestSocial['Instagram']?.engagement || 0), clicks: Number(_latestSocial['Instagram']?.clicks || 0), followers: Number(_igLive.followers || _metaLive.instagramFollowers || _latestSocial['Instagram']?.followers || 0), posts: Number(_igLive.posts || _metaLive.instagramPosts || 0), videos: null, totalLikes: null },
+    { platform: 'LinkedIn',  color: '#0A66C2', reach: Number(_latestSocial['LinkedIn']?.reach  || 0),                      engagement: Number(_latestSocial['LinkedIn']?.engagement  || 0), clicks: Number(_latestSocial['LinkedIn']?.clicks  || 0), followers: Number(_latestSocial['LinkedIn']?.followers  || 0), posts: null, videos: null, totalLikes: null },
+    { platform: 'TikTok',    color: '#00f2ea', reach: Number(_latestSocial['TikTok']?.reach    || _tikLive.recentViews || 0), engagement: 0, clicks: 0, followers: Number(_ttLive.followers || _tikLive.followers || _latestSocial['TikTok']?.followers || 0), posts: null, videos: Number(_ttLive.videos || _tikLive.videos || 0), totalLikes: Number(_ttLive.likes || _tikLive.totalLikes || 0) },
   ];
 
   // ── Weekly Engagement Trend ──────────────────────────────────────────────────
@@ -1546,7 +1559,7 @@ const App = () => {
                                   {fb.followers != null && <p className="text-xl font-black text-blue-600 dark:text-blue-400">{Number(fb.followers).toLocaleString()} <span className={`text-xs font-normal ${subtl}`}>followers</span></p>}
                                   {fb.likes != null && fb.likes !== fb.followers && <p className={`text-xs ${subtl}`}>{Number(fb.likes).toLocaleString()} likes</p>}
                                   {fb.about && <p className={`text-[11px] ${subtl} mt-1 line-clamp-2`}>{fb.about}</p>}
-                                  <a href={fb.url || DS_FB_URL} target="_blank" rel="noreferrer"
+                                  <a href={fb.url || 'https://www.facebook.com/profile.php?id=61581511228047'} target="_blank" rel="noreferrer"
                                     className="inline-flex items-center gap-1 text-[11px] font-black text-blue-500 hover:text-blue-400 mt-1">
                                     <ExternalLink size={9} /> View Page
                                   </a>
@@ -1554,7 +1567,7 @@ const App = () => {
                               ) : (fb?.error || fbErr) ? (
                                 <div>
                                   <p className={`text-[11px] text-amber-600 dark:text-amber-400`}>Blocked by Facebook</p>
-                                  <a href="https://www.facebook.com/destinyspringshealthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-blue-500 hover:text-blue-400 mt-1"><ExternalLink size={9}/> Open on Facebook</a>
+                                  <a href="https://www.facebook.com/profile.php?id=61581511228047" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-blue-500 hover:text-blue-400 mt-1"><ExternalLink size={9}/> Open on Facebook</a>
                                 </div>
                               ) : !destinyLoading ? (
                                 <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>
@@ -1824,22 +1837,180 @@ const App = () => {
         {/* ══════════════════ SOCIAL ══════════════════ */}
         {activeTab === 'social' && (
           <>
+            {/* Live Social Snapshot */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              {socialAnalytics.map(s => (
-                <div key={s.platform} className={`${card} p-5 rounded-2xl`}>
-                  <div className="h-10 w-10 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: s.color + '25' }}>
-                    <div className="h-4 w-4 rounded-full" style={{ backgroundColor: s.color }}></div>
+              {socialAnalytics.map(s => {
+                const hasLiveData = s.followers > 0;
+                const secondaryLabel =
+                  s.platform === 'Facebook'  ? (s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} page likes` : 'Page followers') :
+                  s.platform === 'Instagram' ? (s.posts > 0     ? `${s.posts.toLocaleString()} posts`            : 'Profile followers') :
+                  s.platform === 'TikTok'    ? (s.videos > 0    ? `${s.videos.toLocaleString()} videos`          : s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} total likes` : 'Account followers') :
+                  s.reach > 0 ? `${s.reach.toLocaleString()} reach` : 'Followers';
+                const tertiaryVal =
+                  s.platform === 'TikTok' && s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} ❤` :
+                  s.platform === 'Instagram' && s.posts > 0   ? `${s.posts.toLocaleString()} posts` :
+                  s.clicks > 0 ? `${s.clicks} clicks` : null;
+                return (
+                  <div key={s.platform} className={`${card} p-5 rounded-2xl`}>
+                    <div className="h-10 w-10 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: s.color + '25' }}>
+                      <div className="h-4 w-4 rounded-full" style={{ backgroundColor: s.color }}></div>
+                    </div>
+                    <p className={`text-[13px] font-black uppercase ${subtl} tracking-widest mb-1`}>{s.platform}</p>
+                    <h3 className={`text-2xl font-black ${txt}`}>{s.followers > 0 ? s.followers.toLocaleString() : '—'}</h3>
+                    <p className={`text-[13px] ${subtl} italic mt-1`}>{hasLiveData ? 'Followers' : 'No live data'}</p>
+                    <div className={`mt-3 pt-3 border-t ${brd} flex justify-between text-[13px] font-bold`}>
+                      <span className={muted}>{secondaryLabel}</span>
+                      {tertiaryVal && <span className="text-teal-500">{tertiaryVal}</span>}
+                    </div>
                   </div>
-                  <p className={`text-[13px] font-black uppercase ${subtl} tracking-widest mb-1`}>{s.platform}</p>
-                  <h3 className={`text-2xl font-black ${txt}`}>{s.reach.toLocaleString()}</h3>
-                  <p className={`text-[13px] ${subtl} italic mt-1`}>Monthly Reach</p>
-                  <div className={`mt-3 pt-3 border-t ${brd} flex justify-between text-[13px] font-bold`}>
-                    <span className={muted}>{s.followers.toLocaleString()} Followers</span>
-                    <span className="text-teal-500">{s.clicks} Clicks</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+
+            {/* Live Social Stats — detailed breakdown per platform */}
+            <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+              <div className="flex items-center justify-between mb-5">
+                <SectionHeader icon={Activity} color="text-purple-500" title="Live Social Performance" subtitle="Followers, posts & engagement — synced from each platform" />
+                <button
+                  onClick={fetchDestinyProfile}
+                  disabled={destinyLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-black transition-all shrink-0"
+                >
+                  <RefreshCw size={11} className={destinyLoading ? 'animate-spin' : ''} />
+                  {destinyLoading ? 'Syncing…' : 'Sync Now'}
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Facebook */}
+                {(() => {
+                  const fb = _fbLive;
+                  const hasFb = fb.followers != null;
+                  return (
+                    <div className={`p-5 rounded-2xl ${hasFb ? 'bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-7 h-7 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0"><span className="text-white text-xs font-black">f</span></div>
+                        <span className={`text-sm font-black ${hasFb ? 'text-blue-700 dark:text-blue-300' : subtl}`}>Facebook</span>
+                        {hasFb && <span className="ml-auto text-[10px] font-black px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400">Live</span>}
+                      </div>
+                      {hasFb ? (
+                        <div className="space-y-2">
+                          {fb.name && <p className={`text-xs font-bold ${txt2} leading-tight`}>{fb.name}</p>}
+                          <div>
+                            <p className={`text-3xl font-black text-blue-600 dark:text-blue-400`}>{Number(fb.followers).toLocaleString()}</p>
+                            <p className={`text-xs ${subtl} mt-0.5`}>Followers</p>
+                          </div>
+                          {fb.likes != null && fb.likes !== fb.followers && (
+                            <div className={`flex items-center justify-between text-xs ${subtl} pt-2 border-t ${brd}`}>
+                              <span>Page Likes</span><span className={`font-black ${txt}`}>{Number(fb.likes).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {fb.category && (
+                            <div className={`flex items-center justify-between text-xs ${subtl} pt-1 border-t ${brd}`}>
+                              <span>Category</span><span className={`font-black ${txt} text-right max-w-[60%] leading-tight`}>{fb.category}</span>
+                            </div>
+                          )}
+                          {_socialLive.fetchedAt && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(_socialLive.fetchedAt).toLocaleString()}</p>}
+                          <a href={fb.url || 'https://www.facebook.com/profile.php?id=61581511228047'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-blue-500 hover:text-blue-400 mt-1"><ExternalLink size={9}/> View Page</a>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching…' : 'No live data yet'}</p>
+                          {!destinyLoading && <p className={`text-[11px] ${subtl}`}>Click Sync Now to pull Facebook data</p>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                {/* Instagram */}
+                {(() => {
+                  const ig = _igLive;
+                  const hasIg = ig.followers != null;
+                  return (
+                    <div className={`p-5 rounded-2xl ${hasIg ? 'bg-pink-50 dark:bg-pink-900/10 border border-pink-200 dark:border-pink-800' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-purple-600 via-pink-600 to-orange-400 flex items-center justify-center flex-shrink-0"><span className="text-white text-[10px] font-black">IG</span></div>
+                        <span className={`text-sm font-black ${hasIg ? 'text-pink-700 dark:text-pink-300' : subtl}`}>Instagram</span>
+                        {hasIg && <span className="ml-auto text-[10px] font-black px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400">Live</span>}
+                      </div>
+                      {hasIg ? (
+                        <div className="space-y-2">
+                          {(ig.fullName || ig.username) && <p className={`text-xs font-bold ${txt2} leading-tight`}>{ig.fullName || '@' + ig.username}</p>}
+                          <div>
+                            <p className={`text-3xl font-black text-pink-600 dark:text-pink-400`}>{Number(ig.followers).toLocaleString()}</p>
+                            <p className={`text-xs ${subtl} mt-0.5`}>Followers</p>
+                          </div>
+                          {ig.posts != null && (
+                            <div className={`flex items-center justify-between text-xs ${subtl} pt-2 border-t ${brd}`}>
+                              <span>Posts</span><span className={`font-black ${txt}`}>{Number(ig.posts).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {ig.following != null && (
+                            <div className={`flex items-center justify-between text-xs ${subtl} pt-1 border-t ${brd}`}>
+                              <span>Following</span><span className={`font-black ${txt}`}>{Number(ig.following).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500">✓ Verified</span>}
+                          {_socialLive.fetchedAt && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(_socialLive.fetchedAt).toLocaleString()}</p>}
+                          <a href={ig.url || 'https://www.instagram.com/destinyspringshealthcare/'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400 mt-1"><ExternalLink size={9}/> View Profile</a>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching…' : 'No live data yet'}</p>
+                          {!destinyLoading && <p className={`text-[11px] ${subtl}`}>Click Sync Now to pull Instagram data</p>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                {/* TikTok */}
+                {(() => {
+                  const tt = _ttLive;
+                  const hasTt = tt.followers != null;
+                  return (
+                    <div className={`p-5 rounded-2xl ${hasTt ? 'bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-7 h-7 rounded-xl bg-black flex items-center justify-center flex-shrink-0"><span className="text-white text-[9px] font-black">TT</span></div>
+                        <span className={`text-sm font-black ${hasTt ? txt : subtl}`}>TikTok</span>
+                        {hasTt && <span className="ml-auto text-[10px] font-black px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400">Live</span>}
+                      </div>
+                      {hasTt ? (
+                        <div className="space-y-2">
+                          {(tt.nickname || tt.username) && <p className={`text-xs font-bold ${txt2} leading-tight`}>{tt.nickname || '@' + tt.username}</p>}
+                          <div>
+                            <p className={`text-3xl font-black ${txt}`}>{Number(tt.followers).toLocaleString()}</p>
+                            <p className={`text-xs ${subtl} mt-0.5`}>Followers</p>
+                          </div>
+                          {tt.likes != null && (
+                            <div className={`flex items-center justify-between text-xs ${subtl} pt-2 border-t ${brd}`}>
+                              <span>Total Likes ❤</span><span className={`font-black ${txt}`}>{Number(tt.likes).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {tt.videos != null && (
+                            <div className={`flex items-center justify-between text-xs ${subtl} pt-1 border-t ${brd}`}>
+                              <span>Videos Posted</span><span className={`font-black ${txt}`}>{tt.videos}</span>
+                            </div>
+                          )}
+                          {tt.following != null && (
+                            <div className={`flex items-center justify-between text-xs ${subtl} pt-1 border-t ${brd}`}>
+                              <span>Following</span><span className={`font-black ${txt}`}>{Number(tt.following).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {tt.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500">✓ Verified</span>}
+                          {_socialLive.fetchedAt && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(_socialLive.fetchedAt).toLocaleString()}</p>}
+                          <a href={tt.url || 'https://www.tiktok.com/@destinyspringshealthcare'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black hover:opacity-70 mt-1"><ExternalLink size={9}/> View Profile</a>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching…' : 'No live data yet'}</p>
+                          {!destinyLoading && <p className={`text-[11px] ${subtl}`}>Click Sync Now to pull TikTok data</p>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Share2} color="text-blue-500" title="Social Intelligence" subtitle="Platform Reach vs. Engagement Depth" />
               <div className="h-80">
@@ -2509,7 +2680,7 @@ const App = () => {
                   )}
                   <button
                     onClick={() => {
-                      const platforms = ['google','yelp','glassdoor','indeed','healthgrades','zocdoc','facebook'];
+                      const platforms = ['google','yelp','glassdoor','indeed','healthgrades','zocdoc'];
                       platforms.forEach((p, i) => setTimeout(() => fetchPlatformReviews(p), i * 300));
                     }}
                     disabled={reviewFetchingPlatform !== null}
@@ -2528,7 +2699,6 @@ const App = () => {
                   { key: 'indeed',       label: 'Indeed',       color: 'text-blue-500',    border: 'border-blue-200 dark:border-blue-800',       bg: 'bg-blue-50 dark:bg-blue-900/10'       },
                   { key: 'healthgrades', label: 'Healthgrades', color: 'text-teal-500',    border: 'border-teal-200 dark:border-teal-800',       bg: 'bg-teal-50 dark:bg-teal-900/10'       },
                   { key: 'zocdoc',       label: 'ZocDoc',       color: 'text-purple-500',  border: 'border-purple-200 dark:border-purple-800',   bg: 'bg-purple-50 dark:bg-purple-900/10'   },
-                  { key: 'facebook',     label: 'Facebook',     color: 'text-indigo-500',  border: 'border-indigo-200 dark:border-indigo-800',   bg: 'bg-indigo-50 dark:bg-indigo-900/10'   },
                 ].map(plat => {
                   const saved     = reviewPlatformData[plat.key] || {};
                   const editing   = reviewPlatformForm.editingPlatform === plat.key;
