@@ -1420,7 +1420,11 @@ const App = () => {
                       <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider flex items-center gap-1.5`}><Star size={11} className="text-amber-500" /> Ratings & Reviews</p>
 
                       {/* Big rating hero — shows from ANY source, no API key required */}
-                      {displayRating ? (
+                      {cloudSynced === 'loading' && !displayRating ? (
+                        <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center`}>
+                          <p className={`text-xs ${subtl}`}>Loading data…</p>
+                        </div>
+                      ) : displayRating ? (
                         <div className="flex items-center gap-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700">
                           <div className="text-center flex-shrink-0">
                             <div className="text-5xl font-black text-amber-500 leading-none">{Number(displayRating).toFixed(1)}</div>
@@ -1445,8 +1449,8 @@ const App = () => {
                         </div>
                       ) : (
                         <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center`}>
-                          {destinyLoading
-                            ? <p className={`text-xs ${subtl}`}>Fetching rating data…</p>
+                          {(destinyLoading || cloudSynced === 'loading')
+                            ? <p className={`text-xs ${subtl}`}>Loading data…</p>
                             : <><p className={`text-xs font-black ${txt} mb-1`}>No rating scraped yet</p><p className={`text-[11px] ${subtl}`}>Will auto-populate on sync. Google Search, Healthgrades, and your website schema are all checked automatically.</p></>
                           }
                         </div>
