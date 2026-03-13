@@ -3385,14 +3385,15 @@ const App = () => {
                 ))}
               </div>
 
+              {importNotice && (
+                <div className="mb-4 p-3 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 text-sm text-teal-700 dark:text-teal-300 font-medium flex items-center justify-between">
+                  <span>{importNotice}</span>
+                  <button onClick={() => setImportNotice('')} className="ml-3 text-teal-500 hover:text-teal-700"><X size={14} /></button>
+                </div>
+              )}
+
               {importMode === 'upload' && (
                 <>
-                {importNotice && (
-                  <div className="mb-4 p-3 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 text-sm text-teal-700 dark:text-teal-300 font-medium flex items-center justify-between">
-                    <span>{importNotice}</span>
-                    <button onClick={() => setImportNotice('')} className="ml-3 text-teal-500 hover:text-teal-700"><X size={14} /></button>
-                  </div>
-                )}
                 <div
                   className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-12 text-center hover:border-teal-500 dark:hover:border-teal-500 transition-colors cursor-pointer group"
                   onClick={() => fileInputRef.current?.click()}
@@ -3412,7 +3413,7 @@ const App = () => {
                   />
                   <button
                     className="px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
                   >Browse Files</button>
                     <button className={`px-6 py-2.5 ${card} ${muted} rounded-xl text-sm font-black border hover:text-teal-500 transition-all`}><Download size={13} className="inline mr-1.5" />Download Template</button>
                   </div>
@@ -3609,7 +3610,7 @@ const App = () => {
                     </div>
                   )}
                   <button
-                    onClick={() => saveManualEntry(importDataType)}
+                    onClick={() => { saveManualEntry(importDataType); setImportNotice(`Saved entry to ${importDataType}`); }}
                     className="mt-5 flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">
                     <Plus size={13} /> Save Entry
                   </button>
@@ -3651,11 +3652,47 @@ const App = () => {
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
               <SectionHeader icon={Clock} color="text-slate-500" title="Import History" subtitle="Recent uploads and manual data entries" />
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Download size={36} className={`${subtl} mb-3`} />
-                <p className={`text-sm font-bold ${txt} mb-1`}>No imports yet</p>
-                <p className={`text-xs ${subtl} max-w-sm`}>Your data import history will appear here once you begin uploading files or entering data manually above.</p>
-              </div>
+              {(() => {
+                const allEntries = Object.entries(manualData)
+                  .flatMap(([key, rows]) =>
+                    (rows || []).map(row => ({
+                      type: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                      savedAt: row._savedAt || '—',
+                      summary: Object.entries(row).filter(([k]) => !k.startsWith('_')).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join('  ·  '),
+                    }))
+                  )
+                  .reverse()
+                  .slice(0, 25);
+                if (allEntries.length === 0) return (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Download size={36} className={`${subtl} mb-3`} />
+                    <p className={`text-sm font-bold ${txt} mb-1`}>No imports yet</p>
+                    <p className={`text-xs ${subtl} max-w-sm`}>Your data import history will appear here once you begin uploading files or entering data manually above.</p>
+                  </div>
+                );
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[13px]">
+                      <thead>
+                        <tr className={`border-b ${brd}`}>
+                          {['Type','Saved At','Data Preview'].map(h => (
+                            <th key={h} className={`text-left pb-2 font-black ${muted} uppercase tracking-wider pr-4`}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className={`divide-y ${divdr}`}>
+                        {allEntries.map((entry, i) => (
+                          <tr key={i} className={rowCls}>
+                            <td className={`py-2 pr-4 font-bold ${txt} whitespace-nowrap`}>{entry.type}</td>
+                            <td className={`py-2 pr-4 ${txt2} whitespace-nowrap`}>{entry.savedAt}</td>
+                            <td className={`py-2 pr-4 ${subtl} max-w-xs truncate`}>{entry.summary}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           </>
         )}
