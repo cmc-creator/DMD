@@ -86,8 +86,8 @@ const App = () => {
   const [aiOutput, setAiOutput]                 = useState('');
   const [aiGenerating, setAiGenerating]         = useState(false);
   const [importNotice, setImportNotice]         = useState('');
-  const [reviewOverrides, setReviewOverrides]     = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_overrides') || '{}'); } catch { return {}; } });
-  const [reviewOverrideForm, setReviewOverrideForm] = useState({ rating: '', totalReviews: '' });
+  const [reviewPlatformData, setReviewPlatformData] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}'); } catch { return {}; } });
+  const [reviewPlatformForm, setReviewPlatformForm] = useState({ editingPlatform: null, rating: '', count: '', url: '' });
   // ── Intel tab state ──────────────────────────────────────────────────────────
   const [intelSubTab, setIntelSubTab]           = useState('news');
   const [newsQuery, setNewsQuery]               = useState('mental health Arizona');
@@ -106,7 +106,7 @@ const App = () => {
   // ── Destiny Springs auto-profile state ──────────────────────────────────────
   const [destinyData, setDestinyData]           = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_destiny') || 'null'); } catch { return null; } });
   const [destinyLoading, setDestinyLoading]     = useState(false);
-  const [destinyError, setDestinyError]         = useState('');
+  const [destinyError, setDestinyError]         = useState('');>>>>>>> 6e26497 (feat: multi-platform review tracker — Google, Yelp, Glassdoor, Indeed, Healthgrades, ZocDoc, Facebook)
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -692,6 +692,16 @@ const App = () => {
     }, 600);
   };
 
+  const savePlatformData = (platformKey) => {
+    const updated = {
+      ...reviewPlatformData,
+      [platformKey]: { rating: reviewPlatformForm.rating, count: reviewPlatformForm.count, url: reviewPlatformForm.url },
+    };
+    setReviewPlatformData(updated);
+    localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
+    setReviewPlatformForm({ editingPlatform: null, rating: '', count: '', url: '' });
+  };
+
   const disconnectIntegration = (name) => {
     const updated = { ...connections };
     delete updated[name];
@@ -766,8 +776,20 @@ const App = () => {
   const _metaLive   = liveData['Meta Business Suite'] || {};
   const _wixLive    = liveData['Wix Analytics']      || {};
   const _tikLive    = liveData['TikTok for Business'] || {};
-  const _avgRating  = reviewOverrides.rating ? reviewOverrides.rating : (_reviews.length ? (_reviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) / _reviews.length).toFixed(1) : null);
-  const _totalReviewCount = reviewOverrides.totalReviews ? Number(reviewOverrides.totalReviews) : _reviews.length;
+  const _platformEntries = Object.values(reviewPlatformData).filter(p => p.count && Number(p.count) > 0);
+  const _totalReviewCount = _platformEntries.length
+    ? _platformEntries.reduce((s, p) => s + (Number(p.count) || 0), 0)
+    : _reviews.length;
+  const _weightedRating = _platformEntries.length
+    ? (_platformEntries.reduce((s, p) => s + (Number(p.rating) || 0) * (Number(p.count) || 0), 0) / Math.max(_totalReviewCount, 1)).toFixed(1)
+    : null;
+  const _avgRating = _weightedRating || (_reviews.length ? (_reviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) / _reviews.length).toFixed(1) : null);
+  const _bestPlatform = _platformEntries.length
+    ? Object.entries(reviewPlatformData).filter(([,p])=>p.count&&Number(p.count)>0).sort((a,b)=>(Number(b[1].rating)||0)-(Number(a[1].rating)||0))[0]
+    : null;
+  const _mostReviewsPlatform = _platformEntries.length
+    ? Object.entries(reviewPlatformData).filter(([,p])=>p.count&&Number(p.count)>0).sort((a,b)=>(Number(b[1].count)||0)-(Number(a[1].count)||0))[0]
+    : null;
   const _totalLeads = _adSpend.reduce((s, e) => s + (Number(e.leads) || 0), 0);
   const _totalSpend = _adSpend.reduce((s, e) => s + (Number(e.spend) || 0), 0);
   const _latestSocial = {};
@@ -2379,62 +2401,97 @@ const App = () => {
         {activeTab === 'reviews' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Current Rating"  value={_avgRating ? _avgRating + ' ★' : '—'} trend={null} icon={Star} color="bg-amber-500" sub="Google Business Profile" />
-              <StatCard title="Total Reviews"   value={_totalReviewCount || '—'} trend={null} icon={MessageSquare} color="bg-teal-600" sub="All Time" />
-              <StatCard title="Promoters Ready" value={_reviews.filter(r=>Number(r.rating)>=4).length || '—'} trend={null} icon={ThumbsUp} color="bg-emerald-600" sub="4-5 Star Reviews" />
-              <StatCard title="Response Rate"   value={_reviews.length ? _reviews.filter(r=>Number(r.rating)>=4).length+' of '+_reviews.length : '—'} trend={null} icon={Send} color="bg-purple-600" sub="High-Rating Reviews" />
+              <StatCard title="Overall Rating"    value={_avgRating ? _avgRating + ' ★' : '—'} trend={null} icon={Star} color="bg-amber-500" sub={_platformEntries.length ? 'Weighted Avg — All Platforms' : 'Google Business Profile'} />
+              <StatCard title="Total Reviews"     value={_totalReviewCount || '—'} trend={null} icon={MessageSquare} color="bg-teal-600" sub={_platformEntries.length ? `Across ${_platformEntries.length} platform${_platformEntries.length!==1?'s':''}` : 'All Time'} />
+              <StatCard title="Best Platform"     value={_bestPlatform ? _bestPlatform[0].charAt(0).toUpperCase()+_bestPlatform[0].slice(1) : '—'} trend={null} icon={Trophy} color="bg-emerald-600" sub={_bestPlatform ? _bestPlatform[1].rating+' ★ · '+Number(_bestPlatform[1].count).toLocaleString()+' reviews' : 'No platform data'} />
+              <StatCard title="Most Reviews"      value={_mostReviewsPlatform ? Number(_mostReviewsPlatform[1].count).toLocaleString() : '—'} trend={null} icon={ThumbsUp} color="bg-purple-600" sub={_mostReviewsPlatform ? _mostReviewsPlatform[0].charAt(0).toUpperCase()+_mostReviewsPlatform[0].slice(1) : 'No platform data'} />
             </div>
 
-            {/* ── Review Score Override — simple manual entry ── */}
+            {/* ── Multi-Platform Review Tracker ── */}
             <div className={`${card} p-6 rounded-[2rem] mb-8`}>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><Star size={16} className="text-amber-500" /></div>
-                <div>
-                  <p className={`text-sm font-black ${txt}`}>Set Your Review Score</p>
-                  <p className={`text-xs ${subtl}`}>Enter your current rating and total review count — KPI cards update instantly</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-3 items-end">
-                <div>
-                  <label className={`block text-[11px] font-black uppercase tracking-wider ${subtl} mb-1`}>Overall Rating (e.g. 4.7)</label>
-                  <input
-                    type="number" min="1" max="5" step="0.1"
-                    placeholder={reviewOverrides.rating || '4.7'}
-                    value={reviewOverrideForm.rating}
-                    onChange={e => setReviewOverrideForm(f => ({...f, rating: e.target.value}))}
-                    className={`px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-36 focus:outline-none focus:border-amber-400`}
-                  />
-                </div>
-                <div>
-                  <label className={`block text-[11px] font-black uppercase tracking-wider ${subtl} mb-1`}>Total Reviews (e.g. 167)</label>
-                  <input
-                    type="number" min="0"
-                    placeholder={reviewOverrides.totalReviews || '167'}
-                    value={reviewOverrideForm.totalReviews}
-                    onChange={e => setReviewOverrideForm(f => ({...f, totalReviews: e.target.value}))}
-                    className={`px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 ${txt} text-sm w-36 focus:outline-none focus:border-amber-400`}
-                  />
-                </div>
-                <button
-                  onClick={() => {
-                    const updated = {
-                      ...reviewOverrides,
-                      ...(reviewOverrideForm.rating      ? { rating:       reviewOverrideForm.rating }      : {}),
-                      ...(reviewOverrideForm.totalReviews ? { totalReviews: reviewOverrideForm.totalReviews } : {}),
-                    };
-                    setReviewOverrides(updated);
-                    localStorage.setItem('dmd_review_overrides', JSON.stringify(updated));
-                    setReviewOverrideForm({ rating: '', totalReviews: '' });
-                  }}
-                  className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-white text-sm font-black rounded-xl transition-all"
-                >Save</button>
-                {(reviewOverrides.rating || reviewOverrides.totalReviews) && (
-                  <div className={`flex items-center gap-3 text-xs ${subtl}`}>
-                    {reviewOverrides.rating && <span className="px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-black">Rating: {reviewOverrides.rating} ★</span>}
-                    {reviewOverrides.totalReviews && <span className="px-2 py-1 rounded-full bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 font-black">{reviewOverrides.totalReviews} reviews</span>}
-                    <button onClick={() => { setReviewOverrides({}); localStorage.removeItem('dmd_review_overrides'); }} className="text-slate-400 hover:text-red-400 transition-all">clear</button>
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><Star size={16} className="text-amber-500" /></div>
+                  <div>
+                    <p className={`text-sm font-black ${txt}`}>Review Platform Tracker</p>
+                    <p className={`text-xs ${subtl}`}>Set your rating &amp; count for each platform — KPIs update instantly</p>
                   </div>
+                </div>
+                {_platformEntries.length > 0 && (
+                  <span className={`text-xs font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400`}>
+                    {_totalReviewCount.toLocaleString()} total · {_avgRating} ★ avg
+                  </span>
                 )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {[
+                  { key: 'google',       label: 'Google',       color: 'text-red-500',     border: 'border-red-200 dark:border-red-800',         bg: 'bg-red-50 dark:bg-red-900/10'         },
+                  { key: 'yelp',         label: 'Yelp',         color: 'text-orange-500',  border: 'border-orange-200 dark:border-orange-800',   bg: 'bg-orange-50 dark:bg-orange-900/10'   },
+                  { key: 'glassdoor',    label: 'Glassdoor',    color: 'text-emerald-500', border: 'border-emerald-200 dark:border-emerald-800', bg: 'bg-emerald-50 dark:bg-emerald-900/10' },
+                  { key: 'indeed',       label: 'Indeed',       color: 'text-blue-500',    border: 'border-blue-200 dark:border-blue-800',       bg: 'bg-blue-50 dark:bg-blue-900/10'       },
+                  { key: 'healthgrades', label: 'Healthgrades', color: 'text-teal-500',    border: 'border-teal-200 dark:border-teal-800',       bg: 'bg-teal-50 dark:bg-teal-900/10'       },
+                  { key: 'zocdoc',       label: 'ZocDoc',       color: 'text-purple-500',  border: 'border-purple-200 dark:border-purple-800',   bg: 'bg-purple-50 dark:bg-purple-900/10'   },
+                  { key: 'facebook',     label: 'Facebook',     color: 'text-indigo-500',  border: 'border-indigo-200 dark:border-indigo-800',   bg: 'bg-indigo-50 dark:bg-indigo-900/10'   },
+                ].map(plat => {
+                  const saved   = reviewPlatformData[plat.key] || {};
+                  const editing = reviewPlatformForm.editingPlatform === plat.key;
+                  return (
+                    <div key={plat.key} className={`p-4 rounded-2xl border ${plat.border} ${plat.bg}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-sm font-black ${plat.color}`}>{plat.label}</span>
+                        {saved.rating && (
+                          <span className="flex gap-0.5">
+                            {[1,2,3,4,5].map(n => <Star key={n} size={9} className={n<=Math.round(Number(saved.rating))?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
+                          </span>
+                        )}
+                      </div>
+                      {(saved.rating || saved.count) ? (
+                        <div className="flex gap-3 text-xs mb-3">
+                          {saved.rating && <span className={`font-black ${plat.color}`}>{saved.rating} ★</span>}
+                          {saved.count  && <span className={subtl}>{Number(saved.count).toLocaleString()} reviews</span>}
+                        </div>
+                      ) : (
+                        <p className={`text-xs ${subtl} mb-3`}>No data yet</p>
+                      )}
+                      {editing ? (
+                        <div className="space-y-2">
+                          <input type="number" min="1" max="5" step="0.1" placeholder="Rating (e.g. 4.7)"
+                            value={reviewPlatformForm.rating}
+                            onChange={e => setReviewPlatformForm(f => ({...f, rating: e.target.value}))}
+                            className={`px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${txt} text-xs w-full focus:outline-none focus:border-amber-400`}
+                          />
+                          <input type="number" min="0" placeholder="Review count"
+                            value={reviewPlatformForm.count}
+                            onChange={e => setReviewPlatformForm(f => ({...f, count: e.target.value}))}
+                            className={`px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${txt} text-xs w-full focus:outline-none focus:border-amber-400`}
+                          />
+                          <input type="url" placeholder="Review page URL (optional)"
+                            value={reviewPlatformForm.url}
+                            onChange={e => setReviewPlatformForm(f => ({...f, url: e.target.value}))}
+                            className={`px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${txt} text-xs w-full focus:outline-none focus:border-amber-400`}
+                          />
+                          <div className="flex gap-2">
+                            <button onClick={() => savePlatformData(plat.key)} className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-black rounded-lg transition-all">Save</button>
+                            <button onClick={() => setReviewPlatformForm({ editingPlatform: null, rating: '', count: '', url: '' })} className={`flex-1 py-1.5 ${card} border border-slate-200 dark:border-slate-700 ${muted} text-xs font-black rounded-lg hover:text-red-400 transition-all`}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setReviewPlatformForm({ editingPlatform: plat.key, rating: saved.rating||'', count: saved.count||'', url: saved.url||'' })}
+                            className={`flex-1 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 ${card} text-xs font-black ${muted} hover:text-amber-500 transition-all`}
+                          >Edit</button>
+                          {saved.url && (
+                            <a href={saved.url} target="_blank" rel="noopener noreferrer"
+                              className="flex-1 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-black text-center transition-all">
+                              View ↗
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
