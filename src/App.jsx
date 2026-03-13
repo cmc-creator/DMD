@@ -384,6 +384,9 @@ const App = () => {
     const placeId = gBizCreds.placeId || '';
     setDestinyLoading(true);
     setDestinyError('');
+    // Clear stale cache so the UI shows fresh loading state, not old data
+    setDestinyData(null);
+    localStorage.removeItem('dmd_destiny');
     try {
       const params = new URLSearchParams();
       if (apiKey)  params.set('apiKey',  apiKey);
@@ -1390,8 +1393,30 @@ const App = () => {
                     </div>
                   </div>
 
+                  {/* ── Source Status Strip ─────────────────────────────── */}
+                  {destinyData && !destinyLoading && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {[
+                        { label: 'Website',      ok: !!destinyData.website,       err: destinyData.websiteError },
+                        { label: 'Google Search',ok: !!destinyData.googleSearch,  err: !destinyData.googleSearch ? 'No rating found' : null },
+                        { label: 'Healthgrades', ok: !!destinyData.healthgrades,  err: !destinyData.healthgrades ? 'Not found' : null },
+                        { label: 'Google API',   ok: !!destinyData.google,        err: destinyData.googleSkipped ? 'No API key' : destinyData.googleError },
+                        { label: 'Facebook',     ok: !!destinyData.facebook,      err: destinyData.sources?.facebook?.error },
+                        { label: 'Instagram',    ok: !!destinyData.instagram,     err: destinyData.sources?.instagram?.error },
+                        { label: 'TikTok',       ok: !!destinyData.tiktok,        err: destinyData.sources?.tiktok?.error },
+                      ].map(({ label, ok, err }) => (
+                        <span key={label} title={err || ''} className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
+                          ok  ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' :
+                                'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
+                        }`}>
+                          {ok ? '✓' : '–'} {label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   {/* ── Social Media Stats Row ───────────────────────────── */}
-                  {(destinyData?.facebook || destinyData?.instagram || destinyData?.tiktok || destinyLoading) && (
+                  {(destinyData || destinyLoading) && (
                     <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-700">
                       <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3 flex items-center gap-1.5`}>
                         <Activity size={11} className="text-purple-500" /> Social Media Profiles
@@ -1400,6 +1425,7 @@ const App = () => {
                         {/* Facebook */}
                         {(() => {
                           const fb = destinyData?.facebook;
+                          const fbErr = destinyData?.sources?.facebook?.error;
                           const hasFb = fb && !fb.error;
                           return (
                             <div className={`p-4 rounded-2xl ${hasFb ? 'bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
@@ -1414,16 +1440,19 @@ const App = () => {
                                   {fb.followers != null && <p className="text-xl font-black text-blue-600 dark:text-blue-400">{Number(fb.followers).toLocaleString()} <span className={`text-xs font-normal ${subtl}`}>followers</span></p>}
                                   {fb.likes != null && fb.likes !== fb.followers && <p className={`text-xs ${subtl}`}>{Number(fb.likes).toLocaleString()} likes</p>}
                                   {fb.about && <p className={`text-[11px] ${subtl} mt-1 line-clamp-2`}>{fb.about}</p>}
-                                  <a href={fb.url || destinyData?.website?.socialLinks?.facebook} target="_blank" rel="noreferrer"
+                                  <a href={fb.url || DS_FB_URL} target="_blank" rel="noreferrer"
                                     className="inline-flex items-center gap-1 text-[11px] font-black text-blue-500 hover:text-blue-400 mt-1">
                                     <ExternalLink size={9} /> View Page
                                   </a>
                                 </div>
-                              ) : fb?.error ? (
-                                <p className={`text-[11px] text-rose-500`}>Could not load: {fb.error}</p>
-                              ) : (
-                                <p className={`text-[11px] ${subtl}`}>Sync to load</p>
-                              )}
+                              ) : (fb?.error || fbErr) ? (
+                                <div>
+                                  <p className={`text-[11px] text-amber-600 dark:text-amber-400`}>Blocked by Facebook</p>
+                                  <a href="https://www.facebook.com/destinyspringshealthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-blue-500 hover:text-blue-400 mt-1"><ExternalLink size={9}/> Open on Facebook</a>
+                                </div>
+                              ) : !destinyLoading ? (
+                                <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>
+                              ) : null}
                             </div>
                           );
                         })()}
@@ -1445,16 +1474,19 @@ const App = () => {
                                   {ig.posts    != null && <p className={`text-xs ${subtl}`}>{Number(ig.posts).toLocaleString()} posts</p>}
                                   {ig.bio && <p className={`text-[11px] ${subtl} mt-1 line-clamp-2`}>{ig.bio}</p>}
                                   {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500 mt-1">✓ Verified</span>}
-                                  <a href={ig.url || destinyData?.website?.socialLinks?.instagram} target="_blank" rel="noreferrer"
+                                  <a href={ig.url || 'https://www.instagram.com/destinyspringshealthcare/'} target="_blank" rel="noreferrer"
                                     className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400 mt-1">
                                     <ExternalLink size={9} /> View Profile
                                   </a>
                                 </div>
-                              ) : ig?.error ? (
-                                <p className={`text-[11px] text-rose-500`}>Could not load: {ig.error}</p>
-                              ) : (
-                                <p className={`text-[11px] ${subtl}`}>Sync to load</p>
-                              )}
+                              ) : (ig?.error || destinyData?.sources?.instagram?.error) ? (
+                                <div>
+                                  <p className={`text-[11px] text-amber-600 dark:text-amber-400`}>Blocked by Instagram</p>
+                                  <a href="https://www.instagram.com/destinyspringshealthcare/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400 mt-1"><ExternalLink size={9}/> Open on Instagram</a>
+                                </div>
+                              ) : !destinyLoading ? (
+                                <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>
+                              ) : null}
                             </div>
                           );
                         })()}
@@ -1476,16 +1508,19 @@ const App = () => {
                                   {tt.likes    != null && <p className={`text-xs ${subtl}`}>{Number(tt.likes).toLocaleString()} total likes</p>}
                                   {tt.videos   != null && <p className={`text-xs ${subtl}`}>{tt.videos} videos</p>}
                                   {tt.bio && <p className={`text-[11px] ${subtl} mt-1 line-clamp-2`}>{tt.bio}</p>}
-                                  <a href={tt.url || destinyData?.website?.socialLinks?.tiktok} target="_blank" rel="noreferrer"
+                                  <a href={tt.url || 'https://www.tiktok.com/@destinyspringshealthcare'} target="_blank" rel="noreferrer"
                                     className="inline-flex items-center gap-1 text-[11px] font-black hover:opacity-70 mt-1">
                                     <ExternalLink size={9} /> View Profile
                                   </a>
                                 </div>
-                              ) : tt?.error ? (
-                                <p className={`text-[11px] text-rose-500`}>Could not load: {tt.error}</p>
-                              ) : (
-                                <p className={`text-[11px] ${subtl}`}>Sync to load</p>
-                              )}
+                              ) : (tt?.error || destinyData?.sources?.tiktok?.error) ? (
+                                <div>
+                                  <p className={`text-[11px] text-amber-600 dark:text-amber-400`}>Blocked by TikTok</p>
+                                  <a href="https://www.tiktok.com/@destinyspringshealthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-slate-700 dark:text-slate-300 hover:opacity-70 mt-1"><ExternalLink size={9}/> Open on TikTok</a>
+                                </div>
+                              ) : !destinyLoading ? (
+                                <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>
+                              ) : null}
                             </div>
                           );
                         })()}
