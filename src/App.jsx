@@ -80,6 +80,7 @@ const App = () => {
   const cloudLoadedRef                           = useRef(false);
   const skipNextPushRef                          = useRef(false);
   const pushTimerRef                             = useRef(null);
+  const chatEndRef                               = useRef(null);
   const [cloudSynced, setCloudSynced]            = useState('loading'); // 'loading'|'ok'|'syncing'|'error'|'offline'
   const [pasteCSV, setPasteCSV]                 = useState('');
   const [pasteDataType, setPasteDataType]       = useState('Social Metrics');
@@ -89,6 +90,13 @@ const App = () => {
   const [aiTopic, setAiTopic]                   = useState('');
   const [aiOutput, setAiOutput]                 = useState('');
   const [aiGenerating, setAiGenerating]         = useState(false);
+  const [fileImportLog, setFileImportLog]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_import_log') || '[]'); } catch { return []; } });
+  const [aiInsights, setAiInsights]             = useState('');
+  const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
+  const [chatOpen, setChatOpen]                 = useState(false);
+  const [chatMessages, setChatMessages]         = useState([{ role: 'assistant', content: "Hey hey hey! 🎤 I'm **Sir Clicks-a-Lot**, your marketing analytics assistant. Ask me anything about the dashboard data, campaign performance, or what to post next. I run on GPT and good vibes." }]);
+  const [chatInput, setChatInput]               = useState('');
+  const [chatLoading, setChatLoading]           = useState(false);
   const [importNotice, setImportNotice]         = useState('');
   const [reviewPlatformData, setReviewPlatformData] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}'); } catch { return {}; } });
   const [reviewPlatformForm, setReviewPlatformForm]   = useState({ editingPlatform: null, rating: '', count: '', url: '' });
@@ -166,6 +174,11 @@ const App = () => {
   }, [destinyData, reviewPlatformData, manualData, wixData, liveData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { setShowQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
+
+  // Auto-scroll chatbot to latest message
+  useEffect(() => {
+    if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, chatOpen]);
 
   // Handle TikTok OAuth redirect — parse ?tiktok_data= on first load
   useEffect(() => {
@@ -695,6 +708,7 @@ const App = () => {
           const type = detectTypeFromHeaders(headers);
           const count = batchSaveToManualData(type, rows);
           setImportNotice(`Imported ${count} record${count !== 1 ? 's' : ''} from ${file.name} into ${type}`);
+          setFileImportLog(prev => { const upd = [{ name: file.name, date: new Date().toLocaleString(), rows: count, type }, ...prev].slice(0, 100); localStorage.setItem('dmd_import_log', JSON.stringify(upd)); return upd; });
         } catch (_) {
           setImportNotice('Invalid JSON file.');
         }
@@ -713,6 +727,7 @@ const App = () => {
         if (rows.length === 0) { setImportNotice('No valid rows found in file.'); return; }
         const count = batchSaveToManualData(type, rows);
         setImportNotice(`Imported ${count} record${count !== 1 ? 's' : ''} from ${file.name} into ${type}`);
+        setFileImportLog(prev => { const upd = [{ name: file.name, date: new Date().toLocaleString(), rows: count, type }, ...prev].slice(0, 100); localStorage.setItem('dmd_import_log', JSON.stringify(upd)); return upd; });
       }
     };
     reader.onerror = () => setImportNotice('Error reading file.');
@@ -769,6 +784,87 @@ const App = () => {
       setAiOutput(output);
       setAiGenerating(false);
     }, 600);
+  };
+
+  // ── AI data analysis — Sir Clicks-a-Lot reads your imported data ────────────
+  const analyzeData = async () => {
+    setAiInsightsLoading(true);
+    setAiInsights('');
+    const adSpend   = manualData.ad_spend    || [];
+    const emails    = manualData.email_stats || [];
+    const seo       = manualData.seo_rankings || [];
+    const social    = manualData.social_metrics || [];
+    const reviews   = manualData.reviews || [];
+    const tiktok    = manualData.tiktok_posts || [];
+    const totalSpend = adSpend.reduce((s, e) => s + (Number(e.spend) || 0), 0);
+    const totalLeads = adSpend.reduce((s, e) => s + (Number(e.leads) || 0), 0);
+    const cpl = totalLeads > 0 ? (totalSpend / totalLeads).toFixed(2) : 'N/A';
+    const platformRatings = Object.entries(reviewPlatformData)
+      .filter(([, p]) => p.rating && Number(p.rating) > 0)
+      .map(([k, p]) => `${k}: ${p.rating}★ (${p.count || '?'} reviews)`)
+      .join(', ') || 'none entered';
+    const wixSess   = wixData?.sessions   || '—';
+    const wixBounce = wixData?.bounceRate ? wixData.bounceRate + '%' : '—';
+    const googleRating = destinyData?.bestRating?.rating || destinyData?.googleSearch?.rating || destinyData?.google?.rating || 'not yet fetched';
+    const summary = [
+      `Business: Destiny Springs Healthcare — mental health clinic, Scottsdale AZ`,
+      `Google/auto rating: ${googleRating}`,
+      `Platform ratings: ${platformRatings}`,
+      `Ad spend records: ${adSpend.length} entries | total spend: $${totalSpend.toFixed(0)} | total leads: ${totalLeads} | cost per lead: $${cpl}`,
+      `Email campaigns: ${emails.length} records`,
+      `SEO keyword records: ${seo.length}`,
+      `Social metric records: ${social.length}`,
+      `Review entries: ${reviews.length}`,
+      `TikTok posts tracked: ${tiktok.length}`,
+      `Website sessions (Wix): ${wixSess} | Bounce rate: ${wixBounce}`,
+      `Files imported: ${fileImportLog.length} uploads on record`,
+    ].join('\n');
+    try {
+      const r = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemPrompt: 'You are Sir Clicks-a-Lot 🎤 — a witty but sharp marketing analytics assistant for Destiny Springs Healthcare (mental health clinic, Scottsdale AZ). Analyze the dashboard data and provide 5-7 concise bullet-point insights with specific, actionable recommendations. Be direct and occasionally funny but genuinely useful. Use bullet points (•) for each insight.',
+          messages: [{ role: 'user', content: `Here is the current Destiny Springs Healthcare marketing dashboard data:\n\n${summary}\n\nProvide your analysis of what's working, what needs attention, and your top action items.` }],
+        }),
+      });
+      const { reply, error } = await r.json();
+      setAiInsights(error ? `⚠️ ${error}` : reply);
+    } catch {
+      setAiInsights('⚠️ Could not reach AI. Make sure OPENAI_API_KEY is set in Vercel environment variables.');
+    }
+    setAiInsightsLoading(false);
+  };
+
+  // ── Sir Clicks-a-Lot chat message sender ────────────────────────────────────
+  const sendChatMessage = async (prefill) => {
+    const text = (prefill || chatInput).trim();
+    if (!text || chatLoading) return;
+    const userMsg = { role: 'user', content: text };
+    const updatedMsgs = [...chatMessages, userMsg];
+    setChatMessages(updatedMsgs);
+    setChatInput('');
+    setChatLoading(true);
+    const adSpend   = manualData.ad_spend || [];
+    const totalSpend = adSpend.reduce((s, e) => s + (Number(e.spend) || 0), 0);
+    const totalLeads = adSpend.reduce((s, e) => s + (Number(e.leads) || 0), 0);
+    const googleRating = destinyData?.bestRating?.rating || destinyData?.googleSearch?.rating || destinyData?.google?.rating || 'unknown';
+    const systemPrompt = `You are Sir Clicks-a-Lot 🎤 — a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a mental health clinic in Scottsdale, AZ. Be helpful, concise, and funny but professional. Keep responses under 200 words unless asked for more.\n\nCurrent dashboard context:\n- Google rating: ${googleRating}\n- Ad spend records: ${adSpend.length} (total $${totalSpend.toFixed(0)}, leads: ${totalLeads})\n- Wix sessions: ${wixData?.sessions || '—'}\n- Data types imported: ${Object.keys(manualData).filter(k => (manualData[k] || []).length > 0).join(', ') || 'none yet'}\n- Platform ratings tracked: ${Object.keys(reviewPlatformData).filter(k => reviewPlatformData[k]?.rating).join(', ') || 'none'}`;
+    try {
+      const r = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemPrompt,
+          messages: updatedMsgs.slice(-12),
+        }),
+      });
+      const { reply, error } = await r.json();
+      setChatMessages(m => [...m, { role: 'assistant', content: error ? `Oops: ${error}` : reply }]);
+    } catch {
+      setChatMessages(m => [...m, { role: 'assistant', content: "My circuits are jammed! 🔧 Make sure OPENAI_API_KEY is set in your Vercel project. I'll be back once fed some API keys." }]);
+    }
+    setChatLoading(false);
   };
 
   const savePlatformData = (platformKey) => {
@@ -1902,6 +1998,43 @@ const App = () => {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* ── Sir Clicks-a-Lot AI Insights ─────────────────────────────── */}
+            <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+              <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
+                <SectionHeader icon={Bot} color="text-purple-500" title="AI Data Analysis" subtitle="Sir Clicks-a-Lot reads your imported data and delivers the hard truths" />
+                <button
+                  onClick={analyzeData}
+                  disabled={aiInsightsLoading}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-all flex-shrink-0 shadow-lg"
+                >
+                  <Bot size={14} className={aiInsightsLoading ? 'animate-spin' : ''} />
+                  {aiInsightsLoading ? 'Analyzing…' : 'Analyze Now'}
+                </button>
+              </div>
+              {aiInsights ? (
+                <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700/40">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                      <Bot size={14} className="text-white" />
+                    </div>
+                    <span className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">Sir Clicks-a-Lot says:</span>
+                  </div>
+                  <p className={`text-sm ${txt} whitespace-pre-wrap leading-relaxed`}>{aiInsights}</p>
+                  <button onClick={() => setAiInsights('')} className={`mt-3 text-xs ${subtl} hover:text-purple-500 transition-colors`}>Clear analysis</button>
+                </div>
+              ) : (
+                <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex items-center gap-4`}>
+                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <Bot size={22} className="text-white" />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-black ${txt} mb-0.5`}>No analysis yet</p>
+                    <p className={`text-xs ${subtl}`}>Hit <strong>Analyze Now</strong> and Sir Clicks-a-Lot will crunch your imported data and tell you exactly what to do next.</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-slate-900 dark:bg-slate-950 rounded-[2.5rem] p-8 text-white flex flex-col md:flex-row justify-between items-center gap-6">
@@ -3779,7 +3912,46 @@ const App = () => {
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
-              <SectionHeader icon={Clock} color="text-slate-500" title="Import History" subtitle="Recent uploads and manual data entries" />
+              <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
+                <SectionHeader icon={Clock} color="text-slate-500" title="Import History" subtitle="Files uploaded and manual entries" />
+                {(fileImportLog.length > 0) && (
+                  <button
+                    onClick={() => { setFileImportLog([]); localStorage.removeItem('dmd_import_log'); }}
+                    className={`text-xs font-black px-3 py-1.5 rounded-lg ${subtl} hover:text-rose-500 border ${brd} transition-colors`}
+                  >Clear File Log</button>
+                )}
+              </div>
+
+              {/* ── File upload log ── */}
+              {fileImportLog.length > 0 && (
+                <div className="mb-6">
+                  <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-2`}>Files Uploaded ({fileImportLog.length})</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[13px]">
+                      <thead>
+                        <tr className={`border-b ${brd}`}>
+                          {['File Name','Date','Type','Rows'].map(h => (
+                            <th key={h} className={`text-left pb-2 font-black ${muted} uppercase tracking-wider pr-4`}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className={`divide-y ${divdr}`}>
+                        {fileImportLog.slice(0, 20).map((entry, i) => (
+                          <tr key={i} className={rowCls}>
+                            <td className={`py-2 pr-4 font-bold ${txt} max-w-[180px] truncate`}>{entry.name}</td>
+                            <td className={`py-2 pr-4 ${txt2} whitespace-nowrap`}>{entry.date}</td>
+                            <td className={`py-2 pr-4 ${subtl}`}>{entry.type}</td>
+                            <td className={`py-2 pr-4 font-bold text-teal-500`}>{entry.rows}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Manual data entries ── */}
+              <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-2`}>Manual Data Entries</p>
               {(() => {
                 const allEntries = Object.entries(manualData)
                   .flatMap(([key, rows]) =>
@@ -3792,10 +3964,10 @@ const App = () => {
                   .reverse()
                   .slice(0, 25);
                 if (allEntries.length === 0) return (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Download size={36} className={`${subtl} mb-3`} />
-                    <p className={`text-sm font-bold ${txt} mb-1`}>No imports yet</p>
-                    <p className={`text-xs ${subtl} max-w-sm`}>Your data import history will appear here once you begin uploading files or entering data manually above.</p>
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Download size={28} className={`${subtl} mb-2`} />
+                    <p className={`text-sm font-bold ${txt} mb-1`}>No manual entries yet</p>
+                    <p className={`text-xs ${subtl} max-w-sm`}>Use File Upload, Paste CSV, or Manual Entry above to add data.</p>
                   </div>
                 );
                 return (
@@ -3996,6 +4168,101 @@ const App = () => {
         </div>
 
         </main>
+
+        {/* ══ SIR CLICKS-A-LOT CHATBOT ══════════════════════════════════════ */}
+        {/* Floating toggle button */}
+        <button
+          onClick={() => setChatOpen(o => !o)}
+          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform no-print"
+          title="Chat with Sir Clicks-a-Lot"
+        >
+          {chatOpen ? <X size={22} /> : <Bot size={22} />}
+        </button>
+
+        {/* Chat panel */}
+        {chatOpen && (
+          <div
+            className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 flex flex-col rounded-3xl shadow-2xl overflow-hidden no-print"
+            style={{ maxHeight: '70vh', border: darkMode ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(139,92,246,0.2)', background: darkMode ? '#1e1b4b' : '#faf5ff' }}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-700 to-indigo-700 flex-shrink-0">
+              <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                <Bot size={20} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black text-white leading-tight">Sir Clicks-a-Lot 🎤</p>
+                <p className="text-[10px] text-purple-200">AI Marketing Assistant · Powered by GPT</p>
+              </div>
+              <button onClick={() => setChatOpen(false)} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><X size={16} /></button>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ minHeight: 0 }}>
+              {chatMessages.map((m, i) => (
+                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {m.role === 'assistant' && (
+                    <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
+                      <Bot size={12} className="text-white" />
+                    </div>
+                  )}
+                  <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
+                    m.role === 'user'
+                      ? 'bg-purple-600 text-white rounded-tr-sm'
+                      : darkMode ? 'bg-white/10 text-purple-100 rounded-tl-sm' : 'bg-white text-slate-800 rounded-tl-sm shadow-sm'
+                  }`}>
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="flex justify-start">
+                  <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
+                    <Bot size={12} className="text-white" />
+                  </div>
+                  <div className={`rounded-2xl rounded-tl-sm px-3 py-2 ${darkMode ? 'bg-white/10 text-purple-300' : 'bg-white text-slate-500 shadow-sm'} text-[13px]`}>
+                    Typing… ✍️
+                  </div>
+                </div>
+              )}
+              {/* Quick suggestions when fresh */}
+              {chatMessages.length === 1 && !chatLoading && (
+                <div className="space-y-1.5 pt-1">
+                  {[
+                    'What should I post this week?',
+                    'Analyze my current data',
+                    'How can I get more Google reviews?',
+                    'What\'s my cost per lead?',
+                  ].map(s => (
+                    <button key={s} onClick={() => sendChatMessage(s)}
+                      className={`w-full text-left text-[12px] px-3 py-2 rounded-xl border transition-colors ${darkMode ? 'border-white/10 text-purple-200 hover:bg-white/10' : 'border-purple-100 text-purple-700 hover:bg-purple-50'}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className={`flex gap-2 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/10 bg-indigo-950/80' : 'border-t border-purple-100 bg-white'}`}>
+              <input
+                className={`flex-1 rounded-xl px-3 py-2 text-[13px] outline-none border ${darkMode ? 'bg-white/10 border-white/20 text-white placeholder-white/40 focus:border-purple-400' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-purple-400'} transition-colors`}
+                placeholder="Ask Sir Clicks-a-Lot…"
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
+              />
+              <button
+                onClick={() => sendChatMessage()}
+                disabled={chatLoading || !chatInput.trim()}
+                className="h-9 w-9 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 flex items-center justify-center text-white transition-colors flex-shrink-0"
+              >
+                <Send size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ══ CONNECT MODAL ══════════════════════════════════════════════════════ */}
