@@ -100,15 +100,20 @@ async function scrapeGoogle() {
   const inline = html.match(/([\d.]{3,})\s*(?:★|\()\s*(?:[^)]{0,60})?\(?([\d,]+)\s*(?:Google\s+)?reviews?/i);
   if (inline) return { rating: parseFloat(inline[1]), reviewCount: num(inline[2]), source: 'Google Search', url: 'https://www.google.com/search?q=Destiny+Springs+Healthcare+reviews' };
 
-  throw new Error('Google rating not found in search results — consider adding GOOGLE_PLACES_KEY env var');
+  const gErr = new Error('Google rating not found — add GOOGLE_PLACES_KEY to Vercel env vars for reliable data, or enter manually');
+  gErr.reviewUrl = 'https://www.google.com/maps/search/Destiny+Springs+Healthcare+Scottsdale+AZ';
+  throw gErr;
 }
 
 // ── 2. YELP ───────────────────────────────────────────────────────────────────
 async function scrapeYelp() {
   const apiKey     = process.env.YELP_API_KEY;
-  if (!apiKey) throw new Error('Set YELP_API_KEY in Vercel env vars (free at api.yelp.com)');
-
   const businessId = process.env.DS_YELP_ID || 'destiny-springs-healthcare-scottsdale';
+  if (!apiKey) {
+    const yErr = new Error('Set YELP_API_KEY in Vercel env vars (free API key at api.yelp.com) — or enter manually');
+    yErr.reviewUrl = `https://www.yelp.com/biz/${businessId}`;
+    throw yErr;
+  }
   const r = await fetch(
     `https://api.yelp.com/v3/businesses/${encodeURIComponent(businessId)}`,
     { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(8000) }
@@ -147,7 +152,9 @@ async function scrapeGlassdoor() {
       if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Glassdoor', url };
     } catch {} // try next URL
   }
-  throw new Error('Glassdoor blocked scraping — set DS_GLASSDOOR_SLUG or check if the company page exists');
+  const gdErr = new Error('Glassdoor blocks automated access — enter your rating manually');
+  gdErr.reviewUrl = 'https://www.glassdoor.com/Search/results.htm?keyword=Destiny+Springs+Healthcare';
+  throw gdErr;
 }
 
 // ── 4. INDEED ─────────────────────────────────────────────────────────────────
@@ -156,7 +163,11 @@ async function scrapeIndeed() {
   const url  = `https://www.indeed.com/cmp/${slug}`;
 
   const r = await fetchH(url, {}, 9000);
-  if (!r.ok) throw new Error(`Indeed HTTP ${r.status}`);
+  if (!r.ok) {
+    const iErr = new Error(`Indeed blocks automated access (HTTP ${r.status}) — enter your rating manually`);
+    iErr.reviewUrl = url;
+    throw iErr;
+  }
   const html = await r.text();
 
   const ld = findAggRating(getJsonLd(html));
@@ -180,24 +191,40 @@ async function scrapeIndeed() {
   const cM = html.match(/([\d,]+)\s+(?:reviews?|ratings?)/i);
   if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Indeed', url };
 
-  throw new Error('Indeed rating not found — check DS_INDEED_SLUG env var (e.g. destiny-springs-healthcare)');
+  const iErr = new Error('Indeed rating not found — enter your rating manually');
+  iErr.reviewUrl = url;
+  throw iErr;
 }
 
 // ── 5. HEALTHGRADES ───────────────────────────────────────────────────────────
 async function scrapeHealthgrades() {
-  const searchUrl = `https://www.healthgrades.com/search?what=${encodeURIComponent('Destiny Springs Healthcare')}&where=${encodeURIComponent('Scottsdale, AZ')}&pt=HOSPITAL`;
+  const searchUrl = `https://www.healthgrades.com/search?what=${encodeURIComponent('Destiny Springs Healthcare')}&where=${encodeURIComponent('Scottsdale, AZ')}`;
   const r1 = await fetchH(searchUrl, {}, 9000);
-  if (!r1.ok) throw new Error(`Healthgrades search HTTP ${r1.status}`);
+  if (!r1.ok) {
+    const hErr = new Error(`Healthgrades search failed (HTTP ${r1.status}) — enter your rating manually`);
+    hErr.reviewUrl = searchUrl;
+    throw hErr;
+  }
   const html1 = await r1.text();
 
   const linkM = html1.match(/href="(\/group-directory\/[^"?#]+)/i)
              || html1.match(/href="(\/physician\/[^"?#]+)/i)
-             || html1.match(/href="(\/hospital-directory\/[^"?#]+)/i);
-  if (!linkM) throw new Error('Healthgrades: no profile link found in search results');
+             || html1.match(/href="(\/hospital-directory\/[^"?#]+)/i)
+             || html1.match(/href="(\/mental-health-directory\/[^"?#]+)/i)
+             || html1.match(/href="(\/facility-directory\/[^"?#]+)/i);
+  if (!linkM) {
+    const hErr = new Error('Healthgrades: profile not found in search — enter your rating manually');
+    hErr.reviewUrl = searchUrl;
+    throw hErr;
+  }
 
   const profileUrl = 'https://www.healthgrades.com' + linkM[1];
   const r2 = await fetchH(profileUrl, {}, 9000);
-  if (!r2.ok) throw new Error(`Healthgrades profile HTTP ${r2.status}`);
+  if (!r2.ok) {
+    const hErr = new Error(`Healthgrades profile failed (HTTP ${r2.status}) — enter your rating manually`);
+    hErr.reviewUrl = profileUrl;
+    throw hErr;
+  }
   const html2 = await r2.text();
 
   const ld = findAggRating(getJsonLd(html2));
@@ -209,7 +236,9 @@ async function scrapeHealthgrades() {
            || html2.match(/([\d,]+)\s+(?:reviews?|ratings?)/i);
   if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Healthgrades', url: profileUrl };
 
-  throw new Error('Healthgrades: rating not found in profile page');
+  const hErr = new Error('Healthgrades: rating not found in profile — enter your rating manually');
+  hErr.reviewUrl = profileUrl;
+  throw hErr;
 }
 
 // ── 6. ZOCDOC ─────────────────────────────────────────────────────────────────
@@ -254,7 +283,9 @@ async function scrapeZocdoc() {
       if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'ZocDoc', url };
     } catch {}
   }
-  throw new Error('ZocDoc: rating not found — set DS_ZOCDOC_URL env var with direct profile URL');
+  const zdErr = new Error('ZocDoc: set DS_ZOCDOC_URL env var with your ZocDoc profile URL — or enter manually');
+  zdErr.reviewUrl = 'https://www.zocdoc.com/search?address=Scottsdale%2C+AZ&search_query=Destiny+Springs';
+  throw zdErr;
 }
 
 // ── 7. FACEBOOK ───────────────────────────────────────────────────────────────
@@ -281,9 +312,14 @@ async function scrapeFacebook() {
   }
 
   // Option B: Mobile page scrape (no token — limited)
+  const fbReviewUrl = `https://www.facebook.com/${pageId}/reviews`;
   const url  = `https://m.facebook.com/${pageId}`;
   const r    = await fetchH(url, { Accept: 'text/html' }, 9000);
-  if (!r.ok) throw new Error(`Facebook HTTP ${r.status}`);
+  if (!r.ok) {
+    const fErr = new Error(`Facebook blocks automated access (HTTP ${r.status}) — add FACEBOOK_PAGE_TOKEN to Vercel env vars or enter manually`);
+    fErr.reviewUrl = fbReviewUrl;
+    throw fErr;
+  }
   const html = await r.text();
 
   const ld = findAggRating(getJsonLd(html));
@@ -294,7 +330,9 @@ async function scrapeFacebook() {
   const cM = html.match(/([\d,]+)\s+(?:reviews?|ratings?|people\s+rated)/i);
   if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Facebook', url: `https://www.facebook.com/${pageId}/reviews` };
 
-  throw new Error('Facebook rating not found — set FACEBOOK_PAGE_TOKEN + FACEBOOK_PAGE_ID for Graph API access');
+  const fErr = new Error('Facebook rating not found — add FACEBOOK_PAGE_TOKEN to Vercel env vars or enter manually');
+  fErr.reviewUrl = fbReviewUrl;
+  throw fErr;
 }
 
 // ── MAIN HANDLER ──────────────────────────────────────────────────────────────
@@ -334,7 +372,7 @@ export default async function handler(req, res) {
       const key = Object.keys(scrapers)[i];
       out[key] = r.status === 'fulfilled'
         ? r.value[1]
-        : { ok: false, error: r.reason?.message || 'Unknown error', fetchedAt };
+        : { ok: false, error: r.reason?.message || 'Unknown error', ...(r.reason?.reviewUrl ? { url: r.reason.reviewUrl } : {}), fetchedAt };
     });
     return res.status(200).json({ ok: true, results: out });
   }
@@ -349,6 +387,6 @@ export default async function handler(req, res) {
     const data = await scraper();
     return res.status(200).json({ ok: true, ...data, fetchedAt });
   } catch (e) {
-    return res.status(200).json({ ok: false, error: e.message, fetchedAt });
+    return res.status(200).json({ ok: false, error: e.message, ...(e.reviewUrl ? { url: e.reviewUrl } : {}), fetchedAt });
   }
 }

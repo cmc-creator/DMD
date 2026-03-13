@@ -714,7 +714,21 @@ const App = () => {
     try {
       const r = await fetch(`/api/reviews?platform=${platformKey}`);
       const d = await r.json();
-      if (!d.ok) throw new Error(d.error || 'Fetch failed');
+      if (!d.ok) {
+        const updated = {
+          ...reviewPlatformData,
+          [platformKey]: {
+            ...reviewPlatformData[platformKey],
+            ...(d.url ? { url: d.url } : {}),
+            source:     reviewPlatformData[platformKey]?.source || 'error',
+            fetchedAt:  d.fetchedAt || new Date().toISOString(),
+            fetchError: d.error || 'Fetch failed',
+          },
+        };
+        setReviewPlatformData(updated);
+        localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
+        return;
+      }
       const updated = {
         ...reviewPlatformData,
         [platformKey]: {
