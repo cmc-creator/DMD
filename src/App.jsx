@@ -394,13 +394,16 @@ const App = () => {
       if (!data.ok) { setDestinyError(data.error || 'Sync failed'); setDestinyLoading(false); return; }
       setDestinyData(data);
       localStorage.setItem('dmd_destiny', JSON.stringify(data));
-      // ── Auto-populate Google rating + review count into overrides ──────────
-      if (data.google?.rating) {
-        const overrides = { rating: String(data.google.rating), totalReviews: String(data.google.reviewCount || '') };
+      // ── Auto-populate best available rating into overrides ─────────────────
+      // Uses Google Places if key is set, otherwise falls back to Google search
+      // scrape / website JSON-LD schema / Healthgrades — whichever has data first.
+      const best = data.bestRating || data.google || null;
+      if (best?.rating) {
+        const overrides = { rating: String(best.rating), totalReviews: String(best.reviewCount || '') };
         setReviewOverrides(overrides);
         localStorage.setItem('dmd_review_overrides', JSON.stringify(overrides));
       }
-      // ── Push Google reviews into manualData so Reviews tab populates ───────
+      // ── Push Google Places reviews into manualData (only when API key set) ──
       if (data.google?.reviews?.length) {
         const autoReviews = data.google.reviews.map(rv => ({
           name:     rv.author || 'Anonymous',
@@ -417,15 +420,17 @@ const App = () => {
           return updated;
         });
       }
-      // ── Feed Google Business liveData ──────────────────────────────────────
-      if (data.google) {
+      // ── Feed Google Business liveData (uses best available rating source) ───
+      const liveRating = data.google?.rating || best?.rating || null;
+      if (liveRating || data.google) {
         setLiveData(d => ({ ...d, 'Google Business': {
-          rating:      data.google.rating,
-          reviewCount: data.google.reviewCount,
-          phone:       data.google.phone,
-          address:     data.google.address,
-          isOpen:      data.google.isOpen,
-          fetchedAt:   data.google.fetchedAt,
+          rating:      data.google?.rating      ?? best?.rating,
+          reviewCount: data.google?.reviewCount ?? best?.reviewCount,
+          phone:       data.google?.phone       ?? data.website?.phones?.[0],
+          address:     data.google?.address,
+          isOpen:      data.google?.isOpen,
+          ratingSource: best?.source || 'scraped',
+          fetchedAt:   data.fetchedAt,
         }}));
         const now = new Date().toLocaleString();
         setConnections(c => {
@@ -677,13 +682,17 @@ const App = () => {
     return () => clearInterval(interval);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-run Destiny Springs profile sync on load (website is always free; Google needs key)
+  // Auto-run Destiny Springs profile sync on load + every 60 min while tab is open
   useEffect(() => {
-    const STALE_MS = 30 * 60 * 1000; // re-sync if data is older than 30 min
-    const existing = (() => { try { return JSON.parse(localStorage.getItem('dmd_destiny') || 'null'); } catch { return null; } })();
+    const STALE_MS  = 60 * 60 * 1000; // 1 hour
+    const POLL_MS   = 60 * 60 * 1000; // re-poll every 1 hour while page is open
+    const existing  = (() => { try { return JSON.parse(localStorage.getItem('dmd_destiny') || 'null'); } catch { return null; } })();
     const scrapedAt = existing?.fetchedAt ? new Date(existing.fetchedAt).getTime() : 0;
     const isStale   = !scrapedAt || (Date.now() - scrapedAt) > STALE_MS;
     if (isStale) fetchDestinyProfile();
+    // Keep refreshing every hour while the dashboard is open
+    const timer = setInterval(fetchDestinyProfile, POLL_MS);
+    return () => clearInterval(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chart theme ─────────────────────────────────────────────────────────────
@@ -1146,15 +1155,24 @@ const App = () => {
           <>
             {/* ── Destiny Springs Live Profile ─────────────────────────────── */}
             {(() => {
-              const website  = destinyData?.website;
-              const google   = destinyData?.google;
+              const website   = destinyData?.website;
+              const google    = destinyData?.google;         // Places API (needs key)
+              const best      = destinyData?.bestRating;     // best available from any source
+              const allRatings = destinyData?.allRatings || [];
+              const hg        = destinyData?.healthgrades;
+              const gSearch   = destinyData?.googleSearch;
               const fetchedAt = destinyData?.fetchedAt;
-              const gBizConnected = !!connections['Google Business']?.apiKey;
-              const needsKey = !gBizConnected && !google;
+              // Best rating data to display (Google Places > Google Search > Website Schema > Healthgrades)
+              const displayRating     = google?.rating      ?? best?.rating;
+              const displayReviews    = google?.reviewCount ?? best?.reviewCount;
+              const displaySource     = google ? 'Google Business (API)' : (best?.source || null);
+              const socialLinks       = website?.socialLinks || {};
+              const hasSocialLinks    = Object.keys(socialLinks).length > 0;
               return (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
-                    <SectionHeader icon={Heart} color="text-teal-500" title="Destiny Springs Live Snapshot" subtitle={fetchedAt ? `Last synced ${new Date(fetchedAt).toLocaleString()}` : 'Pull your live website & Google data with one click'} />
+                    <SectionHeader icon={Heart} color="text-teal-500" title="Destiny Springs Live Snapshot"
+                      subtitle={fetchedAt ? `Auto-syncs hourly · last synced ${new Date(fetchedAt).toLocaleString()}` : 'Syncing automatically every hour — no setup needed'} />
                     <button
                       onClick={fetchDestinyProfile}
                       disabled={destinyLoading}
@@ -1172,81 +1190,111 @@ const App = () => {
                     </div>
                   )}
 
-                  {needsKey && !destinyLoading && !destinyData && (
-                    <div className="mb-5 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl">
-                      <p className={`text-sm text-amber-700 dark:text-amber-300`}>
-                        <strong>Add a Google Places API Key</strong> on the Integrations tab under <em>Google Business</em> to automatically pull your live star rating and reviews. Website data requires no key.
-                      </p>
-                    </div>
-                  )}
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* ── Google column ── */}
-                    <div>
-                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3 flex items-center gap-1.5`}><Star size={11} className="text-amber-500" /> Google Business</p>
-                      {google ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-                            <div className="text-center">
-                              <div className="text-4xl font-black text-amber-500">{google.rating}</div>
-                              <div className={`text-[11px] ${subtl} mt-0.5`}>{google.reviewCount?.toLocaleString()} reviews</div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`font-black text-sm ${txt} truncate`}>{google.name}</p>
-                              {google.vicinity && <p className={`text-xs ${subtl} mt-0.5`}>📍 {google.vicinity}</p>}
-                              {google.phone    && <p className={`text-xs ${subtl} mt-0.5`}>📞 {google.phone}</p>}
-                              <span className={`inline-flex mt-1.5 items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full ${
-                                google.isOpen === true  ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
-                                google.isOpen === false ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500'                                 :
-                                'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                              }`}>{google.isOpen === true ? '● Open Now' : google.isOpen === false ? '● Closed' : '● Status Unknown'}</span>
+                    {/* ── Ratings / Google column ── */}
+                    <div className="space-y-3">
+                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider flex items-center gap-1.5`}><Star size={11} className="text-amber-500" /> Ratings & Reviews</p>
+
+                      {/* Big rating hero — shows from ANY source, no API key required */}
+                      {displayRating ? (
+                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700">
+                          <div className="text-center flex-shrink-0">
+                            <div className="text-5xl font-black text-amber-500 leading-none">{Number(displayRating).toFixed(1)}</div>
+                            <div className="flex gap-0.5 justify-center mt-1">
+                              {[1,2,3,4,5].map(s => <Star key={s} size={11} className={s<=Math.round(displayRating)?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
                             </div>
                           </div>
-                          {google.hours?.length > 0 && (
-                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-                              <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Hours</p>
-                              <div className="space-y-0.5">
-                                {google.hours.map((h, i) => <p key={i} className={`text-xs ${txt2}`}>{h}</p>)}
-                              </div>
-                            </div>
-                          )}
-                          {google.reviews?.length > 0 && (
-                            <div>
-                              <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Recent Google Reviews</p>
-                              <div className="space-y-2">
-                                {google.reviews.slice(0, 3).map((rv, i) => (
-                                  <div key={i} className={`p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border ${brd}`}>
-                                    <div className="flex items-center justify-between gap-2 mb-1">
-                                      <span className={`text-xs font-black ${txt}`}>{rv.author}</span>
-                                      <div className="flex gap-0.5">
-                                        {[1,2,3,4,5].map(s => <Star key={s} size={9} className={s<=rv.rating?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
-                                      </div>
-                                    </div>
-                                    <p className={`text-xs ${subtl} line-clamp-2`}>{rv.text}</p>
-                                    {rv.relativeTime && <p className={`text-[11px] text-slate-400 dark:text-slate-500 mt-1`}>{rv.relativeTime}</p>}
-                                  </div>
-                                ))}
-                              </div>
-                              {google.googleUrl && (
-                                <a href={google.googleUrl} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400 font-black">
-                                  <ExternalLink size={11} /> View all on Google
-                                </a>
-                              )}
-                            </div>
-                          )}
+                          <div className="flex-1 min-w-0">
+                            {displayReviews && <p className={`text-2xl font-black ${txt}`}>{Number(displayReviews).toLocaleString()} <span className={`text-sm font-normal ${subtl}`}>reviews</span></p>}
+                            {google?.name && <p className={`text-xs font-black ${txt} mt-0.5 truncate`}>{google.name}</p>}
+                            {(google?.vicinity || google?.address) && <p className={`text-xs ${subtl} mt-0.5`}>📍 {google?.vicinity || google?.address}</p>}
+                            {google?.phone && <p className={`text-xs ${subtl} mt-0.5`}>📞 {google.phone}</p>}
+                            {displaySource && <p className={`text-[10px] ${subtl} mt-1 opacity-70`}>Source: {displaySource}</p>}
+                            {google && (
+                              <span className={`inline-flex mt-1.5 items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full ${
+                                google.isOpen === true  ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
+                                google.isOpen === false ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' :
+                                'bg-slate-100 dark:bg-slate-700 text-slate-500'
+                              }`}>{google.isOpen === true ? '● Open Now' : google.isOpen === false ? '● Closed' : '● Status Unknown'}</span>
+                            )}
+                          </div>
                         </div>
                       ) : (
-                        <div className={`p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center ${subtl} text-xs`}>
-                          {destinyLoading ? 'Fetching Google data…' : 'Click Sync Now to load Google Business data'}
+                        <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center`}>
+                          {destinyLoading
+                            ? <p className={`text-xs ${subtl}`}>Fetching rating data…</p>
+                            : <><p className={`text-xs font-black ${txt} mb-1`}>No rating scraped yet</p><p className={`text-[11px] ${subtl}`}>Will auto-populate on sync. Google Search, Healthgrades, and your website schema are all checked automatically.</p></>
+                          }
+                        </div>
+                      )}
+
+                      {/* Secondary source breakdown (show when we have multiple) */}
+                      {allRatings.length > 1 && (
+                        <div className={`p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50`}>
+                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>All Sources</p>
+                          <div className="space-y-1.5">
+                            {allRatings.map((r, i) => (
+                              <div key={i} className="flex items-center justify-between gap-2">
+                                <span className={`text-xs ${subtl} truncate`}>{r.source}</span>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <span className={`text-sm font-black text-amber-500`}>{r.rating ? Number(r.rating).toFixed(1) : '—'}</span>
+                                  {r.reviewCount && <span className={`text-[11px] ${subtl}`}>({Number(r.reviewCount).toLocaleString()})</span>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Healthgrades profile link */}
+                      {hg?.profileUrl && (
+                        <a href={hg.profileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-black">
+                          <ExternalLink size={11} /> View on Healthgrades
+                        </a>
+                      )}
+
+                      {/* Hours (from Google Places API) */}
+                      {google?.hours?.length > 0 && (
+                        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Business Hours</p>
+                          <div className="space-y-0.5">
+                            {google.hours.map((h, i) => <p key={i} className={`text-xs ${txt2}`}>{h}</p>)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recent reviews (from Google Places API) */}
+                      {google?.reviews?.length > 0 && (
+                        <div>
+                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Recent Google Reviews</p>
+                          <div className="space-y-2">
+                            {google.reviews.slice(0, 3).map((rv, i) => (
+                              <div key={i} className={`p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border ${brd}`}>
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <span className={`text-xs font-black ${txt}`}>{rv.author}</span>
+                                  <div className="flex gap-0.5">
+                                    {[1,2,3,4,5].map(s => <Star key={s} size={9} className={s<=rv.rating?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
+                                  </div>
+                                </div>
+                                <p className={`text-xs ${subtl} line-clamp-2`}>{rv.text}</p>
+                                {rv.relativeTime && <p className={`text-[11px] text-slate-400 dark:text-slate-500 mt-1`}>{rv.relativeTime}</p>}
+                              </div>
+                            ))}
+                          </div>
+                          {google.googleUrl && (
+                            <a href={google.googleUrl} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400 font-black">
+                              <ExternalLink size={11} /> View all on Google
+                            </a>
+                          )}
                         </div>
                       )}
                     </div>
 
-                    {/* ── Website column ── */}
-                    <div>
-                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3 flex items-center gap-1.5`}><Globe size={11} className="text-teal-500" /> Website — destinyspringshealthcare.com</p>
+                    {/* ── Website + Social column ── */}
+                    <div className="space-y-3">
+                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider flex items-center gap-1.5`}><Globe size={11} className="text-teal-500" /> Website & Social</p>
                       {website ? (
-                        <div className="space-y-3">
+                        <>
                           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
                             <p className={`font-black text-sm ${txt} mb-1`}>{website.title}</p>
                             {website.description && <p className={`text-xs ${txt2}`}>{website.description}</p>}
@@ -1261,14 +1309,38 @@ const App = () => {
                             <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
                               <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Page Sections</p>
                               <ul className="space-y-1">
-                                {website.h2s.map((h, i) => <li key={i} className={`text-xs ${txt2}`}>• {h}</li>)}
+                                {website.h2s.slice(0,6).map((h, i) => <li key={i} className={`text-xs ${txt2}`}>• {h}</li>)}
                               </ul>
+                            </div>
+                          )}
+                          {/* Social links found on the site */}
+                          {hasSocialLinks && (
+                            <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800">
+                              <p className={`text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2`}>Social Profiles Found</p>
+                              <div className="flex flex-wrap gap-2">
+                                {Object.entries(socialLinks).map(([platform, url]) => (
+                                  <a key={platform} href={url} target="_blank" rel="noreferrer"
+                                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800 capitalize flex items-center gap-1">
+                                    <ExternalLink size={9} /> {platform}
+                                  </a>
+                                ))}
+                              </div>
                             </div>
                           )}
                           {website.phones?.length > 0 && (
                             <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800">
                               <p className={`text-[11px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1`}>Phone on Website</p>
                               {website.phones.map((p, i) => <p key={i} className="text-sm font-black text-emerald-700 dark:text-emerald-300">{p}</p>)}
+                            </div>
+                          )}
+                          {/* Website schema rating (when no Google API key) */}
+                          {website.schemaRating?.rating && !google && (
+                            <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700">
+                              <p className={`text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1`}>Schema Rating on Website</p>
+                              <p className={`text-sm font-black text-amber-700 dark:text-amber-300`}>
+                                {Number(website.schemaRating.rating).toFixed(1)} ★
+                                {website.schemaRating.reviewCount && ` · ${Number(website.schemaRating.reviewCount).toLocaleString()} reviews`}
+                              </p>
                             </div>
                           )}
                           {website.services?.length > 0 && (
@@ -1281,8 +1353,8 @@ const App = () => {
                               </div>
                             </div>
                           )}
-                          <div className={`text-[11px] ${subtl}`}>{website.wordCount?.toLocaleString()} words on page · scraped {website.scrapedAt ? new Date(website.scrapedAt).toLocaleString() : ''}</div>
-                        </div>
+                          <p className={`text-[11px] ${subtl}`}>{website.wordCount?.toLocaleString()} words · scraped {website.scrapedAt ? new Date(website.scrapedAt).toLocaleString() : ''}</p>
+                        </>
                       ) : (
                         <div className={`p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center ${subtl} text-xs`}>
                           {destinyLoading ? 'Scraping website…' : 'Click Sync Now to pull website data'}
