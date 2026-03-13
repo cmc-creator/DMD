@@ -14,6 +14,7 @@ import {
   Calendar, DollarSign, Plug, Trophy, Heart, WifiOff,
   RefreshCw, Pencil, Send, Zap, BadgeCheck, ShieldCheck, Megaphone,
   ChevronLeft, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
+  Newspaper, Rss, Link2, Youtube, Building2,
 } from 'lucide-react';
 
 // ─── Shared style helpers ───────────────────────────────────────────────────
@@ -87,6 +88,21 @@ const App = () => {
   const [importNotice, setImportNotice]         = useState('');
   const [reviewOverrides, setReviewOverrides]     = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_overrides') || '{}'); } catch { return {}; } });
   const [reviewOverrideForm, setReviewOverrideForm] = useState({ rating: '', totalReviews: '' });
+  // ── Intel tab state ──────────────────────────────────────────────────────────
+  const [intelSubTab, setIntelSubTab]           = useState('news');
+  const [newsQuery, setNewsQuery]               = useState('mental health Arizona');
+  const [newsItems, setNewsItems]               = useState([]);
+  const [newsLoading, setNewsLoading]           = useState(false);
+  const [newsError, setNewsError]               = useState('');
+  const [scraperUrl, setScraperUrl]             = useState('');
+  const [scraperResult, setScraperResult]       = useState(null);
+  const [scraperLoading, setScraperLoading]     = useState(false);
+  const [scraperError, setScraperError]         = useState('');
+  const [savedUrls, setSavedUrls]               = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_saved_urls') || '[]'); } catch { return []; } });
+  const [rssFeedUrl, setRssFeedUrl]             = useState('');
+  const [rssItems, setRssItems]                 = useState([]);
+  const [rssLoading, setRssLoading]             = useState(false);
+  const [rssError, setRssError]                 = useState('');
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -127,6 +143,41 @@ const App = () => {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Handle Google / Mailchimp / Meta OAuth redirects
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const platforms = [
+      { key: 'google_data',    names: ['Google Analytics', 'Google Business']     },
+      { key: 'mailchimp_data', names: ['Mailchimp']                               },
+      { key: 'meta_data',      names: ['Meta Business Suite', 'Meta Ads Manager'] },
+    ];
+    let handled = false;
+    platforms.forEach(({ key, names }) => {
+      const raw = params.get(key);
+      if (raw) {
+        try {
+          const b64      = raw.replace(/-/g, '+').replace(/_/g, '/');
+          const data     = JSON.parse(atob(b64));
+          const syncTime = new Date().toLocaleString();
+          names.forEach(name => {
+            setConnections(c => {
+              const updated = { ...c, [name]: { ...data, connected: true, lastSync: syncTime } };
+              localStorage.setItem('dmd_connections', JSON.stringify(updated));
+              return updated;
+            });
+            setLiveData(d => ({ ...d, [name]: data }));
+            setSyncStatus(s => ({ ...s, [name]: 'ok' }));
+          });
+          setActiveTab('integrations');
+        } catch {}
+        handled = true;
+      }
+      const errKey = key.replace('_data', '_error');
+      if (params.get(errKey)) { setActiveTab('integrations'); handled = true; }
+    });
+    if (handled) window.history.replaceState({}, '', window.location.pathname);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Integration fields config (per-service credential forms) ─────────────────
   const integrationFields = {
     'Google Analytics':    [
@@ -165,6 +216,18 @@ const App = () => {
     'MarkyAI': [
       { key: 'apiKey',  label: 'API Key',  placeholder: 'Your MarkyAI API key',  type: 'password', hint: 'MarkyAI → Account → API Access'         },
       { key: 'brandId', label: 'Brand ID', placeholder: 'Your brand ID',                           hint: 'MarkyAI → Brand → Settings → Brand ID'  },
+    ],
+    'YouTube Analytics': [
+      { key: 'channelId', label: 'Channel ID',              placeholder: 'UCxxxxxxxxxxxxxxxxxxxxxxxx',    hint: 'YouTube Studio → Customization → Basic info → scroll to bottom for Channel ID' },
+      { key: 'apiKey',    label: 'YouTube Data API v3 Key', placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'console.cloud.google.com → Enable YouTube Data API v3 → Credentials → API Key' },
+    ],
+    'Yelp Reviews': [
+      { key: 'businessId', label: 'Yelp Business ID',  placeholder: 'destiny-springs-healthcare-scottsdale', hint: 'From the Yelp business URL: yelp.com/biz/YOUR-BUSINESS-ID' },
+      { key: 'apiKey',     label: 'Yelp API Key',      placeholder: 'your-yelp-api-key', type: 'password',   hint: 'Register at api.yelp.com → Create App → API Key (500 free calls/day)' },
+    ],
+    'News API': [
+      { key: 'apiKey',       label: 'API Key',             placeholder: 'your-newsapi.org-key', type: 'password', hint: 'Register free at newsapi.org → Account → API Key (100 req/day free)' },
+      { key: 'defaultQuery', label: 'Default Search Query (optional)', placeholder: 'mental health Arizona',         hint: 'Keywords auto-loaded on the Intel tab. Leave blank for default.' },
     ],
   };
 
@@ -237,6 +300,79 @@ const App = () => {
     } catch (e) { return { success: false, error: e.message }; }
   };
 
+  const fetchYouTubeData = async (creds) => {
+    const { channelId, apiKey } = creds;
+    if (!channelId || !apiKey) return { success: false, error: 'Missing Channel ID or API Key' };
+    try {
+      const res  = await fetch(`/api/youtube?action=data&channelId=${encodeURIComponent(channelId)}&apiKey=${encodeURIComponent(apiKey)}`);
+      const data = await res.json();
+      if (!data.ok) return { success: false, error: data.error || 'YouTube fetch failed' };
+      return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+  };
+
+  const fetchYelpData = async (creds) => {
+    const { businessId, apiKey } = creds;
+    if (!businessId || !apiKey) return { success: false, error: 'Missing Business ID or API Key' };
+    try {
+      const res  = await fetch(`/api/yelp?action=data&businessId=${encodeURIComponent(businessId)}&apiKey=${encodeURIComponent(apiKey)}`);
+      const data = await res.json();
+      if (!data.ok) return { success: false, error: data.error || 'Yelp fetch failed' };
+      return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+  };
+
+  const fetchNewsItems = async (query, apiKey) => {
+    setNewsLoading(true); setNewsError('');
+    try {
+      const q      = encodeURIComponent(query || 'mental health Arizona');
+      const keyPart = apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : '';
+      const res    = await fetch(`/api/news?action=news&q=${q}&pageSize=15${keyPart}`);
+      const data   = await res.json();
+      if (!data.ok) { setNewsError(data.error || 'News fetch failed'); setNewsLoading(false); return; }
+      setNewsItems(data.articles || []);
+    } catch (e) { setNewsError(e.message); }
+    setNewsLoading(false);
+  };
+
+  const fetchScrapeUrl = async (url) => {
+    if (!url) return;
+    setScraperLoading(true); setScraperError(''); setScraperResult(null);
+    try {
+      const res  = await fetch(`/api/news?action=scrape&url=${encodeURIComponent(url)}`);
+      const data = await res.json();
+      if (!data.ok) { setScraperError(data.error || 'Scrape failed'); setScraperLoading(false); return; }
+      setScraperResult(data);
+    } catch (e) { setScraperError(e.message); }
+    setScraperLoading(false);
+  };
+
+  const fetchRssFeed = async (url) => {
+    if (!url) return;
+    setRssLoading(true); setRssError(''); setRssItems([]);
+    try {
+      const res  = await fetch(`/api/news?action=rss&url=${encodeURIComponent(url)}`);
+      const data = await res.json();
+      if (!data.ok) { setRssError(data.error || 'RSS fetch failed'); setRssLoading(false); return; }
+      setRssItems(data.items || []);
+    } catch (e) { setRssError(e.message); }
+    setRssLoading(false);
+  };
+
+  const saveTrackedUrl = (url, label) => {
+    if (!url) return;
+    const entry   = { url, label: label || url, savedAt: new Date().toLocaleString() };
+    const updated = [entry, ...savedUrls.filter(u => u.url !== url)].slice(0, 20);
+    setSavedUrls(updated);
+    localStorage.setItem('dmd_saved_urls', JSON.stringify(updated));
+  };
+
+  const removeTrackedUrl = (url) => {
+    const updated = savedUrls.filter(u => u.url !== url);
+    setSavedUrls(updated);
+    localStorage.setItem('dmd_saved_urls', JSON.stringify(updated));
+  };
+
   const syncIntegrationWithCreds = async (name, creds) => {
     if (!creds?.connected) return;
     setSyncStatus(s => ({ ...s, [name]: 'syncing' }));
@@ -246,6 +382,8 @@ const App = () => {
       else if (name === 'Meta Ads Manager') result = await fetchMetaAdsData(creds);
       else if (name === 'Wix Analytics') result = await fetchWixData(creds);
       else if (name === 'TikTok for Business') result = await fetchTikTokData(creds);
+      else if (name === 'YouTube Analytics') result = await fetchYouTubeData(creds);
+      else if (name === 'Yelp Reviews') result = await fetchYelpData(creds);
       // Other platforms require a server-side proxy — mark synced but no live payload
       if (result.success) {
         if (result.data && Object.keys(result.data).length > 0) setLiveData(d => ({ ...d, [name]: result.data }));
@@ -274,6 +412,8 @@ const App = () => {
     else if (name === 'Meta Ads Manager') testResult = await fetchMetaAdsData(formData);
     else if (name === 'Wix Analytics') testResult = await fetchWixData(formData);
     else if (name === 'TikTok for Business') testResult = await fetchTikTokData(formData);
+    else if (name === 'YouTube Analytics') testResult = await fetchYouTubeData(formData);
+    else if (name === 'Yelp Reviews') testResult = await fetchYelpData(formData);
     setConnectTesting(false);
     if (!testResult.success) { setConnectError(`Connection failed: ${testResult.error}`); return; }
     if (testResult.warning) { setConnectError(`⚠️ ${testResult.warning}`); }
@@ -728,6 +868,9 @@ const App = () => {
     { name: 'TikTok for Business', sub: 'Organic Posts & Content',  icon: PlayCircle, color: 'text-pink-400',   metrics: ['Video Views', 'Followers', 'Likes', 'Comments']           },
     { name: 'Sintra AI',           sub: 'AI Marketing Automation', icon: Bot,        color: 'text-purple-500', metrics: ['Campaigns', 'Reports', 'Insights', 'Automations']         },
     { name: 'MarkyAI',             sub: 'AI Content & Scheduling', icon: Zap,        color: 'text-pink-500',   metrics: ['Content Posts', 'Scheduling', 'Analytics', 'AI Writes']  },
+    { name: 'YouTube Analytics',   sub: 'Channel Stats & Videos',  icon: Youtube,    color: 'text-rose-500',   metrics: ['Subscribers', 'Total Views', 'Video Count', 'Recent Videos'] },
+    { name: 'Yelp Reviews',        sub: 'Business Ratings & Reviews', icon: Building2,color: 'text-red-500',    metrics: ['Rating', 'Review Count', 'Categories', 'Hours']              },
+    { name: 'News API',            sub: 'Industry News Intelligence', icon: Newspaper, color: 'text-sky-500',    metrics: ['Headlines', 'Brand Mentions', 'Industry News', 'RSS Feeds']  },
   ];
   const integrations = integrationsBase.map(i => ({
     ...i,
@@ -812,6 +955,7 @@ const App = () => {
     { id: 'roi',          label: 'ROI',           icon: DollarSign  },
     { id: 'calendar',     label: 'Calendar',      icon: Calendar    },
     { id: 'reviews',      label: 'Reviews',       icon: Star        },
+    { id: 'intel',        label: 'Intel',         icon: Newspaper   },
     { id: 'integrations', label: 'Integrations',  icon: Plug        },
     { id: 'import',       label: 'Data Import',   icon: Upload      },
     { id: 'ai-tools',     label: 'AI Tools',      icon: Bot         },
@@ -1902,6 +2046,375 @@ const App = () => {
 
           </>
         )}
+
+        {/* ══════════════════ INTEL ══════════════════ */}
+        {activeTab === 'intel' && (() => {
+          const newsApiCreds = connections['News API'] || {};
+          const _ytLive   = liveData['YouTube Analytics'] || {};
+          const _yelpLive = liveData['Yelp Reviews']     || {};
+          const presetQueries = [
+            'mental health Arizona',
+            'Destiny Springs Healthcare',
+            'psychiatry Scottsdale AZ',
+            'behavioral health Arizona',
+          ];
+          return (
+            <>
+              {/* KPI row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
+                {[
+                  { label: 'Tracked URLs',    value: String(savedUrls.length),              color: 'text-teal-500',    icon: Link2 },
+                  { label: 'News Loaded',     value: String(newsItems.length),              color: 'text-sky-500',     icon: Newspaper },
+                  { label: 'YT Subscribers',  value: _ytLive.subscribers ? Number(_ytLive.subscribers).toLocaleString()  : '—', color: 'text-rose-500',    icon: Youtube },
+                  { label: 'Yelp Rating',     value: _yelpLive.rating    ? `${_yelpLive.rating} ★ (${_yelpLive.reviewCount || 0})` : '—', color: 'text-red-500', icon: Building2 },
+                ].map(s => (
+                  <div key={s.label} className={`${card} p-5 rounded-2xl text-center`}>
+                    <s.icon size={22} className={`${s.color} mx-auto mb-2`} />
+                    <div className={`text-2xl font-black ${txt} mb-1`}>{s.value}</div>
+                    <div className={`text-[12px] font-black ${subtl} uppercase tracking-wider`}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Sub-tab switcher */}
+              <div className="flex gap-2 mb-6 flex-wrap">
+                {[
+                  ['news',    <><Newspaper size={12} className="inline mr-1"/>Industry News</>],
+                  ['scraper', <><Link2 size={12} className="inline mr-1"/>Page Scraper</>],
+                  ['rss',     <><Rss size={12} className="inline mr-1"/>RSS Reader</>],
+                ].map(([id, label]) => (
+                  <button key={id} onClick={() => setIntelSubTab(id)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${intelSubTab===id ? 'bg-teal-600 text-white' : `bg-slate-100 dark:bg-slate-800 ${muted} hover:text-teal-500`}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── News Feed ── */}
+              {intelSubTab === 'news' && (
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                  <SectionHeader icon={Newspaper} color="text-sky-500" title="Industry News Feed" subtitle="Real-time news pulled from newsapi.org" />
+                  {!newsApiCreds?.apiKey && (
+                    <div className="mb-5 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-start gap-3">
+                      <Bell size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-amber-700 dark:text-amber-300">
+                        Connect <strong>News API</strong> on the Integrations tab to auto-load your API key, or fetch using the field below.
+                        Free tier at <a href="https://newsapi.org" target="_blank" rel="noreferrer" className="underline">newsapi.org</a>.
+                      </p>
+                    </div>
+                  )}
+                  {/* Query bar */}
+                  <div className="flex flex-col sm:flex-row gap-3 mb-5">
+                    <input
+                      className={`flex-1 bg-slate-100 dark:bg-slate-800 ${txt} rounded-xl px-4 py-2.5 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                      value={newsQuery}
+                      onChange={e => setNewsQuery(e.target.value)}
+                      placeholder="Search query e.g. mental health Arizona…"
+                      onKeyDown={e => { if (e.key === 'Enter') fetchNewsItems(newsQuery, newsApiCreds?.apiKey); }}
+                    />
+                    <button
+                      onClick={() => fetchNewsItems(newsQuery, newsApiCreds?.apiKey)}
+                      disabled={newsLoading}
+                      className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-black flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {newsLoading ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
+                      {newsLoading ? 'Fetching…' : 'Fetch News'}
+                    </button>
+                  </div>
+                  {/* Preset queries */}
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    {presetQueries.map(q => (
+                      <button key={q} onClick={() => { setNewsQuery(q); fetchNewsItems(q, newsApiCreds?.apiKey); }}
+                        className={`text-xs px-3 py-1 rounded-full border ${brd} ${muted} hover:border-teal-500 hover:text-teal-500 transition-colors`}>{q}</button>
+                    ))}
+                  </div>
+                  {newsError && <p className="text-rose-500 text-sm mb-4">{newsError}</p>}
+                  {/* Articles grid */}
+                  {newsItems.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                      {newsItems.map((article, i) => (
+                        <a key={i} href={article.url} target="_blank" rel="noreferrer"
+                          className={`group block ${card} p-0 rounded-2xl overflow-hidden hover:ring-2 hover:ring-teal-500 transition-all`}>
+                          {article.urlToImage && (
+                            <img src={article.urlToImage} alt="" className="w-full h-36 object-cover" onError={e => e.currentTarget.style.display='none'} />
+                          )}
+                          <div className="p-4">
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span className={`text-[11px] font-black px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400`}>{article.source}</span>
+                              <span className={`text-[11px] ${subtl}`}>{article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : ''}</span>
+                            </div>
+                            <p className={`text-sm font-black ${txt} mb-1 line-clamp-2 group-hover:text-teal-500 transition-colors`}>{article.title}</p>
+                            {article.description && <p className={`text-xs ${subtl} line-clamp-2`}>{article.description}</p>}
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    !newsLoading && (
+                      <div className="text-center py-12">
+                        <Newspaper size={36} className={`${subtl} mx-auto mb-3`} />
+                        <p className={`text-sm ${muted}`}>Click <strong>Fetch News</strong> or choose a preset query above to load articles.</p>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+
+              {/* ── Web Page Scraper ── */}
+              {intelSubTab === 'scraper' && (
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                  <SectionHeader icon={Link2} color="text-teal-500" title="Page Intelligence Scraper" subtitle="Extract metadata, headings, contacts & SEO signals from any URL" />
+                  <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                    <input
+                      className={`flex-1 bg-slate-100 dark:bg-slate-800 ${txt} rounded-xl px-4 py-2.5 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                      value={scraperUrl}
+                      onChange={e => setScraperUrl(e.target.value)}
+                      placeholder="https://competitor.com or https://destinyspringshealthcare.com"
+                      onKeyDown={e => { if (e.key === 'Enter') fetchScrapeUrl(scraperUrl); }}
+                    />
+                    <button
+                      onClick={() => fetchScrapeUrl(scraperUrl)}
+                      disabled={scraperLoading || !scraperUrl}
+                      className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-black flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {scraperLoading ? <RefreshCw size={14} className="animate-spin" /> : <Globe size={14} />}
+                      {scraperLoading ? 'Scraping…' : 'Analyze Page'}
+                    </button>
+                    {scraperResult && (
+                      <button onClick={() => saveTrackedUrl(scraperUrl, scraperResult?.title)}
+                        className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-black text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors flex items-center gap-1">
+                        <Plus size={12} /> Track URL
+                      </button>
+                    )}
+                  </div>
+                  {scraperError && <p className="text-rose-500 text-sm mb-4">{scraperError}</p>}
+                  {scraperResult && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+                      {/* Main info */}
+                      <div className="space-y-3">
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-1`}>Page Title</p>
+                          <p className={`font-black text-sm ${txt}`}>{scraperResult.title || '—'}</p>
+                        </div>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-1`}>Meta Description</p>
+                          <p className={`text-sm ${txt2}`}>{scraperResult.description || '—'}</p>
+                        </div>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-1`}>H1 Heading</p>
+                          <p className={`font-black text-sm text-teal-600 dark:text-teal-400`}>{scraperResult.h1 || '—'}</p>
+                        </div>
+                        {scraperResult.h2s?.length > 0 && (
+                          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                            <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>H2 Headings</p>
+                            <ul className="space-y-1">
+                              {scraperResult.h2s.map((h, i) => <li key={i} className={`text-sm ${txt2}`}>• {h}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                      {/* Contacts + stats */}
+                      <div className="space-y-3">
+                        {scraperResult.phones?.length > 0 && (
+                          <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-2xl">
+                            <p className={`text-[11px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2`}>Phone Numbers Found</p>
+                            {scraperResult.phones.map((p, i) => <p key={i} className="text-sm font-black text-emerald-700 dark:text-emerald-300">{p}</p>)}
+                          </div>
+                        )}
+                        {scraperResult.emails?.length > 0 && (
+                          <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-2xl">
+                            <p className={`text-[11px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2`}>Emails Found</p>
+                            {scraperResult.emails.map((e, i) => <p key={i} className="text-sm font-mono text-blue-700 dark:text-blue-300">{e}</p>)}
+                          </div>
+                        )}
+                        {scraperResult.image && (
+                          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                            <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>OG Image</p>
+                            <img src={scraperResult.image} alt="OG Preview" className="w-full h-32 object-cover rounded-xl" onError={e => e.currentTarget.style.display='none'} />
+                          </div>
+                        )}
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl flex gap-4">
+                          <div className="text-center flex-1">
+                            <p className={`text-xl font-black ${txt}`}>{scraperResult.wordCount?.toLocaleString() || 0}</p>
+                            <p className={`text-[11px] ${subtl}`}>Word Count</p>
+                          </div>
+                          <div className={`w-px bg-slate-200 dark:bg-slate-700`}></div>
+                          <div className="text-center flex-1">
+                            <p className={`text-xl font-black ${txt}`}>{scraperResult.phones?.length || 0}</p>
+                            <p className={`text-[11px] ${subtl}`}>Phones</p>
+                          </div>
+                          <div className={`w-px bg-slate-200 dark:bg-slate-700`}></div>
+                          <div className="text-center flex-1">
+                            <p className={`text-xl font-black ${txt}`}>{scraperResult.emails?.length || 0}</p>
+                            <p className={`text-[11px] ${subtl}`}>Emails</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Saved / tracked URLs */}
+                  {savedUrls.length > 0 && (
+                    <div>
+                      <p className={`text-[12px] font-black ${subtl} uppercase tracking-wider mb-3`}>Tracked Pages</p>
+                      <div className="space-y-2">
+                        {savedUrls.map((u, i) => (
+                          <div key={i} className={`flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border ${brd}`}>
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-xs font-black ${txt} truncate`}>{u.label}</p>
+                              <p className={`text-[11px] ${subtl} truncate`}>{u.url}</p>
+                            </div>
+                            <div className="flex gap-2 flex-shrink-0">
+                              <button onClick={() => { setScraperUrl(u.url); fetchScrapeUrl(u.url); }} className="text-teal-500 hover:text-teal-400 text-xs font-black flex items-center gap-1">
+                                <RefreshCw size={10} /> Re-scan
+                              </button>
+                              <button onClick={() => removeTrackedUrl(u.url)} className="text-rose-400 hover:text-rose-300 text-xs font-black flex items-center gap-1">
+                                <X size={10} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── RSS Reader ── */}
+              {intelSubTab === 'rss' && (
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                  <SectionHeader icon={Rss} color="text-orange-500" title="RSS / Atom Feed Reader" subtitle="Pull blog posts and updates from any RSS or Atom feed URL" />
+                  <div className="flex flex-col sm:flex-row gap-3 mb-5">
+                    <input
+                      className={`flex-1 bg-slate-100 dark:bg-slate-800 ${txt} rounded-xl px-4 py-2.5 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                      value={rssFeedUrl}
+                      onChange={e => setRssFeedUrl(e.target.value)}
+                      placeholder="https://competitor.com/feed or https://nami.org/feed/"
+                      onKeyDown={e => { if (e.key === 'Enter') fetchRssFeed(rssFeedUrl); }}
+                    />
+                    <button
+                      onClick={() => fetchRssFeed(rssFeedUrl)}
+                      disabled={rssLoading || !rssFeedUrl}
+                      className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-white rounded-xl text-sm font-black flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {rssLoading ? <RefreshCw size={14} className="animate-spin" /> : <Rss size={14} />}
+                      {rssLoading ? 'Fetching…' : 'Load Feed'}
+                    </button>
+                  </div>
+                  {/* Preset feeds */}
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    {[
+                      { label: 'NAMI Blog',       url: 'https://www.nami.org/blog/feed/' },
+                      { label: 'Psychology Today', url: 'https://www.psychologytoday.com/us/rss.xml' },
+                      { label: 'Behavioral Health News', url: 'https://bhbusiness.com/feed/' },
+                    ].map(f => (
+                      <button key={f.label} onClick={() => { setRssFeedUrl(f.url); fetchRssFeed(f.url); }}
+                        className={`text-xs px-3 py-1 rounded-full border ${brd} ${muted} hover:border-orange-500 hover:text-orange-500 transition-colors`}>{f.label}</button>
+                    ))}
+                  </div>
+                  {rssError && <p className="text-rose-500 text-sm mb-4">{rssError}</p>}
+                  {rssItems.length > 0 ? (
+                    <div className="space-y-3">
+                      {rssItems.map((item, i) => (
+                        <a key={i} href={item.link} target="_blank" rel="noreferrer"
+                          className={`group flex items-start gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border ${brd} hover:border-orange-400 transition-all`}>
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                            <Rss size={14} className="text-orange-500" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className={`font-black text-sm ${txt} group-hover:text-orange-500 transition-colors line-clamp-2`}>{item.title}</p>
+                            {item.description && <p className={`text-xs ${subtl} mt-1 line-clamp-2`}>{item.description}</p>}
+                            {item.pubDate && <p className={`text-[11px] text-slate-400 dark:text-slate-500 mt-1`}>{new Date(item.pubDate).toLocaleDateString()}</p>}
+                          </div>
+                          <ExternalLink size={13} className={`${subtl} flex-shrink-0 mt-1 group-hover:text-orange-500 transition-colors`} />
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    !rssLoading && (
+                      <div className="text-center py-12">
+                        <Rss size={36} className={`${subtl} mx-auto mb-3`} />
+                        <p className={`text-sm ${muted}`}>Enter an RSS feed URL or pick a preset above to load articles.</p>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+
+              {/* YouTube + Yelp live data cards */}
+              {(_ytLive.channelName || _yelpLive.name) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+                  {_ytLive.channelName && (
+                    <div className={`${card} p-5 rounded-2xl`}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/20"><Youtube size={18} className="text-rose-500" /></div>
+                        <div>
+                          <p className={`font-black text-sm ${txt}`}>{_ytLive.channelName}</p>
+                          <p className={`text-xs ${subtl}`}>YouTube Channel</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 mb-4">
+                        {[
+                          { label: 'Subscribers', value: Number(_ytLive.subscribers  || 0).toLocaleString() },
+                          { label: 'Total Views',  value: Number(_ytLive.totalViews   || 0).toLocaleString() },
+                          { label: 'Videos',       value: Number(_ytLive.videoCount   || 0).toLocaleString() },
+                        ].map(s => (
+                          <div key={s.label} className="text-center p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                            <p className={`text-base font-black ${txt}`}>{s.value}</p>
+                            <p className={`text-[11px] ${subtl}`}>{s.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {_ytLive.recentVideos?.length > 0 && (
+                        <>
+                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Recent Videos</p>
+                          <div className="space-y-2">
+                            {_ytLive.recentVideos.slice(0,3).map((v, i) => (
+                              <div key={i} className={`flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50`}>
+                                {v.thumbnail && <img src={v.thumbnail} alt="" className="w-10 h-7 object-cover rounded-lg flex-shrink-0" />}
+                                <div className="min-w-0 flex-1">
+                                  <p className={`text-xs font-black ${txt} truncate`}>{v.title}</p>
+                                  <p className={`text-[11px] ${subtl}`}>{Number(v.views||0).toLocaleString()} views · {Number(v.likes||0).toLocaleString()} likes</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {_yelpLive.name && (
+                    <div className={`${card} p-5 rounded-2xl`}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-900/20"><Building2 size={18} className="text-red-500" /></div>
+                        <div>
+                          <p className={`font-black text-sm ${txt}`}>{_yelpLive.name}</p>
+                          <p className={`text-xs ${subtl}`}>{_yelpLive.categories}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                          <p className="text-2xl font-black text-amber-500">{_yelpLive.rating}</p>
+                          <p className={`text-[11px] ${subtl}`}>Yelp Rating</p>
+                        </div>
+                        <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                          <p className={`text-2xl font-black ${txt}`}>{Number(_yelpLive.reviewCount||0).toLocaleString()}</p>
+                          <p className={`text-[11px] ${subtl}`}>Reviews</p>
+                        </div>
+                      </div>
+                      {_yelpLive.address && <p className={`text-xs ${subtl}`}>📍 {_yelpLive.address}</p>}
+                      {_yelpLive.phone   && <p className={`text-xs ${subtl} mt-1`}>📞 {_yelpLive.phone}</p>}
+                      {_yelpLive.url && (
+                        <a href={_yelpLive.url} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-1 text-xs text-red-500 hover:text-red-400 font-black">
+                          <ExternalLink size={11} /> View on Yelp
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* ══════════════════ INTEGRATIONS ══════════════════ */}
         {activeTab === 'integrations' && (
