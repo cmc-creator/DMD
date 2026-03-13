@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
@@ -13,6 +13,7 @@ import {
   RefreshCw, Pencil, Send, Zap, BadgeCheck, ShieldCheck, Megaphone,
   ChevronLeft, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
+  Trash2, Layers, Scale, Tag,
 } from 'lucide-react';
 
 // ─── Captain KPI avatar — inline SVG bot face ──────────────────────────────
@@ -140,6 +141,13 @@ const App = () => {
   const [rssItems, setRssItems]                 = useState([]);
   const [rssLoading, setRssLoading]             = useState(false);
   const [rssError, setRssError]                 = useState('');
+  const [facilityProfiles, setFacilityProfiles] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_facility_profiles') || '[]'); } catch { return []; } });
+  const [scraperLabel, setScraperLabel]         = useState('');
+  const [scraperSubView, setScraperSubView]     = useState('scan');
+  const [compareIdxA, setCompareIdxA]           = useState(0);
+  const [compareIdxB, setCompareIdxB]           = useState(1);
+  const [compareReport, setCompareReport]       = useState('');
+  const [compareReportLoading, setCompareReportLoading] = useState(false);
   // ── Destiny Springs auto-profile state ──────────────────────────────────────
   const [destinyData, setDestinyData]           = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_destiny') || 'null'); } catch { return null; } });
   const [destinyLoading, setDestinyLoading]     = useState(false);
@@ -446,6 +454,51 @@ const App = () => {
     const updated = savedUrls.filter(u => u.url !== url);
     setSavedUrls(updated);
     localStorage.setItem('dmd_saved_urls', JSON.stringify(updated));
+  };
+
+  const saveFacilityProfile = (label, result) => {
+    if (!result) return;
+    let host; try { host = new URL(result.url).hostname; } catch { host = result.url; }
+    const entry   = { id: Date.now(), label: label || result.title || host, ...result, savedAt: new Date().toLocaleString() };
+    const updated = [entry, ...facilityProfiles.filter(p => p.url !== result.url)].slice(0, 30);
+    setFacilityProfiles(updated);
+    localStorage.setItem('dmd_facility_profiles', JSON.stringify(updated));
+    setScraperLabel('');
+  };
+
+  const removeFacilityProfile = (id) => {
+    const updated = facilityProfiles.filter(p => p.id !== id);
+    setFacilityProfiles(updated);
+    localStorage.setItem('dmd_facility_profiles', JSON.stringify(updated));
+  };
+
+  const generateCompareReport = async (profA, profB) => {
+    if (!profA || !profB) return;
+    setCompareReportLoading(true);
+    setCompareReport('');
+    const sum = (p) => 'Facility: "' + p.label + '" | URL: ' + p.url
+      + '\nTitle: ' + (p.title||'--') + '\nDescription: ' + (p.description||'--')
+      + '\nH1: ' + (p.h1||'--') + '\nKey Headings: ' + [...(p.h2s||[]),...(p.h3s||[])].slice(0,6).join(' | ')
+      + '\nWord Count: ' + (p.wordCount||0) + ' | Links: ' + (p.linkCount||0)
+      + '\nPhones: ' + ((p.phones||[]).join(', ')||'none') + ' | Emails: ' + ((p.emails||[]).join(', ')||'none')
+      + '\nServices : ' + ((p.servicesFound||[]).join(', ')||'none')
+      + '\nSocials: ' + (Object.keys(p.socials||{}).join(', ')||'none')
+      + '\nTech Stack: ' + ((p.techStack||[]).join(', ')||'unknown')
+      + '\nSchema Rating: ' + (p.schemaRating ? p.schemaRating + ' (' + p.schemaReviewCount + ' reviews)' : 'not found')
+      + '\nSchema Address: ' + (p.schemaAddress||'not found') + ' | Keywords: ' + (p.keywords||'none');
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          maxTokens: 1600,
+          messages: [{ role: 'user', content: 'Deep competitive intelligence analysis between two healthcare facilities. Cover SEO strategy, services, digital footprint, contact accessibility, brand positioning, schema signals.\n\n=== FACILITY A ===\n' + sum(profA) + '\n\n=== FACILITY B ===\n' + sum(profB) + '\n\nGive specific, actionable recommendations for Destiny Springs Healthcare to outcompete Facility B.' }],
+          systemPrompt: 'You are Captain KPI -- a competitive intelligence analyst specializing in behavioral healthcare. Format with headers: ## Overall Verdict, ## SEO & Content Strategy, ## Services Coverage, ## Digital & Social Presence, ## Contact Accessibility, ## Tech Stack Insights, ## Tactical Recommendations. Use bullet points, be specific and data-driven.',
+        }),
+      });
+      const data = await res.json();
+      setCompareReport(data.reply || 'No response generated.');
+    } catch (e) { setCompareReport('Could not generate comparison. Check GEMINI_API_KEY in Vercel.'); }
+    setCompareReportLoading(false);
   };
 
   // ── Destiny Springs: one-click auto-profile fetch ────────────────────────────
@@ -3235,123 +3288,328 @@ const App = () => {
               {/* ── Web Page Scraper ── */}
               {intelSubTab === 'scraper' && (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-                  <SectionHeader icon={Link2} color="text-teal-500" title="Page Intelligence Scraper" subtitle="Extract metadata, headings, contacts & SEO signals from any URL" />
-                  <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                    <input
-                      className={`flex-1 bg-slate-100 dark:bg-slate-800 ${txt} rounded-xl px-4 py-2.5 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}
-                      value={scraperUrl}
-                      onChange={e => setScraperUrl(e.target.value)}
-                      placeholder="https://competitor.com or https://destinyspringshealthcare.com"
-                      onKeyDown={e => { if (e.key === 'Enter') fetchScrapeUrl(scraperUrl); }}
-                    />
-                    <button
-                      onClick={() => fetchScrapeUrl(scraperUrl)}
-                      disabled={scraperLoading || !scraperUrl}
-                      className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-black flex items-center gap-2 disabled:opacity-50"
-                    >
-                      {scraperLoading ? <RefreshCw size={14} className="animate-spin" /> : <Globe size={14} />}
-                      {scraperLoading ? 'Scraping…' : 'Analyze Page'}
-                    </button>
-                    {scraperResult && (
-                      <button onClick={() => saveTrackedUrl(scraperUrl, scraperResult?.title)}
-                        className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-black text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors flex items-center gap-1">
-                        <Plus size={12} /> Track URL
+                  <SectionHeader icon={Link2} color="text-teal-500" title="Page Intelligence Scraper" subtitle="Deep-scan any facility, save profiles, and compare head-to-head" />
+                  {/* Sub-view tabs */}
+                  <div className="flex gap-2 mb-6 flex-wrap">
+                    {[
+                      ['scan',    'Scan Page'],
+                      ['library', 'Facility Library' + (facilityProfiles.length > 0 ? ' (' + facilityProfiles.length + ')' : '')],
+                      ['compare', 'Compare'],
+                    ].map(([id, lbl]) => (
+                      <button key={id} onClick={() => setScraperSubView(id)}
+                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${scraperSubView===id ? 'bg-teal-600 text-white' : 'bg-slate-100 dark:bg-slate-800 ' + muted + ' hover:text-teal-500'}`}>
+                        {id === 'scan' && <Globe size={11} className="inline mr-1" />}
+                        {id === 'library' && <Layers size={11} className="inline mr-1" />}
+                        {id === 'compare' && <Scale size={11} className="inline mr-1" />}
+                        {lbl}
                       </button>
-                    )}
+                    ))}
                   </div>
-                  {scraperError && <p className="text-rose-500 text-sm mb-4">{scraperError}</p>}
-                  {scraperResult && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
-                      {/* Main info */}
-                      <div className="space-y-3">
-                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-1`}>Page Title</p>
-                          <p className={`font-black text-sm ${txt}`}>{scraperResult.title || '—'}</p>
-                        </div>
-                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-1`}>Meta Description</p>
-                          <p className={`text-sm ${txt2}`}>{scraperResult.description || '—'}</p>
-                        </div>
-                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-1`}>H1 Heading</p>
-                          <p className={`font-black text-sm text-teal-600 dark:text-teal-400`}>{scraperResult.h1 || '—'}</p>
-                        </div>
-                        {scraperResult.h2s?.length > 0 && (
-                          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                            <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>H2 Headings</p>
-                            <ul className="space-y-1">
-                              {scraperResult.h2s.map((h, i) => <li key={i} className={`text-sm ${txt2}`}>• {h}</li>)}
-                            </ul>
-                          </div>
-                        )}
+
+                  {/* SCAN VIEW */}
+                  {scraperSubView === 'scan' && (
+                    <>
+                      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                        <input
+                          className={`flex-1 bg-slate-100 dark:bg-slate-800 ${txt} rounded-xl px-4 py-2.5 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                          value={scraperUrl}
+                          onChange={e => setScraperUrl(e.target.value)}
+                          placeholder="https://competitor.com or https://destinyspringshealthcare.com"
+                          onKeyDown={e => { if (e.key === 'Enter') fetchScrapeUrl(scraperUrl); }}
+                        />
+                        <button onClick={() => fetchScrapeUrl(scraperUrl)} disabled={scraperLoading || !scraperUrl}
+                          className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-black flex items-center gap-2 disabled:opacity-50">
+                          {scraperLoading ? <RefreshCw size={14} className="animate-spin" /> : <Globe size={14} />}
+                          {scraperLoading ? 'Scanning...' : 'Deep Scan'}
+                        </button>
                       </div>
-                      {/* Contacts + stats */}
-                      <div className="space-y-3">
-                        {scraperResult.phones?.length > 0 && (
-                          <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-2xl">
-                            <p className={`text-[11px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2`}>Phone Numbers Found</p>
-                            {scraperResult.phones.map((p, i) => <p key={i} className="text-sm font-black text-emerald-700 dark:text-emerald-300">{p}</p>)}
+                      {scraperError && <p className="text-rose-500 text-sm mb-4">{scraperError}</p>}
+                      {scraperResult && (
+                        <div className="flex gap-3 mb-5 items-center p-3 bg-teal-50 dark:bg-teal-900/20 rounded-xl border border-teal-200 dark:border-teal-800">
+                          <Tag size={14} className="text-teal-600 dark:text-teal-400 flex-shrink-0" />
+                          <input className={`flex-1 bg-white dark:bg-slate-800 ${txt} rounded-lg px-3 py-1.5 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                            value={scraperLabel} onChange={e => setScraperLabel(e.target.value)}
+                            placeholder="Name this facility (e.g. Banner Behavioral Health)" />
+                          <button onClick={() => saveFacilityProfile(scraperLabel, scraperResult)}
+                            className="px-4 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-black flex items-center gap-1 flex-shrink-0">
+                            <Plus size={11} /> Save to Library
+                          </button>
+                        </div>
+                      )}
+                      {scraperResult && (
+                        <div className="space-y-4">
+                          {/* Quick stats bar */}
+                          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                            {[
+                              { lbl: 'Words',    val: (scraperResult.wordCount||0).toLocaleString(), color: 'text-teal-500' },
+                              { lbl: 'Links',    val: scraperResult.linkCount||0,                    color: 'text-blue-500' },
+                              { lbl: 'Phones',   val: scraperResult.phones?.length||0,               color: 'text-emerald-500' },
+                              { lbl: 'Emails',   val: scraperResult.emails?.length||0,               color: 'text-violet-500' },
+                              { lbl: 'Socials',  val: Object.keys(scraperResult.socials||{}).length, color: 'text-pink-500' },
+                              { lbl: 'Services', val: (scraperResult.servicesFound||[]).length,      color: 'text-orange-500' },
+                            ].map(s => (
+                              <div key={s.lbl} className={`p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-center border ${brd}`}>
+                                <p className={`text-lg font-black ${s.color}`}>{s.val}</p>
+                                <p className={`text-[10px] font-black ${subtl} uppercase tracking-wide`}>{s.lbl}</p>
+                              </div>
+                            ))}
                           </div>
-                        )}
-                        {scraperResult.emails?.length > 0 && (
-                          <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-2xl">
-                            <p className={`text-[11px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2`}>Emails Found</p>
-                            {scraperResult.emails.map((e, i) => <p key={i} className="text-sm font-mono text-blue-700 dark:text-blue-300">{e}</p>)}
-                          </div>
-                        )}
-                        {scraperResult.image && (
-                          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                            <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>OG Image</p>
-                            <img src={scraperResult.image} alt="OG Preview" className="w-full h-32 object-cover rounded-xl" onError={e => e.currentTarget.style.display='none'} />
-                          </div>
-                        )}
-                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl flex gap-4">
-                          <div className="text-center flex-1">
-                            <p className={`text-xl font-black ${txt}`}>{scraperResult.wordCount?.toLocaleString() || 0}</p>
-                            <p className={`text-[11px] ${subtl}`}>Word Count</p>
-                          </div>
-                          <div className={`w-px bg-slate-200 dark:bg-slate-700`}></div>
-                          <div className="text-center flex-1">
-                            <p className={`text-xl font-black ${txt}`}>{scraperResult.phones?.length || 0}</p>
-                            <p className={`text-[11px] ${subtl}`}>Phones</p>
-                          </div>
-                          <div className={`w-px bg-slate-200 dark:bg-slate-700`}></div>
-                          <div className="text-center flex-1">
-                            <p className={`text-xl font-black ${txt}`}>{scraperResult.emails?.length || 0}</p>
-                            <p className={`text-[11px] ${subtl}`}>Emails</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Left: SEO + Headings */}
+                            <div className="space-y-3">
+                              {scraperResult.image && (
+                                <img src={scraperResult.image} alt="OG" className="w-full h-36 object-cover rounded-2xl"
+                                  onError={e => e.currentTarget.style.display='none'} />
+                              )}
+                              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-3">
+                                <div>
+                                  <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-0.5`}>Page Title</p>
+                                  <p className={`font-black text-sm ${txt}`}>{scraperResult.title||'—'}</p>
+                                </div>
+                                <div>
+                                  <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-0.5`}>Meta Description</p>
+                                  <p className={`text-xs ${txt2}`}>{scraperResult.description||'—'}</p>
+                                </div>
+                                {scraperResult.keywords && (
+                                  <div>
+                                    <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-0.5`}>Meta Keywords</p>
+                                    <p className={`text-xs ${txt2}`}>{scraperResult.keywords}</p>
+                                  </div>
+                                )}
+                                <div>
+                                  <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-0.5`}>H1 Heading</p>
+                                  <p className={`font-black text-sm text-teal-600 dark:text-teal-400`}>{scraperResult.h1||'—'}</p>
+                                </div>
+                              </div>
+                              {scraperResult.h2s?.length > 0 && (
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                                  <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-2`}>H2 Headings ({scraperResult.h2s.length})</p>
+                                  <ul className="space-y-1">
+                                    {scraperResult.h2s.map((h,i) => <li key={i} className={`text-xs ${txt2} flex gap-2`}><span className="text-teal-500 font-black">H2</span>{h}</li>)}
+                                  </ul>
+                                </div>
+                              )}
+                              {scraperResult.h3s?.length > 0 && (
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                                  <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-2`}>H3 Headings ({scraperResult.h3s.length})</p>
+                                  <ul className="space-y-1">
+                                    {scraperResult.h3s.map((h,i) => <li key={i} className={`text-xs ${txt2} flex gap-2`}><span className="text-slate-400 font-black">H3</span>{h}</li>)}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                            {/* Right: Signals */}
+                            <div className="space-y-3">
+                              {(scraperResult.schemaRating || scraperResult.schemaAddress || scraperResult.schemaName) && (
+                                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl">
+                                  <p className={`text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-2`}>Schema.org Structured Data</p>
+                                  {scraperResult.schemaName && <p className={`text-xs font-black ${txt} mb-1`}>{scraperResult.schemaName}</p>}
+                                  {scraperResult.schemaRating && <p className="text-xs text-amber-600 dark:text-amber-300">&#11088; {scraperResult.schemaRating} ({scraperResult.schemaReviewCount ?? '?'} reviews)</p>}
+                                  {scraperResult.schemaAddress && <p className={`text-xs ${subtl} mt-1`}>&#128205; {scraperResult.schemaAddress}</p>}
+                                </div>
+                              )}
+                              {scraperResult.phones?.length > 0 && (
+                                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-2xl">
+                                  <p className={`text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2`}>Phone Numbers</p>
+                                  {scraperResult.phones.map((p,i) => <p key={i} className="text-sm font-black text-emerald-700 dark:text-emerald-300">{p}</p>)}
+                                </div>
+                              )}
+                              {scraperResult.emails?.length > 0 && (
+                                <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-2xl">
+                                  <p className={`text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2`}>Email Addresses</p>
+                                  {scraperResult.emails.map((e,i) => <p key={i} className="text-xs font-mono text-blue-700 dark:text-blue-300">{e}</p>)}
+                                </div>
+                              )}
+                              {Object.keys(scraperResult.socials||{}).length > 0 && (
+                                <div className="p-4 bg-pink-50 dark:bg-pink-900/10 border border-pink-200 dark:border-pink-800 rounded-2xl">
+                                  <p className={`text-[10px] font-black text-pink-600 dark:text-pink-400 uppercase tracking-wider mb-2`}>Social Media Presence</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {Object.entries(scraperResult.socials).map(([platform, link]) => (
+                                      <a key={platform} href={link} target="_blank" rel="noreferrer"
+                                        className="text-xs px-2.5 py-1 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-full font-black hover:bg-pink-200 transition-colors capitalize">{platform}</a>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {scraperResult.servicesFound?.length > 0 && (
+                                <div className="p-4 bg-violet-50 dark:bg-violet-900/10 border border-violet-200 dark:border-violet-800 rounded-2xl">
+                                  <p className={`text-[10px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-wider mb-2`}>Services / Programs Detected ({scraperResult.servicesFound.length})</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {scraperResult.servicesFound.map((s,i) => (
+                                      <span key={i} className="text-[11px] px-2 py-0.5 bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 rounded-full font-black capitalize">{s}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {scraperResult.techStack?.length > 0 && (
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                                  <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-2`}>Tech Stack Detected</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {scraperResult.techStack.map((t,i) => (
+                                      <span key={i} className={`text-[11px] px-2 py-0.5 bg-slate-200 dark:bg-slate-700 ${txt} rounded-full font-black`}>{t}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
+                      )}
+                      {!scraperResult && !scraperLoading && (
+                        <div className="text-center py-12">
+                          <Globe size={36} className={`${subtl} mx-auto mb-3`} />
+                          <p className={`text-sm ${muted}`}>Enter any facility URL to extract a deep intelligence profile.</p>
+                        </div>
+                      )}
+                    </>
                   )}
-                  {/* Saved / tracked URLs */}
-                  {savedUrls.length > 0 && (
-                    <div>
-                      <p className={`text-[12px] font-black ${subtl} uppercase tracking-wider mb-3`}>Tracked Pages</p>
-                      <div className="space-y-2">
-                        {savedUrls.map((u, i) => (
-                          <div key={i} className={`flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border ${brd}`}>
-                            <div className="min-w-0 flex-1">
-                              <p className={`text-xs font-black ${txt} truncate`}>{u.label}</p>
-                              <p className={`text-[11px] ${subtl} truncate`}>{u.url}</p>
+
+                  {/* FACILITY LIBRARY VIEW */}
+                  {scraperSubView === 'library' && (
+                    <>
+                      {facilityProfiles.length === 0 ? (
+                        <div className="text-center py-16">
+                          <Layers size={40} className={`${subtl} mx-auto mb-3`} />
+                          <p className={`text-sm font-black ${txt} mb-1`}>No facilities saved yet</p>
+                          <p className={`text-xs ${muted}`}>Scan a page and save it to build your competitor library.</p>
+                          <button onClick={() => setScraperSubView('scan')} className="mt-4 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-black">Go to Scan</button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {facilityProfiles.map((p, i) => (
+                            <div key={p.id||i} className={`p-5 rounded-2xl border ${brd} bg-slate-50 dark:bg-slate-800/50 space-y-3`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  {p.image && <img src={p.image} alt="" className="w-full h-24 object-cover rounded-xl mb-2" onError={e => e.currentTarget.style.display='none'} />}
+                                  <p className={`font-black text-sm ${txt} truncate`}>{p.label}</p>
+                                  <a href={p.url} target="_blank" rel="noreferrer" className="text-[11px] text-teal-500 hover:underline truncate block">{p.url}</a>
+                                  <p className={`text-[10px] ${subtl} mt-0.5`}>Scanned {p.savedAt}</p>
+                                </div>
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <button onClick={() => { setScraperUrl(p.url); setScraperSubView('scan'); fetchScrapeUrl(p.url); }}
+                                    title="Re-scan" className="p-1.5 text-teal-500 hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors">
+                                    <RefreshCw size={13} />
+                                  </button>
+                                  <button onClick={() => removeFacilityProfile(p.id||i)} title="Remove"
+                                    className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors">
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                <span className="text-[10px] px-2 py-0.5 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full font-black">{(p.wordCount||0).toLocaleString()} words</span>
+                                <span className="text-[10px] px-2 py-0.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full font-black">{(p.servicesFound||[]).length} services</span>
+                                <span className="text-[10px] px-2 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-full font-black">{Object.keys(p.socials||{}).length} socials</span>
+                                {p.schemaRating && <span className="text-[10px] px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full font-black">&#11088; {p.schemaRating}</span>}
+                                {(p.techStack||[]).slice(0,2).map((t,ti) => <span key={ti} className="text-[10px] px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full font-black">{t}</span>)}
+                              </div>
+                              {p.h1 && <p className={`text-xs italic ${txt2} line-clamp-1`}>"{p.h1}"</p>}
                             </div>
-                            <div className="flex gap-2 flex-shrink-0">
-                              <button onClick={() => { setScraperUrl(u.url); fetchScrapeUrl(u.url); }} className="text-teal-500 hover:text-teal-400 text-xs font-black flex items-center gap-1">
-                                <RefreshCw size={10} /> Re-scan
-                              </button>
-                              <button onClick={() => removeTrackedUrl(u.url)} className="text-rose-400 hover:text-rose-300 text-xs font-black flex items-center gap-1">
-                                <X size={10} />
-                              </button>
-                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* COMPARE VIEW */}
+                  {scraperSubView === 'compare' && (
+                    <>
+                      {facilityProfiles.length < 2 ? (
+                        <div className="text-center py-16">
+                          <Scale size={40} className={`${subtl} mx-auto mb-3`} />
+                          <p className={`text-sm font-black ${txt} mb-1`}>Need at least 2 saved facilities</p>
+                          <p className={`text-xs ${muted}`}>Save 2+ facility profiles in the library to compare them.</p>
+                          <button onClick={() => setScraperSubView('scan')} className="mt-4 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-black">Go to Scan</button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                            {[['Facility A (You)', compareIdxA, setCompareIdxA], ['Facility B (Competitor)', compareIdxB, setCompareIdxB]].map(([lbl, val, setter]) => (
+                              <div key={lbl}>
+                                <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-1.5`}>{lbl}</p>
+                                <select value={val} onChange={e => setter(Number(e.target.value))}
+                                  className={`w-full bg-slate-100 dark:bg-slate-800 ${txt} rounded-xl px-3 py-2 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}>
+                                  {facilityProfiles.map((p,i) => <option key={i} value={i}>{p.label}</option>)}
+                                </select>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                          {(() => {
+                            const a = facilityProfiles[compareIdxA];
+                            const b = facilityProfiles[compareIdxB];
+                            if (!a || !b) return null;
+                            const rows = [
+                              { label: 'Word Count',       aVal: (a.wordCount||0).toLocaleString(), bVal: (b.wordCount||0).toLocaleString(), winA: (a.wordCount||0)>(b.wordCount||0), winB: (b.wordCount||0)>(a.wordCount||0) },
+                              { label: 'Total Links',      aVal: a.linkCount||0,   bVal: b.linkCount||0,   winA: (a.linkCount||0)>(b.linkCount||0), winB: (b.linkCount||0)>(a.linkCount||0) },
+                              { label: 'H2 Count',         aVal: (a.h2s||[]).length, bVal: (b.h2s||[]).length, winA: (a.h2s||[]).length>(b.h2s||[]).length, winB: (b.h2s||[]).length>(a.h2s||[]).length },
+                              { label: 'Services Listed',  aVal: (a.servicesFound||[]).length, bVal: (b.servicesFound||[]).length, winA: (a.servicesFound||[]).length>(b.servicesFound||[]).length, winB: (b.servicesFound||[]).length>(a.servicesFound||[]).length },
+                              { label: 'Social Platforms', aVal: Object.keys(a.socials||{}).join(', ')||'none', bVal: Object.keys(b.socials||{}).join(', ')||'none', winA: Object.keys(a.socials||{}).length>Object.keys(b.socials||{}).length, winB: Object.keys(b.socials||{}).length>Object.keys(a.socials||{}).length },
+                              { label: 'Phone Numbers',    aVal: (a.phones||[]).length + ' found', bVal: (b.phones||[]).length + ' found', winA: (a.phones||[]).length>(b.phones||[]).length, winB: (b.phones||[]).length>(a.phones||[]).length },
+                              { label: 'Email Addresses',  aVal: (a.emails||[]).length + ' found', bVal: (b.emails||[]).length + ' found', winA: (a.emails||[]).length>(b.emails||[]).length, winB: (b.emails||[]).length>(a.emails||[]).length },
+                              { label: 'Schema Rating',    aVal: a.schemaRating ? a.schemaRating + ' (' + (a.schemaReviewCount??'?') + 'r)' : 'Not found', bVal: b.schemaRating ? b.schemaRating + ' (' + (b.schemaReviewCount??'?') + 'r)' : 'Not found', winA: !!a.schemaRating && (!b.schemaRating || Number(a.schemaRating)>=Number(b.schemaRating)), winB: !!b.schemaRating && (!a.schemaRating || Number(b.schemaRating)>Number(a.schemaRating)) },
+                              { label: 'Meta Description', aVal: a.description ? 'Present' : 'Missing', bVal: b.description ? 'Present' : 'Missing', winA: !!a.description && !b.description, winB: !!b.description && !a.description },
+                              { label: 'Meta Keywords',    aVal: a.keywords ? 'Present' : 'Missing',    bVal: b.keywords ? 'Present' : 'Missing',    winA: !!a.keywords && !b.keywords, winB: !!b.keywords && !a.keywords },
+                              { label: 'Tech Stack',       aVal: (a.techStack||[]).join(', ')||'Unknown', bVal: (b.techStack||[]).join(', ')||'Unknown', winA: false, winB: false },
+                              { label: 'Meta Pixel',       aVal: (a.techStack||[]).includes('Meta Pixel') ? 'Yes' : 'No', bVal: (b.techStack||[]).includes('Meta Pixel') ? 'Yes' : 'No', winA: (a.techStack||[]).includes('Meta Pixel') && !(b.techStack||[]).includes('Meta Pixel'), winB: (b.techStack||[]).includes('Meta Pixel') && !(a.techStack||[]).includes('Meta Pixel') },
+                              { label: 'Google Analytics', aVal: (a.techStack||[]).includes('Google Analytics') ? 'Yes' : 'No', bVal: (b.techStack||[]).includes('Google Analytics') ? 'Yes' : 'No', winA: false, winB: false },
+                            ];
+                            return (
+                              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700 mb-6">
+                                <table className="w-full text-xs border-collapse">
+                                  <thead>
+                                    <tr className="bg-slate-100 dark:bg-slate-800">
+                                      <th className={`text-left py-3 px-4 ${subtl} font-black uppercase tracking-wider text-[10px] w-1/4`}>Signal</th>
+                                      <th className="text-left py-3 px-4 text-teal-600 dark:text-teal-400 font-black uppercase tracking-wider text-[10px] w-[37.5%]">{a.label}</th>
+                                      <th className="text-left py-3 px-4 text-violet-600 dark:text-violet-400 font-black uppercase tracking-wider text-[10px] w-[37.5%]">{b.label}</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {rows.map((row, ri) => (
+                                      <tr key={ri} className={`border-t border-slate-200 dark:border-slate-700 ${ri%2===0 ? 'bg-slate-50 dark:bg-slate-800/30' : ''}`}>
+                                        <td className={`py-2.5 px-4 font-black ${subtl} text-[11px]`}>{row.label}</td>
+                                        <td className={`py-2.5 px-4 text-[11px] ${row.winA ? 'text-teal-600 dark:text-teal-400 font-black' : txt2}`}>
+                                          {row.winA && <span className="mr-1">&#127942;</span>}{row.aVal}
+                                        </td>
+                                        <td className={`py-2.5 px-4 text-[11px] ${row.winB ? 'text-violet-600 dark:text-violet-400 font-black' : txt2}`}>
+                                          {row.winB && <span className="mr-1">&#127942;</span>}{row.bVal}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            );
+                          })()}
+                          <button onClick={() => generateCompareReport(facilityProfiles[compareIdxA], facilityProfiles[compareIdxB])}
+                            disabled={compareReportLoading}
+                            className="w-full py-3 bg-gradient-to-r from-teal-600 to-violet-600 hover:from-teal-500 hover:to-violet-500 text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 disabled:opacity-60 transition-all mb-4">
+                            {compareReportLoading ? <RefreshCw size={14} className="animate-spin" /> : <CaptainKPI size={20} />}
+                            {compareReportLoading ? 'Captain KPI is analyzing...' : 'Generate AI Competitive Brief'}
+                          </button>
+                          {compareReport && (
+                            <div className={`p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border ${brd}`}>
+                              <div className="flex items-center gap-2 mb-3">
+                                <CaptainKPI size={24} />
+                                <p className={`text-xs font-black ${txt} uppercase tracking-wider`}>Captain KPI's Competitive Brief</p>
+                              </div>
+                              <div className="space-y-0.5">
+                                {compareReport.split('\n').map((line,i) => {
+                                  if (line.startsWith('## ')) return <p key={i} className="text-sm font-black text-teal-600 dark:text-teal-400 mt-4 mb-1 uppercase tracking-wide">{line.slice(3)}</p>;
+                                  if (line.startsWith('### ')) return <p key={i} className={`text-xs font-black ${txt} mt-3 mb-1`}>{line.slice(4)}</p>;
+                                  if (line.startsWith('- ') || line.startsWith('* ')) return <p key={i} className={`text-xs ${txt2} pl-3 flex gap-1.5`}><span className="text-teal-500 flex-shrink-0">&#8226;</span><span>{line.slice(2).replace(/\*\*/g,'')}</span></p>;
+                                  if (line.trim()==='') return <div key={i} className="h-1.5" />;
+                                  return <p key={i} className={`text-xs ${txt2}`}>{line.replace(/\*\*/g,'')}</p>;
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
               )}
 
-              {/* ── RSS Reader ── */}
               {intelSubTab === 'rss' && (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <SectionHeader icon={Rss} color="text-orange-500" title="RSS / Atom Feed Reader" subtitle="Pull blog posts and updates from any RSS or Atom feed URL" />

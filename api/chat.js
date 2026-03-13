@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const { messages = [], systemPrompt } = req.body || {};
+  const { messages = [], systemPrompt, maxTokens } = req.body || {};
   if (!messages.length) return res.status(400).json({ error: 'No messages provided' });
 
   const system = systemPrompt ||
@@ -36,7 +36,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           system_instruction: { parts: [{ text: system }] },
           contents,
-          generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
+          generationConfig: { maxOutputTokens: maxTokens || 800, temperature: 0.7 },
         }),
       }
     );
