@@ -1891,7 +1891,7 @@ const App = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Facebook */}
                 {(() => {
-                  const fb = _fbLive;
+                  const fb = (destinyData?.facebook && !destinyData.facebook.error) ? destinyData.facebook : _fbLive;
                   const hasFb = fb.followers != null;
                   return (
                     <div className={`p-5 rounded-2xl ${hasFb ? 'bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
@@ -1917,7 +1917,7 @@ const App = () => {
                               <span>Category</span><span className={`font-black ${txt} text-right max-w-[60%] leading-tight`}>{fb.category}</span>
                             </div>
                           )}
-                          {_socialLive.fetchedAt && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(_socialLive.fetchedAt).toLocaleString()}</p>}
+                          {(destinyData?.fetchedAt || _socialLive.fetchedAt) && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(destinyData?.fetchedAt || _socialLive.fetchedAt).toLocaleString()}</p>}
                           <a href={fb.url || 'https://www.facebook.com/profile.php?id=61581511228047'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-blue-500 hover:text-blue-400 mt-1"><ExternalLink size={9}/> View Page</a>
                         </div>
                       ) : (
@@ -1931,7 +1931,7 @@ const App = () => {
                 })()}
                 {/* Instagram */}
                 {(() => {
-                  const ig = _igLive;
+                  const ig = (destinyData?.instagram && !destinyData.instagram.error) ? destinyData.instagram : _igLive;
                   const hasIg = ig.followers != null;
                   return (
                     <div className={`p-5 rounded-2xl ${hasIg ? 'bg-pink-50 dark:bg-pink-900/10 border border-pink-200 dark:border-pink-800' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
@@ -1958,7 +1958,7 @@ const App = () => {
                             </div>
                           )}
                           {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500">✓ Verified</span>}
-                          {_socialLive.fetchedAt && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(_socialLive.fetchedAt).toLocaleString()}</p>}
+                          {(destinyData?.fetchedAt || _socialLive.fetchedAt) && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(destinyData?.fetchedAt || _socialLive.fetchedAt).toLocaleString()}</p>}
                           <a href={ig.url || 'https://www.instagram.com/destinyspringshealthcare/'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400 mt-1"><ExternalLink size={9}/> View Profile</a>
                         </div>
                       ) : (
@@ -1972,7 +1972,7 @@ const App = () => {
                 })()}
                 {/* TikTok */}
                 {(() => {
-                  const tt = _ttLive;
+                  const tt = (destinyData?.tiktok && !destinyData.tiktok.error) ? destinyData.tiktok : _ttLive;
                   const hasTt = tt.followers != null;
                   return (
                     <div className={`p-5 rounded-2xl ${hasTt ? 'bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
@@ -2004,7 +2004,7 @@ const App = () => {
                             </div>
                           )}
                           {tt.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500">✓ Verified</span>}
-                          {_socialLive.fetchedAt && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(_socialLive.fetchedAt).toLocaleString()}</p>}
+                          {(destinyData?.fetchedAt || _socialLive.fetchedAt) && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(destinyData?.fetchedAt || _socialLive.fetchedAt).toLocaleString()}</p>}
                           <a href={tt.url || 'https://www.tiktok.com/@destinyspringshealthcare'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black hover:opacity-70 mt-1"><ExternalLink size={9}/> View Profile</a>
                         </div>
                       ) : (
