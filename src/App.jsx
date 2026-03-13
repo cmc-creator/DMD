@@ -87,7 +87,8 @@ const App = () => {
   const [aiGenerating, setAiGenerating]         = useState(false);
   const [importNotice, setImportNotice]         = useState('');
   const [reviewPlatformData, setReviewPlatformData] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}'); } catch { return {}; } });
-  const [reviewPlatformForm, setReviewPlatformForm] = useState({ editingPlatform: null, rating: '', count: '', url: '' });
+  const [reviewPlatformForm, setReviewPlatformForm]   = useState({ editingPlatform: null, rating: '', count: '', url: '' });
+  const [reviewFetchingPlatform, setReviewFetchingPlatform] = useState(null);
   // ── Intel tab state ──────────────────────────────────────────────────────────
   const [intelSubTab, setIntelSubTab]           = useState('news');
   const [newsQuery, setNewsQuery]               = useState('mental health Arizona');
@@ -695,11 +696,54 @@ const App = () => {
   const savePlatformData = (platformKey) => {
     const updated = {
       ...reviewPlatformData,
-      [platformKey]: { rating: reviewPlatformForm.rating, count: reviewPlatformForm.count, url: reviewPlatformForm.url },
+      [platformKey]: {
+        ...reviewPlatformData[platformKey],
+        rating: reviewPlatformForm.rating,
+        count:  reviewPlatformForm.count,
+        url:    reviewPlatformForm.url,
+        source: 'manual',
+      },
     };
     setReviewPlatformData(updated);
     localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
     setReviewPlatformForm({ editingPlatform: null, rating: '', count: '', url: '' });
+  };
+
+  const fetchPlatformReviews = async (platformKey) => {
+    setReviewFetchingPlatform(platformKey);
+    try {
+      const r = await fetch(`/api/reviews?platform=${platformKey}`);
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'Fetch failed');
+      const updated = {
+        ...reviewPlatformData,
+        [platformKey]: {
+          ...reviewPlatformData[platformKey],
+          rating:     String(d.rating ?? ''),
+          count:      String(d.reviewCount ?? ''),
+          url:        d.url || reviewPlatformData[platformKey]?.url || '',
+          source:     'live',
+          fetchedAt:  d.fetchedAt,
+          fetchError: null,
+        },
+      };
+      setReviewPlatformData(updated);
+      localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
+    } catch (e) {
+      const updated = {
+        ...reviewPlatformData,
+        [platformKey]: {
+          ...reviewPlatformData[platformKey],
+          source:     reviewPlatformData[platformKey]?.source || 'error',
+          fetchedAt:  new Date().toISOString(),
+          fetchError: e.message,
+        },
+      };
+      setReviewPlatformData(updated);
+      localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
+    } finally {
+      setReviewFetchingPlatform(null);
+    }
   };
 
   const disconnectIntegration = (name) => {
@@ -2413,15 +2457,28 @@ const App = () => {
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><Star size={16} className="text-amber-500" /></div>
                   <div>
-                    <p className={`text-sm font-black ${txt}`}>Review Platform Tracker</p>
-                    <p className={`text-xs ${subtl}`}>Set your rating &amp; count for each platform — KPIs update instantly</p>
+                    <p className={`text-sm font-black ${txt}`}>Live Review Scores</p>
+                    <p className={`text-xs ${subtl}`}>Fetch live scores from each platform — or enter manually</p>
                   </div>
                 </div>
-                {_platformEntries.length > 0 && (
-                  <span className={`text-xs font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400`}>
-                    {_totalReviewCount.toLocaleString()} total · {_avgRating} ★ avg
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {_platformEntries.length > 0 && (
+                    <span className={`text-xs font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400`}>
+                      {_totalReviewCount.toLocaleString()} total · {_avgRating} ★ avg
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      const platforms = ['google','yelp','glassdoor','indeed','healthgrades','zocdoc','facebook'];
+                      platforms.forEach((p, i) => setTimeout(() => fetchPlatformReviews(p), i * 300));
+                    }}
+                    disabled={reviewFetchingPlatform !== null}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white text-xs font-black transition-all"
+                  >
+                    <RefreshCw size={11} className={reviewFetchingPlatform ? 'animate-spin' : ''} />
+                    Fetch All
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {[
@@ -2433,28 +2490,59 @@ const App = () => {
                   { key: 'zocdoc',       label: 'ZocDoc',       color: 'text-purple-500',  border: 'border-purple-200 dark:border-purple-800',   bg: 'bg-purple-50 dark:bg-purple-900/10'   },
                   { key: 'facebook',     label: 'Facebook',     color: 'text-indigo-500',  border: 'border-indigo-200 dark:border-indigo-800',   bg: 'bg-indigo-50 dark:bg-indigo-900/10'   },
                 ].map(plat => {
-                  const saved   = reviewPlatformData[plat.key] || {};
-                  const editing = reviewPlatformForm.editingPlatform === plat.key;
+                  const saved     = reviewPlatformData[plat.key] || {};
+                  const editing   = reviewPlatformForm.editingPlatform === plat.key;
+                  const fetching  = reviewFetchingPlatform === plat.key;
+                  const isLive    = saved.source === 'live';
+                  const hasError  = !!saved.fetchError;
+                  const fetchAge  = saved.fetchedAt ? (() => {
+                    const mins = Math.floor((Date.now() - new Date(saved.fetchedAt)) / 60000);
+                    return mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.floor(mins/60)}h ago`;
+                  })() : null;
                   return (
-                    <div key={plat.key} className={`p-4 rounded-2xl border ${plat.border} ${plat.bg}`}>
-                      <div className="flex items-center justify-between mb-2">
+                    <div key={plat.key} className={`p-4 rounded-2xl border ${plat.border} ${plat.bg} flex flex-col`}>
+                      {/* Header */}
+                      <div className="flex items-center justify-between mb-1">
                         <span className={`text-sm font-black ${plat.color}`}>{plat.label}</span>
-                        {saved.rating && (
-                          <span className="flex gap-0.5">
-                            {[1,2,3,4,5].map(n => <Star key={n} size={9} className={n<=Math.round(Number(saved.rating))?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
-                          </span>
-                        )}
-                      </div>
-                      {(saved.rating || saved.count) ? (
-                        <div className="flex gap-3 text-xs mb-3">
-                          {saved.rating && <span className={`font-black ${plat.color}`}>{saved.rating} ★</span>}
-                          {saved.count  && <span className={subtl}>{Number(saved.count).toLocaleString()} reviews</span>}
+                        <div className="flex items-center gap-1">
+                          {isLive && !hasError && (
+                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400">Live</span>
+                          )}
+                          {saved.source === 'manual' && (
+                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Manual</span>
+                          )}
+                          {saved.rating && (
+                            <span className="flex gap-0.5 ml-0.5">
+                              {[1,2,3,4,5].map(n => <Star key={n} size={8} className={n<=Math.round(Number(saved.rating))?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
+                            </span>
+                          )}
                         </div>
-                      ) : (
-                        <p className={`text-xs ${subtl} mb-3`}>No data yet</p>
+                      </div>
+                      {/* Score */}
+                      {editing ? null : (
+                        <div className="flex-1">
+                          {(saved.rating || saved.count) ? (
+                            <div className="mb-1">
+                              <span className={`text-2xl font-black ${plat.color}`}>{saved.rating || '—'}</span>
+                              {saved.rating && <span className={`text-base ${plat.color} ml-0.5`}>★</span>}
+                              {saved.count && <p className={`text-xs ${subtl} mt-0.5`}>{Number(saved.count).toLocaleString()} reviews</p>}
+                            </div>
+                          ) : (
+                            <p className={`text-xs ${subtl} mb-1`}>{fetching ? 'Fetching…' : 'No data yet'}</p>
+                          )}
+                          {hasError && (
+                            <p className="text-[10px] text-red-500 dark:text-red-400 leading-tight mb-1 line-clamp-2" title={saved.fetchError}>
+                              {saved.fetchError}
+                            </p>
+                          )}
+                          {fetchAge && !hasError && (
+                            <p className={`text-[10px] ${subtl}`}>Fetched {fetchAge}</p>
+                          )}
+                        </div>
                       )}
-                      {editing ? (
-                        <div className="space-y-2">
+                      {/* Edit form */}
+                      {editing && (
+                        <div className="space-y-2 mt-1">
                           <input type="number" min="1" max="5" step="0.1" placeholder="Rating (e.g. 4.7)"
                             value={reviewPlatformForm.rating}
                             onChange={e => setReviewPlatformForm(f => ({...f, rating: e.target.value}))}
@@ -2475,16 +2563,26 @@ const App = () => {
                             <button onClick={() => setReviewPlatformForm({ editingPlatform: null, rating: '', count: '', url: '' })} className={`flex-1 py-1.5 ${card} border border-slate-200 dark:border-slate-700 ${muted} text-xs font-black rounded-lg hover:text-red-400 transition-all`}>Cancel</button>
                           </div>
                         </div>
-                      ) : (
-                        <div className="flex gap-2">
+                      )}
+                      {/* Actions */}
+                      {!editing && (
+                        <div className="flex gap-1.5 mt-3">
+                          <button
+                            onClick={() => fetchPlatformReviews(plat.key)}
+                            disabled={fetching || reviewFetchingPlatform !== null}
+                            className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white text-xs font-black transition-all`}
+                          >
+                            <RefreshCw size={10} className={fetching ? 'animate-spin' : ''} />
+                            {fetching ? 'Fetching' : 'Fetch'}
+                          </button>
                           <button
                             onClick={() => setReviewPlatformForm({ editingPlatform: plat.key, rating: saved.rating||'', count: saved.count||'', url: saved.url||'' })}
-                            className={`flex-1 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 ${card} text-xs font-black ${muted} hover:text-amber-500 transition-all`}
-                          >Edit</button>
+                            className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 ${card} text-xs font-black ${muted} hover:text-amber-500 transition-all`}
+                          ><Pencil size={10} /></button>
                           {saved.url && (
                             <a href={saved.url} target="_blank" rel="noopener noreferrer"
-                              className="flex-1 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-black text-center transition-all">
-                              View ↗
+                              className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-teal-600 hover:text-white transition-all">
+                              <ExternalLink size={10} />
                             </a>
                           )}
                         </div>

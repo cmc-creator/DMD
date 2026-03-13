@@ -1,0 +1,354 @@
+// api/reviews.js — Live review score scraper for all major platforms
+// ─────────────────────────────────────────────────────────────────────────────
+// Endpoints:
+//   ?platform=google       — Google Places API (GOOGLE_PLACES_KEY) or search scrape
+//   ?platform=yelp         — Yelp Fusion API  (YELP_API_KEY required)
+//   ?platform=glassdoor    — HTML scrape + JSON-LD
+//   ?platform=indeed       — HTML scrape + JSON-LD
+//   ?platform=healthgrades — HTML scrape + JSON-LD
+//   ?platform=zocdoc       — HTML scrape + JSON-LD
+//   ?platform=facebook     — Facebook Graph API (FACEBOOK_PAGE_TOKEN) or mobile scrape
+//   ?platform=all          — fetch all in parallel
+//
+// Optional env vars:
+//   GOOGLE_PLACES_KEY      — enables Places API (falls back to search scrape)
+//   YELP_API_KEY           — required for Yelp
+//   FACEBOOK_PAGE_TOKEN    — required for Facebook ratings
+//   FACEBOOK_PAGE_ID       — Facebook page slug/id (default: destinyspringshealthcare)
+//   DS_YELP_ID             — Yelp business slug (default: destiny-springs-healthcare-scottsdale)
+//   DS_ZOCDOC_URL          — full ZocDoc profile URL
+//   DS_INDEED_SLUG         — Indeed company slug  (default: destiny-springs-healthcare)
+//   DS_GLASSDOOR_SLUG      — Glassdoor review page slug
+
+// ── Shared fetch helper with browser UA ──────────────────────────────────────
+const fetchH = (url, extraHeaders = {}, ms = 9000) =>
+  fetch(url, {
+    headers: {
+      'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+      'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Cache-Control':   'no-cache',
+      'Pragma':          'no-cache',
+      ...extraHeaders,
+    },
+    redirect: 'follow',
+    signal:   AbortSignal.timeout(ms),
+  });
+
+// ── JSON-LD helpers ───────────────────────────────────────────────────────────
+function getJsonLd(html) {
+  const out = [];
+  const rx = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = rx.exec(html))) { try { out.push(JSON.parse(m[1])); } catch {} }
+  return out;
+}
+function findAggRating(items) {
+  const walk = (o) => {
+    if (!o || typeof o !== 'object') return null;
+    if (o.aggregateRating) {
+      const ar     = o.aggregateRating;
+      const rating = parseFloat(ar.ratingValue);
+      const count  = parseInt(ar.reviewCount ?? ar.ratingCount ?? ar.userInteractionCount ?? 0);
+      if (!isNaN(rating)) return { rating, reviewCount: isNaN(count) ? null : count };
+    }
+    if (Array.isArray(o['@graph'])) for (const i of o['@graph']) { const r = walk(i); if (r) return r; }
+    return null;
+  };
+  for (const s of items) { const r = walk(s); if (r) return r; }
+  return null;
+}
+const num = (s = '') => { const n = parseInt(String(s).replace(/,/g, '')); return isNaN(n) ? null : n; };
+
+// ── 1. GOOGLE ─────────────────────────────────────────────────────────────────
+async function scrapeGoogle() {
+  const apiKey = process.env.GOOGLE_PLACES_KEY;
+
+  // Option A: Google Places API (reliable, needs key)
+  if (apiKey) {
+    const q      = encodeURIComponent('Destiny Springs Healthcare Scottsdale AZ');
+    const findR  = await fetch(
+      `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${q}&inputtype=textquery&fields=place_id,name,rating,user_ratings_total&key=${apiKey}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    const findD = await findR.json();
+    const c = findD.candidates?.[0];
+    if (c?.rating != null) {
+      return {
+        rating:      c.rating,
+        reviewCount: c.user_ratings_total ?? null,
+        source:      'Google Places API',
+        url:         c.place_id ? `https://search.google.com/local/reviews?placeid=${c.place_id}` : 'https://g.page/r/',
+      };
+    }
+  }
+
+  // Option B: Google Search knowledge-panel scrape (no key)
+  const q   = encodeURIComponent('Destiny Springs Healthcare Scottsdale AZ reviews');
+  const r   = await fetchH(`https://www.google.com/search?q=${q}&hl=en&num=3`, {
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36',
+  });
+  if (!r.ok) throw new Error(`Google HTTP ${r.status}`);
+  const html = await r.text();
+
+  const aria = html.match(/aria-label=["'][Rr]ated?\s*([\d.]+)[^"']*\(([\d,]+)\s+review/i);
+  if (aria) return { rating: parseFloat(aria[1]), reviewCount: num(aria[2]), source: 'Google Search', url: 'https://www.google.com/search?q=Destiny+Springs+Healthcare+reviews' };
+
+  const ld = findAggRating(getJsonLd(html));
+  if (ld) return { ...ld, source: 'Google Search', url: 'https://www.google.com/search?q=Destiny+Springs+Healthcare+reviews' };
+
+  const inline = html.match(/([\d.]{3,})\s*(?:★|\()\s*(?:[^)]{0,60})?\(?([\d,]+)\s*(?:Google\s+)?reviews?/i);
+  if (inline) return { rating: parseFloat(inline[1]), reviewCount: num(inline[2]), source: 'Google Search', url: 'https://www.google.com/search?q=Destiny+Springs+Healthcare+reviews' };
+
+  throw new Error('Google rating not found in search results — consider adding GOOGLE_PLACES_KEY env var');
+}
+
+// ── 2. YELP ───────────────────────────────────────────────────────────────────
+async function scrapeYelp() {
+  const apiKey     = process.env.YELP_API_KEY;
+  if (!apiKey) throw new Error('Set YELP_API_KEY in Vercel env vars (free at api.yelp.com)');
+
+  const businessId = process.env.DS_YELP_ID || 'destiny-springs-healthcare-scottsdale';
+  const r = await fetch(
+    `https://api.yelp.com/v3/businesses/${encodeURIComponent(businessId)}`,
+    { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(8000) }
+  );
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.description || d.error.code);
+  return { rating: d.rating, reviewCount: d.review_count, source: 'Yelp Fusion API', url: d.url };
+}
+
+// ── 3. GLASSDOOR ──────────────────────────────────────────────────────────────
+async function scrapeGlassdoor() {
+  const slug    = process.env.DS_GLASSDOOR_SLUG;
+  const baseUrl = slug
+    ? `https://www.glassdoor.com/Reviews/${slug}.htm`
+    : `https://www.glassdoor.com/Reviews/Destiny-Springs-Healthcare-Reviews-E0.htm`;
+
+  // Try direct profile first, then search
+  const urls = [
+    baseUrl,
+    `https://www.glassdoor.com/Search/results.htm?keyword=${encodeURIComponent('Destiny Springs Healthcare')}&locT=N&locId=0`,
+  ];
+
+  for (const url of urls) {
+    try {
+      const r = await fetchH(url, {}, 9000);
+      if (!r.ok) continue;
+      const html = await r.text();
+
+      const ld = findAggRating(getJsonLd(html));
+      if (ld) return { ...ld, source: 'Glassdoor', url };
+
+      const rM = html.match(/"overallRating"\s*:\s*([\d.]+)/i)
+               || html.match(/class="[^"]*rating[^"]*"[^>]*>\s*([\d.]+)\s*<\/span>/i)
+               || html.match(/"ratingValue"\s*:\s*"?([\d.]+)/i);
+      const cM = html.match(/([\d,]+)\s+(?:reviews?|ratings?)/i);
+      if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Glassdoor', url };
+    } catch {} // try next URL
+  }
+  throw new Error('Glassdoor blocked scraping — set DS_GLASSDOOR_SLUG or check if the company page exists');
+}
+
+// ── 4. INDEED ─────────────────────────────────────────────────────────────────
+async function scrapeIndeed() {
+  const slug = process.env.DS_INDEED_SLUG || 'destiny-springs-healthcare';
+  const url  = `https://www.indeed.com/cmp/${slug}`;
+
+  const r = await fetchH(url, {}, 9000);
+  if (!r.ok) throw new Error(`Indeed HTTP ${r.status}`);
+  const html = await r.text();
+
+  const ld = findAggRating(getJsonLd(html));
+  if (ld) return { ...ld, source: 'Indeed', url };
+
+  // Indeed embeds window.__NEXT_DATA__ or similar
+  const ndM = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+  if (ndM) {
+    try {
+      const nd = JSON.parse(ndM[1]);
+      const props = nd?.props?.pageProps?.cmpProfile || nd?.props?.pageProps;
+      const rating = props?.overallRating ?? props?.rating;
+      const count  = props?.numReviews ?? props?.reviewCount;
+      if (rating != null) return { rating: parseFloat(rating), reviewCount: count ? Number(count) : null, source: 'Indeed', url };
+    } catch {}
+  }
+
+  const rM = html.match(/"ratingValue"\s*:\s*"?([\d.]+)/i)
+           || html.match(/aria-label="([\d.]+) out of 5/i)
+           || html.match(/data-testid="[^"]*rating[^"]*"[^>]*>([\d.]+)/i);
+  const cM = html.match(/([\d,]+)\s+(?:reviews?|ratings?)/i);
+  if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Indeed', url };
+
+  throw new Error('Indeed rating not found — check DS_INDEED_SLUG env var (e.g. destiny-springs-healthcare)');
+}
+
+// ── 5. HEALTHGRADES ───────────────────────────────────────────────────────────
+async function scrapeHealthgrades() {
+  const searchUrl = `https://www.healthgrades.com/search?what=${encodeURIComponent('Destiny Springs Healthcare')}&where=${encodeURIComponent('Scottsdale, AZ')}&pt=HOSPITAL`;
+  const r1 = await fetchH(searchUrl, {}, 9000);
+  if (!r1.ok) throw new Error(`Healthgrades search HTTP ${r1.status}`);
+  const html1 = await r1.text();
+
+  const linkM = html1.match(/href="(\/group-directory\/[^"?#]+)/i)
+             || html1.match(/href="(\/physician\/[^"?#]+)/i)
+             || html1.match(/href="(\/hospital-directory\/[^"?#]+)/i);
+  if (!linkM) throw new Error('Healthgrades: no profile link found in search results');
+
+  const profileUrl = 'https://www.healthgrades.com' + linkM[1];
+  const r2 = await fetchH(profileUrl, {}, 9000);
+  if (!r2.ok) throw new Error(`Healthgrades profile HTTP ${r2.status}`);
+  const html2 = await r2.text();
+
+  const ld = findAggRating(getJsonLd(html2));
+  if (ld) return { ...ld, source: 'Healthgrades', url: profileUrl };
+
+  const rM = html2.match(/"ratingValue"\s*:\s*"?([\d.]+)/i)
+           || html2.match(/aria-label="Rating:\s*([\d.]+)/i);
+  const cM = html2.match(/"reviewCount"\s*:\s*"?(\d+)/i)
+           || html2.match(/([\d,]+)\s+(?:reviews?|ratings?)/i);
+  if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Healthgrades', url: profileUrl };
+
+  throw new Error('Healthgrades: rating not found in profile page');
+}
+
+// ── 6. ZOCDOC ─────────────────────────────────────────────────────────────────
+async function scrapeZocdoc() {
+  const directUrl = process.env.DS_ZOCDOC_URL;
+  const searchUrl = `https://www.zocdoc.com/search?address=Scottsdale%2C+AZ&reason_visit=84&insurance_carrier=-1&search_query=${encodeURIComponent('Destiny Springs')}`;
+
+  const urls = directUrl
+    ? [directUrl, searchUrl]
+    : [searchUrl, 'https://www.zocdoc.com/practice/destiny-springs-healthcare'];
+
+  for (const url of urls) {
+    try {
+      const r = await fetchH(url, {}, 9000);
+      if (!r.ok) continue;
+      const html = await r.text();
+
+      const ld = findAggRating(getJsonLd(html));
+      if (ld) return { ...ld, source: 'ZocDoc', url };
+
+      // ZocDoc uses next data
+      const ndM = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+      if (ndM) {
+        try {
+          const nd = JSON.parse(ndM[1]);
+          const walk = (o) => {
+            if (!o || typeof o !== 'object') return null;
+            if ('averageRating' in o && 'totalReviews' in o) return { rating: o.averageRating, reviewCount: o.totalReviews };
+            if ('rating' in o && 'reviewCount' in o && typeof o.rating === 'number') return { rating: o.rating, reviewCount: o.reviewCount };
+            for (const v of Object.values(o)) { const r = walk(v); if (r) return r; }
+            return null;
+          };
+          const found = walk(nd);
+          if (found?.rating) return { ...found, source: 'ZocDoc', url };
+        } catch {}
+      }
+
+      const rM = html.match(/averageRating["']\s*:\s*([\d.]+)/i)
+               || html.match(/"ratingValue"\s*:\s*"?([\d.]+)/i)
+               || html.match(/aria-label="([\d.]+)\s+(?:out of|star)/i);
+      const cM = html.match(/([\d,]+)\s+(?:reviews?|ratings?)/i);
+      if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'ZocDoc', url };
+    } catch {}
+  }
+  throw new Error('ZocDoc: rating not found — set DS_ZOCDOC_URL env var with direct profile URL');
+}
+
+// ── 7. FACEBOOK ───────────────────────────────────────────────────────────────
+async function scrapeFacebook() {
+  const token  = process.env.FACEBOOK_PAGE_TOKEN;
+  const pageId = process.env.FACEBOOK_PAGE_ID || 'destinyspringshealthcare';
+
+  // Option A: Graph API (needs page access token)
+  if (token) {
+    const r = await fetch(
+      `https://graph.facebook.com/v18.0/${encodeURIComponent(pageId)}?fields=overall_star_rating,rating_count,name&access_token=${token}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    const d = await r.json();
+    if (d.error) throw new Error(`Facebook API: ${d.error.message}`);
+    if (d.overall_star_rating != null) {
+      return {
+        rating:      d.overall_star_rating,
+        reviewCount: d.rating_count ?? null,
+        source:      'Facebook Graph API',
+        url:         `https://www.facebook.com/${pageId}/reviews`,
+      };
+    }
+  }
+
+  // Option B: Mobile page scrape (no token — limited)
+  const url  = `https://m.facebook.com/${pageId}`;
+  const r    = await fetchH(url, { Accept: 'text/html' }, 9000);
+  if (!r.ok) throw new Error(`Facebook HTTP ${r.status}`);
+  const html = await r.text();
+
+  const ld = findAggRating(getJsonLd(html));
+  if (ld) return { ...ld, source: 'Facebook', url: `https://www.facebook.com/${pageId}/reviews` };
+
+  const rM = html.match(/([\d.]+)\s*(?:out of\s*5|★)/i)
+           || html.match(/aggregateRating["']\s*:\s*["']?([\d.]+)/i);
+  const cM = html.match(/([\d,]+)\s+(?:reviews?|ratings?|people\s+rated)/i);
+  if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Facebook', url: `https://www.facebook.com/${pageId}/reviews` };
+
+  throw new Error('Facebook rating not found — set FACEBOOK_PAGE_TOKEN + FACEBOOK_PAGE_ID for Graph API access');
+}
+
+// ── MAIN HANDLER ──────────────────────────────────────────────────────────────
+const scrapers = {
+  google:       scrapeGoogle,
+  yelp:         scrapeYelp,
+  glassdoor:    scrapeGlassdoor,
+  indeed:       scrapeIndeed,
+  healthgrades: scrapeHealthgrades,
+  zocdoc:       scrapeZocdoc,
+  facebook:     scrapeFacebook,
+};
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin',  '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const { platform } = req.query;
+  const fetchedAt    = new Date().toISOString();
+
+  if (!platform) {
+    return res.status(400).json({ ok: false, error: 'Pass ?platform=google|yelp|glassdoor|indeed|healthgrades|zocdoc|facebook|all' });
+  }
+
+  // Fetch all platforms in parallel
+  if (platform === 'all') {
+    const results = await Promise.allSettled(
+      Object.entries(scrapers).map(async ([key, fn]) => {
+        const d = await fn();
+        return [key, { ok: true, ...d, fetchedAt }];
+      })
+    );
+    const out = {};
+    results.forEach((r, i) => {
+      const key = Object.keys(scrapers)[i];
+      out[key] = r.status === 'fulfilled'
+        ? r.value[1]
+        : { ok: false, error: r.reason?.message || 'Unknown error', fetchedAt };
+    });
+    return res.status(200).json({ ok: true, results: out });
+  }
+
+  // Single platform
+  const scraper = scrapers[platform];
+  if (!scraper) {
+    return res.status(400).json({ ok: false, error: `Unknown platform "${platform}". Valid: ${Object.keys(scrapers).join(', ')}` });
+  }
+
+  try {
+    const data = await scraper();
+    return res.status(200).json({ ok: true, ...data, fetchedAt });
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: e.message, fetchedAt });
+  }
+}
