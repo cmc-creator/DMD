@@ -1355,23 +1355,32 @@ const App = () => {
                         </div>
                       )}
 
-                      {/* Secondary source breakdown (show when we have multiple) */}
-                      {allRatings.length > 1 && (
-                        <div className={`p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50`}>
-                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>All Sources</p>
-                          <div className="space-y-1.5">
-                            {allRatings.map((r, i) => (
-                              <div key={i} className="flex items-center justify-between gap-2">
-                                <span className={`text-xs ${subtl} truncate`}>{r.source}</span>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <span className={`text-sm font-black text-amber-500`}>{r.rating ? Number(r.rating).toFixed(1) : '—'}</span>
-                                  {r.reviewCount && <span className={`text-[11px] ${subtl}`}>({Number(r.reviewCount).toLocaleString()})</span>}
+                      {/* Combined platform ratings — merges auto-scraped + manually-fetched scores */}
+                      {(() => {
+                        const fetchedScores = Object.entries(reviewPlatformData)
+                          .filter(([, p]) => p.rating && !isNaN(Number(p.rating)))
+                          .map(([k, p]) => ({ source: k.charAt(0).toUpperCase() + k.slice(1), rating: Number(p.rating), reviewCount: p.count ? Number(p.count) : null }));
+                        const fetchedKeys = new Set(fetchedScores.map(p => p.source.toLowerCase()));
+                        const autoScores = allRatings.filter(r => r.rating && !fetchedKeys.has(r.source.toLowerCase().split(' ')[0]));
+                        const all = [...fetchedScores, ...autoScores];
+                        if (!all.length) return null;
+                        return (
+                          <div className={`p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50`}>
+                            <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Platform Ratings</p>
+                            <div className="space-y-1.5">
+                              {all.map((r, i) => (
+                                <div key={i} className="flex items-center justify-between gap-2">
+                                  <span className={`text-xs ${subtl} truncate`}>{r.source}</span>
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    <span className={`text-sm font-black text-amber-500`}>{Number(r.rating).toFixed(1)} ★</span>
+                                    {r.reviewCount && <span className={`text-[11px] ${subtl}`}>({Number(r.reviewCount).toLocaleString()})</span>}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Healthgrades profile link */}
                       {hg?.profileUrl && (
@@ -3125,6 +3134,11 @@ const App = () => {
                           <WifiOff size={10} /> Disconnect
                         </button>
                       )}
+                      {intg.connected && (integrationFields[intg.name] || []).length > 0 && (
+                        <button onClick={() => { setConnectModal(intg.name); setConnectFormData(connections[intg.name] || {}); setConnectError(null); }} className="text-amber-500 hover:text-amber-400 font-black flex items-center gap-1 text-[11px]">
+                          <Pencil size={10} /> Edit
+                        </button>
+                      )}
                       {intg.connected
                         ? <button onClick={() => syncIntegrationWithCreds(intg.name, connections[intg.name])} className="text-teal-500 hover:text-teal-400 font-black flex items-center gap-1">
                             {syncStatus[intg.name] === 'syncing'
@@ -3664,7 +3678,7 @@ const App = () => {
                     <intg.icon size={20} className={intg.color} />
                   </div>
                   <div>
-                    <h3 className={`font-black text-base ${txt}`}>Connect {intg.name}</h3>
+                    <h3 className={`font-black text-base ${txt}`}>{intg.connected ? 'Edit' : 'Connect'} {intg.name}</h3>
                     <p className={`text-[12px] ${subtl}`}>{intg.sub}</p>
                   </div>
                 </div>
@@ -3734,7 +3748,9 @@ const App = () => {
                 >
                   {connectTesting
                     ? <><RefreshCw size={14} className="animate-spin" /> Testing…</>
-                    : <><Plug size={14} /> Save & Connect</>}
+                    : connections[connectModal]?.connected
+                      ? <><Pencil size={14} /> Save Changes</>
+                      : <><Plug size={14} /> Save & Connect</>}
                 </button>
               </div>
               )}
