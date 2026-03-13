@@ -227,7 +227,7 @@ const App = () => {
       { key: 'apiKey',    label: 'YouTube Data API v3 Key', placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'console.cloud.google.com → Enable YouTube Data API v3 → Credentials → API Key' },
     ],
     'Yelp Reviews': [
-      { key: 'businessId', label: 'Yelp Business ID',  placeholder: 'destiny-springs-healthcare-scottsdale', hint: 'From the Yelp business URL: yelp.com/biz/YOUR-BUSINESS-ID' },
+      { key: 'businessId', label: 'Yelp Business ID',  placeholder: 'destiny-springs-healthcare-surprise', hint: 'From the Yelp business URL: yelp.com/biz/YOUR-BUSINESS-ID' },
       { key: 'apiKey',     label: 'Yelp API Key',      placeholder: 'your-yelp-api-key', type: 'password',   hint: 'Register at api.yelp.com → Create App → API Key (500 free calls/day)' },
     ],
     'News API': [
@@ -712,7 +712,24 @@ const App = () => {
   const fetchPlatformReviews = async (platformKey) => {
     setReviewFetchingPlatform(platformKey);
     try {
-      const r = await fetch(`/api/reviews?platform=${platformKey}`);
+      // Pass any stored integration credentials to the server scraper
+      const params = new URLSearchParams({ platform: platformKey });
+      if (platformKey === 'google') {
+        const c = connections['Google Business'] || {};
+        if (c.apiKey)  params.set('apiKey',   c.apiKey);
+        if (c.placeId) params.set('placeId',  c.placeId);
+      }
+      if (platformKey === 'yelp') {
+        const c = connections['Yelp Reviews'] || {};
+        if (c.apiKey)     params.set('apiKey',      c.apiKey);
+        if (c.businessId) params.set('businessId',  c.businessId);
+      }
+      if (platformKey === 'facebook') {
+        const c = connections['Meta Business Suite'] || {};
+        if (c.accessToken) params.set('accessToken', c.accessToken);
+        if (c.pageId)      params.set('pageId',      c.pageId);
+      }
+      const r = await fetch(`/api/reviews?${params.toString()}`);
       const d = await r.json();
       if (!d.ok) {
         const updated = {

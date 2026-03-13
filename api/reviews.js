@@ -61,10 +61,24 @@ function findAggRating(items) {
 const num = (s = '') => { const n = parseInt(String(s).replace(/,/g, '')); return isNaN(n) ? null : n; };
 
 // ── 1. GOOGLE ─────────────────────────────────────────────────────────────────
-async function scrapeGoogle() {
-  const apiKey = process.env.GOOGLE_PLACES_KEY;
+async function scrapeGoogle(opts = {}) {
+  const apiKey  = opts.apiKey  || process.env.GOOGLE_PLACES_KEY;
+  const placeId = opts.placeId || process.env.GOOGLE_PLACE_ID;
 
-  // Option A: Google Places API (reliable, needs key)
+  // Option A: Google Places API with known place_id (most reliable)
+  if (apiKey && placeId) {
+    const detR = await fetch(
+      `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=name,rating,user_ratings_total,url&key=${apiKey}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    const detD = await detR.json();
+    const r = detD.result;
+    if (r?.rating != null) {
+      return { rating: r.rating, reviewCount: r.user_ratings_total ?? null, source: 'Google Places API', url: r.url || `https://search.google.com/local/reviews?placeid=${placeId}` };
+    }
+  }
+
+  // Option B: Google Places API text search
   if (apiKey) {
     const q      = encodeURIComponent('Destiny Springs Healthcare Scottsdale AZ');
     const findR  = await fetch(
@@ -78,7 +92,7 @@ async function scrapeGoogle() {
         rating:      c.rating,
         reviewCount: c.user_ratings_total ?? null,
         source:      'Google Places API',
-        url:         c.place_id ? `https://search.google.com/local/reviews?placeid=${c.place_id}` : 'https://g.page/r/',
+        url:         c.place_id ? `https://search.google.com/local/reviews?placeid=${c.place_id}` : 'https://www.google.com/maps/search/Destiny+Springs+Healthcare+Scottsdale+AZ',
       };
     }
   }
@@ -106,11 +120,11 @@ async function scrapeGoogle() {
 }
 
 // ── 2. YELP ───────────────────────────────────────────────────────────────────
-async function scrapeYelp() {
-  const apiKey     = process.env.YELP_API_KEY;
-  const businessId = process.env.DS_YELP_ID || 'destiny-springs-healthcare-scottsdale';
+async function scrapeYelp(opts = {}) {
+  const apiKey     = opts.apiKey     || process.env.YELP_API_KEY;
+  const businessId = opts.businessId || process.env.DS_YELP_ID || 'destiny-springs-healthcare-surprise';
   if (!apiKey) {
-    const yErr = new Error('Set YELP_API_KEY in Vercel env vars (free API key at api.yelp.com) — or enter manually');
+    const yErr = new Error('Connect your Yelp API key in the Integrations tab (or set YELP_API_KEY in Vercel env vars) — or enter your rating manually');
     yErr.reviewUrl = `https://www.yelp.com/biz/${businessId}`;
     throw yErr;
   }
@@ -124,11 +138,9 @@ async function scrapeYelp() {
 }
 
 // ── 3. GLASSDOOR ──────────────────────────────────────────────────────────────
-async function scrapeGlassdoor() {
-  const slug    = process.env.DS_GLASSDOOR_SLUG;
-  const baseUrl = slug
-    ? `https://www.glassdoor.com/Reviews/${slug}.htm`
-    : `https://www.glassdoor.com/Reviews/Destiny-Springs-Healthcare-Reviews-E0.htm`;
+async function scrapeGlassdoor(opts = {}) {
+  const slug    = opts.slug || process.env.DS_GLASSDOOR_SLUG || 'Destiny-Springs-Healthcare-Reviews-E3272383';
+  const baseUrl = `https://www.glassdoor.com/Reviews/${slug}.htm`;
 
   // Try direct profile first, then search
   const urls = [
@@ -153,13 +165,13 @@ async function scrapeGlassdoor() {
     } catch {} // try next URL
   }
   const gdErr = new Error('Glassdoor blocks automated access — enter your rating manually');
-  gdErr.reviewUrl = 'https://www.glassdoor.com/Search/results.htm?keyword=Destiny+Springs+Healthcare';
+  gdErr.reviewUrl = `https://www.glassdoor.com/Reviews/${slug}.htm`;
   throw gdErr;
 }
 
 // ── 4. INDEED ─────────────────────────────────────────────────────────────────
-async function scrapeIndeed() {
-  const slug = process.env.DS_INDEED_SLUG || 'destiny-springs-healthcare';
+async function scrapeIndeed(opts = {}) {
+  const slug = opts.slug || process.env.DS_INDEED_SLUG || 'Destiny-Springs-Healthcare';
   const url  = `https://www.indeed.com/cmp/${slug}`;
 
   const r = await fetchH(url, {}, 9000);
@@ -192,12 +204,12 @@ async function scrapeIndeed() {
   if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Indeed', url };
 
   const iErr = new Error('Indeed rating not found — enter your rating manually');
-  iErr.reviewUrl = url;
+  iErr.reviewUrl = `https://www.indeed.com/cmp/${slug}`;
   throw iErr;
 }
 
 // ── 5. HEALTHGRADES ───────────────────────────────────────────────────────────
-async function scrapeHealthgrades() {
+async function scrapeHealthgrades(opts = {}) {
   const searchUrl = `https://www.healthgrades.com/search?what=${encodeURIComponent('Destiny Springs Healthcare')}&where=${encodeURIComponent('Scottsdale, AZ')}`;
   const r1 = await fetchH(searchUrl, {}, 9000);
   if (!r1.ok) {
@@ -242,7 +254,7 @@ async function scrapeHealthgrades() {
 }
 
 // ── 6. ZOCDOC ─────────────────────────────────────────────────────────────────
-async function scrapeZocdoc() {
+async function scrapeZocdoc(opts = {}) {
   const directUrl = process.env.DS_ZOCDOC_URL;
   const searchUrl = `https://www.zocdoc.com/search?address=Scottsdale%2C+AZ&reason_visit=84&insurance_carrier=-1&search_query=${encodeURIComponent('Destiny Springs')}`;
 
@@ -289,9 +301,9 @@ async function scrapeZocdoc() {
 }
 
 // ── 7. FACEBOOK ───────────────────────────────────────────────────────────────
-async function scrapeFacebook() {
-  const token  = process.env.FACEBOOK_PAGE_TOKEN;
-  const pageId = process.env.FACEBOOK_PAGE_ID || 'destinyspringshealthcare';
+async function scrapeFacebook(opts = {}) {
+  const token  = opts.accessToken || process.env.FACEBOOK_PAGE_TOKEN;
+  const pageId = opts.pageId      || process.env.FACEBOOK_PAGE_ID || '61581511228047';
 
   // Option A: Graph API (needs page access token)
   if (token) {
@@ -312,8 +324,16 @@ async function scrapeFacebook() {
   }
 
   // Option B: Mobile page scrape (no token — limited)
-  const fbReviewUrl = `https://www.facebook.com/${pageId}/reviews`;
-  const url  = `https://m.facebook.com/${pageId}`;
+  // Use numeric ID URL when it looks like a numeric ID, otherwise slug
+  const fbProfileUrl = /^\d+$/.test(pageId)
+    ? `https://www.facebook.com/profile.php?id=${pageId}`
+    : `https://www.facebook.com/${pageId}`;
+  const fbReviewUrl = /^\d+$/.test(pageId)
+    ? `https://www.facebook.com/profile.php?id=${pageId}&sk=reviews`
+    : `https://www.facebook.com/${pageId}/reviews`;
+  const url  = /^\d+$/.test(pageId)
+    ? `https://m.facebook.com/profile.php?id=${pageId}`
+    : `https://m.facebook.com/${pageId}`;
   const r    = await fetchH(url, { Accept: 'text/html' }, 9000);
   if (!r.ok) {
     const fErr = new Error(`Facebook blocks automated access (HTTP ${r.status}) — add FACEBOOK_PAGE_TOKEN to Vercel env vars or enter manually`);
@@ -323,12 +343,12 @@ async function scrapeFacebook() {
   const html = await r.text();
 
   const ld = findAggRating(getJsonLd(html));
-  if (ld) return { ...ld, source: 'Facebook', url: `https://www.facebook.com/${pageId}/reviews` };
+  if (ld) return { ...ld, source: 'Facebook', url: fbReviewUrl };
 
   const rM = html.match(/([\d.]+)\s*(?:out of\s*5|★)/i)
            || html.match(/aggregateRating["']\s*:\s*["']?([\d.]+)/i);
-  const cM = html.match(/([\d,]+)\s+(?:reviews?|ratings?|people\s+rated)/i);
-  if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Facebook', url: `https://www.facebook.com/${pageId}/reviews` };
+  const cM = html.match(/([\d,]+)\s*(?:reviews?|ratings?|people\s+rated)/i);
+  if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Facebook', url: fbReviewUrl };
 
   const fErr = new Error('Facebook rating not found — add FACEBOOK_PAGE_TOKEN to Vercel env vars or enter manually');
   fErr.reviewUrl = fbReviewUrl;
@@ -363,7 +383,7 @@ export default async function handler(req, res) {
   if (platform === 'all') {
     const results = await Promise.allSettled(
       Object.entries(scrapers).map(async ([key, fn]) => {
-        const d = await fn();
+        const d = await fn(req.query);
         return [key, { ok: true, ...d, fetchedAt }];
       })
     );
@@ -384,7 +404,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const data = await scraper();
+    const data = await scraper(req.query);
     return res.status(200).json({ ok: true, ...data, fetchedAt });
   } catch (e) {
     return res.status(200).json({ ok: false, error: e.message, ...(e.reviewUrl ? { url: e.reviewUrl } : {}), fetchedAt });
