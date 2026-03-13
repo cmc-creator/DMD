@@ -599,6 +599,27 @@ const App = () => {
     setPasteCSV('');
   };
 
+  const exportBackup = () => {
+    const backup = {
+      _dmdBackup: true,
+      _exportedAt: new Date().toISOString(),
+      dmd_destiny:          (() => { try { return JSON.parse(localStorage.getItem('dmd_destiny')   || 'null'); } catch { return null; } })(),
+      dmd_review_platforms: (() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}'); } catch { return {}; } })(),
+      dmd_manual:           (() => { try { return JSON.parse(localStorage.getItem('dmd_manual')   || '{}'); } catch { return {}; } })(),
+      dmd_connections:      (() => { try { return JSON.parse(localStorage.getItem('dmd_connections') || '{}'); } catch { return {}; } })(),
+      dmd_wix:              (() => { try { return JSON.parse(localStorage.getItem('dmd_wix')       || 'null'); } catch { return null; } })(),
+      dmd_livedata:         (() => { try { return JSON.parse(localStorage.getItem('dmd_livedata')  || '{}'); } catch { return {}; } })(),
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `dmd-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setImportNotice('Backup downloaded — import this file on any device to restore all your data.');
+  };
+
   const handleFileUpload = (file) => {
     if (!file) return;
     const reader = new FileReader();
@@ -608,6 +629,21 @@ const App = () => {
       if (ext === 'json') {
         try {
           const parsed = JSON.parse(text);
+          // ── Full backup restore ──────────────────────────────────────
+          if (parsed._dmdBackup === true) {
+            const keys = ['dmd_destiny','dmd_review_platforms','dmd_manual','dmd_connections','dmd_wix','dmd_livedata'];
+            keys.forEach(k => { if (parsed[k] != null) localStorage.setItem(k, JSON.stringify(parsed[k])); });
+            // Reload state from restored localStorage
+            try { if (parsed.dmd_review_platforms) setReviewPlatformData(parsed.dmd_review_platforms); } catch(_){}
+            try { if (parsed.dmd_manual)           setManualData(parsed.dmd_manual); } catch(_){}
+            try { if (parsed.dmd_connections)      setConnections(parsed.dmd_connections); } catch(_){}
+            try { if (parsed.dmd_wix)              setWixData(parsed.dmd_wix); } catch(_){}
+            try { if (parsed.dmd_destiny)          setDestinyData(parsed.dmd_destiny); } catch(_){}
+            try { if (parsed.dmd_livedata)         setLiveData(parsed.dmd_livedata); } catch(_){}
+            setImportNotice(`✅ Backup restored from ${file.name} — all data synced across device!`);
+            return;
+          }
+          // ── Regular JSON import ──────────────────────────────────────
           const rows = Array.isArray(parsed) ? parsed : [parsed];
           const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
           const type = detectTypeFromHeaders(headers);
@@ -3368,6 +3404,26 @@ const App = () => {
                   <div className={`text-[13px] font-black ${subtl} uppercase tracking-wider`}>{s.label}</div>
                 </div>
               ))}
+            </div>
+
+            {/* ── Backup & Sync card ──────────────────────────────────────── */}
+            <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
+              <SectionHeader icon={RefreshCw} color="text-indigo-500" title="Backup & Sync" subtitle="Export your data to a file, then import it on any other device" />
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                <div className="flex-1">
+                  <p className={`text-sm font-bold ${txt} mb-1`}>Sync between desktop and mobile</p>
+                  <p className={`text-xs ${subtl}`}>Click <strong>Export Backup</strong> on your desktop, then open the dashboard on your phone and use <strong>Import Backup</strong> to restore everything — ratings, social data, review scores, integrations, and all manually-entered data.</p>
+                </div>
+                <button
+                  onClick={exportBackup}
+                  className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-black transition-colors flex-shrink-0"
+                >
+                  <Download size={15} /> Export Backup
+                </button>
+              </div>
+              <div className={`mt-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border ${brd} text-xs ${subtl}`}>
+                💡 <strong>On mobile:</strong> tap <strong>File Upload</strong> below, then select your backup file. All your data will be restored instantly.
+              </div>
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
