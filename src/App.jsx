@@ -15,6 +15,30 @@ import {
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
 } from 'lucide-react';
 
+// ─── Captain KPI avatar — inline SVG bot face ──────────────────────────────
+const CaptainKPI = ({ size = 28 }) => (
+  <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Body / head */}
+    <rect x="5" y="11" width="30" height="24" rx="8" fill="#6d28d9"/>
+    {/* Visor stripe */}
+    <rect x="5" y="15" width="30" height="9" rx="3" fill="#4c1d95"/>
+    {/* Eyes */}
+    <circle cx="15" cy="20" r="3" fill="#a78bfa"/>
+    <circle cx="25" cy="20" r="3" fill="#a78bfa"/>
+    <circle cx="16" cy="20.8" r="1.2" fill="white"/>
+    <circle cx="26" cy="20.8" r="1.2" fill="white"/>
+    {/* Smile */}
+    <path d="M14 29 Q20 34 26 29" stroke="#c4b5fd" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+    {/* Antenna */}
+    <rect x="18" y="4" width="4" height="7" rx="2" fill="#7c3aed"/>
+    <circle cx="20" cy="3.5" r="3" fill="#ddd6fe"/>
+    <circle cx="20" cy="3.5" r="1.5" fill="#7c3aed"/>
+    {/* Cap brim */}
+    <rect x="3" y="10" width="34" height="4" rx="2" fill="#5b21b6"/>
+    <rect x="0" y="12" width="40" height="2" rx="1" fill="#4c1d95"/>
+  </svg>
+);
+
 // ─── Shared style helpers ───────────────────────────────────────────────────
 // Color system – maps Tailwind color prop strings to actual hex/RGB values
 const colorMap = {
@@ -94,7 +118,7 @@ const App = () => {
   const [aiInsights, setAiInsights]             = useState('');
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [chatOpen, setChatOpen]                 = useState(false);
-  const [chatMessages, setChatMessages]         = useState([{ role: 'assistant', content: "Hey hey hey! 🎤 I'm **Sir Clicks-a-Lot**, your marketing analytics assistant. Ask me anything about the dashboard data, campaign performance, or what to post next. I run on GPT and good vibes." }]);
+  const [chatMessages, setChatMessages]         = useState([{ role: 'assistant', content: "Reporting for duty! 🫡 I'm **Captain KPI**, your marketing analytics officer. Fire away — ask me about the data, what to post, how to get more reviews, or why your bounce rate looks like a trampoline." }]);
   const [chatInput, setChatInput]               = useState('');
   const [chatLoading, setChatLoading]           = useState(false);
   const [importNotice, setImportNotice]         = useState('');
@@ -824,7 +848,7 @@ const App = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          systemPrompt: 'You are Sir Clicks-a-Lot 🎤 — a witty but sharp marketing analytics assistant for Destiny Springs Healthcare (mental health clinic, Scottsdale AZ). Analyze the dashboard data and provide 5-7 concise bullet-point insights with specific, actionable recommendations. Be direct and occasionally funny but genuinely useful. Use bullet points (•) for each insight.',
+          systemPrompt: 'You are Captain KPI 🫡 — a witty but sharp marketing analytics assistant for Destiny Springs Healthcare (mental health clinic, Scottsdale AZ). Analyze the dashboard data and provide 5-7 concise bullet-point insights with specific, actionable recommendations. Be direct and occasionally funny but genuinely useful. Use bullet points (•) for each insight.',
           messages: [{ role: 'user', content: `Here is the current Destiny Springs Healthcare marketing dashboard data:\n\n${summary}\n\nProvide your analysis of what's working, what needs attention, and your top action items.` }],
         }),
       });
@@ -849,7 +873,7 @@ const App = () => {
     const totalSpend = adSpend.reduce((s, e) => s + (Number(e.spend) || 0), 0);
     const totalLeads = adSpend.reduce((s, e) => s + (Number(e.leads) || 0), 0);
     const googleRating = destinyData?.bestRating?.rating || destinyData?.googleSearch?.rating || destinyData?.google?.rating || 'unknown';
-    const systemPrompt = `You are Sir Clicks-a-Lot 🎤 — a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a mental health clinic in Scottsdale, AZ. Be helpful, concise, and funny but professional. Keep responses under 200 words unless asked for more.\n\nCurrent dashboard context:\n- Google rating: ${googleRating}\n- Ad spend records: ${adSpend.length} (total $${totalSpend.toFixed(0)}, leads: ${totalLeads})\n- Wix sessions: ${wixData?.sessions || '—'}\n- Data types imported: ${Object.keys(manualData).filter(k => (manualData[k] || []).length > 0).join(', ') || 'none yet'}\n- Platform ratings tracked: ${Object.keys(reviewPlatformData).filter(k => reviewPlatformData[k]?.rating).join(', ') || 'none'}`;
+    const systemPrompt = `You are Captain KPI 🫡 — a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a mental health clinic in Scottsdale, AZ. Be helpful, concise, and funny but professional. Keep responses under 200 words unless asked for more.\n\nCurrent dashboard context:\n- Google rating: ${googleRating}\n- Ad spend records: ${adSpend.length} (total $${totalSpend.toFixed(0)}, leads: ${totalLeads})\n- Wix sessions: ${wixData?.sessions || '—'}\n- Data types imported: ${Object.keys(manualData).filter(k => (manualData[k] || []).length > 0).join(', ') || 'none yet'}\n- Platform ratings tracked: ${Object.keys(reviewPlatformData).filter(k => reviewPlatformData[k]?.rating).join(', ') || 'none'}`;
     try {
       const r = await fetch('/api/chat', {
         method: 'POST',
@@ -2003,7 +2027,7 @@ const App = () => {
             {/* ── Sir Clicks-a-Lot AI Insights ─────────────────────────────── */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
-                <SectionHeader icon={Bot} color="text-purple-500" title="AI Data Analysis" subtitle="Sir Clicks-a-Lot reads your imported data and delivers the hard truths" />
+                <SectionHeader icon={Bot} color="text-purple-500" title="AI Data Analysis" subtitle="Captain KPI reads your imported data and delivers the hard truths" />
                 <button
                   onClick={analyzeData}
                   disabled={aiInsightsLoading}
@@ -2016,22 +2040,22 @@ const App = () => {
               {aiInsights ? (
                 <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700/40">
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0">
-                      <Bot size={14} className="text-white" />
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <CaptainKPI size={28} />
                     </div>
-                    <span className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">Sir Clicks-a-Lot says:</span>
+                    <span className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">Captain KPI reporting:</span>
                   </div>
                   <p className={`text-sm ${txt} whitespace-pre-wrap leading-relaxed`}>{aiInsights}</p>
                   <button onClick={() => setAiInsights('')} className={`mt-3 text-xs ${subtl} hover:text-purple-500 transition-colors`}>Clear analysis</button>
                 </div>
               ) : (
                 <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex items-center gap-4`}>
-                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg">
-                    <Bot size={22} className="text-white" />
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-purple-700 to-indigo-700 flex items-center justify-center flex-shrink-0 shadow-lg p-1">
+                    <CaptainKPI size={44} />
                   </div>
                   <div>
                     <p className={`text-sm font-black ${txt} mb-0.5`}>No analysis yet</p>
-                    <p className={`text-xs ${subtl}`}>Hit <strong>Analyze Now</strong> and Sir Clicks-a-Lot will crunch your imported data and tell you exactly what to do next.</p>
+                    <p className={`text-xs ${subtl}`}>Hit <strong>Analyze Now</strong> and Captain KPI will crunch your imported data and tell you exactly what to do next.</p>
                   </div>
                 </div>
               )}
@@ -4169,14 +4193,14 @@ const App = () => {
 
         </main>
 
-        {/* ══ SIR CLICKS-A-LOT CHATBOT ══════════════════════════════════════ */}
+        {/* ══ CAPTAIN KPI CHATBOT ═══════════════════════════════════════════ */}
         {/* Floating toggle button */}
         <button
           onClick={() => setChatOpen(o => !o)}
-          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform no-print"
-          title="Chat with Sir Clicks-a-Lot"
+          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-br from-purple-700 to-indigo-700 shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform no-print"
+          title="Captain KPI — AI Marketing Assistant"
         >
-          {chatOpen ? <X size={22} /> : <Bot size={22} />}
+          {chatOpen ? <X size={22} /> : <CaptainKPI size={30} />}
         </button>
 
         {/* Chat panel */}
@@ -4187,12 +4211,12 @@ const App = () => {
           >
             {/* Header */}
             <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-700 to-indigo-700 flex-shrink-0">
-              <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                <Bot size={20} className="text-white" />
+              <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 p-1">
+                <CaptainKPI size={32} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-white leading-tight">Sir Clicks-a-Lot 🎤</p>
-                <p className="text-[10px] text-purple-200">AI Marketing Assistant · Powered by GPT</p>
+                <p className="text-sm font-black text-white leading-tight">Captain KPI 🫡</p>
+                <p className="text-[10px] text-purple-200">AI Marketing Officer · Powered by Gemini</p>
               </div>
               <button onClick={() => setChatOpen(false)} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><X size={16} /></button>
             </div>
@@ -4202,8 +4226,8 @@ const App = () => {
               {chatMessages.map((m, i) => (
                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {m.role === 'assistant' && (
-                    <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
-                      <Bot size={12} className="text-white" />
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 mr-2 mt-0.5 bg-white/10">
+                      <CaptainKPI size={22} />
                     </div>
                   )}
                   <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
@@ -4217,8 +4241,8 @@ const App = () => {
               ))}
               {chatLoading && (
                 <div className="flex justify-start">
-                  <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
-                    <Bot size={12} className="text-white" />
+                  <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 mr-2 mt-0.5 bg-white/10">
+                    <CaptainKPI size={22} />
                   </div>
                   <div className={`rounded-2xl rounded-tl-sm px-3 py-2 ${darkMode ? 'bg-white/10 text-purple-300' : 'bg-white text-slate-500 shadow-sm'} text-[13px]`}>
                     Typing… ✍️
@@ -4248,7 +4272,7 @@ const App = () => {
             <div className={`flex gap-2 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/10 bg-indigo-950/80' : 'border-t border-purple-100 bg-white'}`}>
               <input
                 className={`flex-1 rounded-xl px-3 py-2 text-[13px] outline-none border ${darkMode ? 'bg-white/10 border-white/20 text-white placeholder-white/40 focus:border-purple-400' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-purple-400'} transition-colors`}
-                placeholder="Ask Sir Clicks-a-Lot…"
+                placeholder="Ask Captain KPI…"
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}

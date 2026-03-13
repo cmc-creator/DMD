@@ -1,4 +1,4 @@
-// /api/chat.js — Google Gemini proxy for Sir Clicks-a-Lot chatbot + AI data analysis
+// /api/chat.js — Google Gemini proxy for Captain KPI chatbot + AI data analysis
 // Requires GEMINI_API_KEY env var in Vercel project settings.
 // Get a free key at: aistudio.google.com → Get API Key
 
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   if (!messages.length) return res.status(400).json({ error: 'No messages provided' });
 
   const system = systemPrompt ||
-    "You are Sir Clicks-a-Lot 🎤 — a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a mental health clinic in Scottsdale, AZ. Be helpful, concise, and funny but professional.";
+    "You are Captain KPI 🫡 — a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a mental health clinic in Scottsdale, AZ. Be helpful, concise, and funny but professional.";
 
   // Gemini uses a different format — convert OpenAI-style messages to Gemini contents
   const contents = messages.map(m => ({
