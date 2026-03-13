@@ -12,7 +12,7 @@ import {
   Calendar, DollarSign, Plug, Trophy, Heart, WifiOff,
   RefreshCw, Pencil, Send, Zap, BadgeCheck, ShieldCheck, Megaphone,
   ChevronLeft, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
-  Newspaper, Rss, Link2, Youtube, Building2,
+  Newspaper, Rss, Link2, Youtube, Building2, Menu,
 } from 'lucide-react';
 
 // ─── Shared style helpers ───────────────────────────────────────────────────
@@ -60,6 +60,7 @@ const App = () => {
   const [darkMode, setDarkMode]                 = useState(true);
   const [calFilter, setCalFilter]               = useState('All');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen]       = useState(false);
   const [showAddPost, setShowAddPost]           = useState(false);
   const [importMode, setImportMode]             = useState('upload');
   const [importDataType, setImportDataType]     = useState('Social Metrics');
@@ -1175,8 +1176,11 @@ const App = () => {
   return (
     <div className="dashboard-shell font-sans">
 
+      {/* Mobile overlay backdrop */}
+      {mobileNavOpen && <div className="sidebar-overlay" onClick={() => setMobileNavOpen(false)} />}
+
       {/* SIDEBAR */}
-      <aside className={`sidebar no-print ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <aside className={`sidebar no-print ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${mobileNavOpen ? 'sidebar-mobile-open' : ''}`}>
 
         {/* Brand */}
         <div className="sidebar-brand">
@@ -1199,7 +1203,7 @@ const App = () => {
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { setActiveTab(tab.id); setMobileNavOpen(false); }}
               className={`sidebar-item ${activeTab === tab.id ? 'sidebar-item-active' : ''}`}
               title={sidebarCollapsed ? tab.label : undefined}
             >
@@ -1246,6 +1250,9 @@ const App = () => {
 
         {/* Top bar */}
         <header className="topbar no-print">
+          <button className="mobile-menu-btn" onClick={() => setMobileNavOpen(o => !o)} aria-label="Open navigation">
+            <Menu size={19} />
+          </button>
           <div className="topbar-left">
             <div className="topbar-page-title">
               {tabs.find(t => t.id === activeTab)?.label ?? 'Dashboard'}
@@ -2140,7 +2147,7 @@ const App = () => {
             </div>
             <div className={`${card} p-7 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={PlayCircle} color="text-pink-500" title="TikTok Velocity" subtitle="Short-Form Video Production" />
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
                   { val: metrics.tiktokVelocity, label: 'Videos / Mo',  bg: 'bg-pink-50 dark:bg-pink-900/30',   tx: 'text-pink-900 dark:text-pink-200',   sm: 'text-pink-500'   },
                   { val: metrics.videoViews,      label: 'Total Views',  bg: 'bg-rose-50 dark:bg-rose-900/30',   tx: 'text-rose-900 dark:text-rose-200',   sm: 'text-rose-500'   },
@@ -3173,7 +3180,7 @@ const App = () => {
                           <p className={`text-xs ${subtl}`}>YouTube Channel</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                         {[
                           { label: 'Subscribers', value: Number(_ytLive.subscribers  || 0).toLocaleString() },
                           { label: 'Total Views',  value: Number(_ytLive.totalViews   || 0).toLocaleString() },
