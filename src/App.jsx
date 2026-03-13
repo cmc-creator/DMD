@@ -103,6 +103,10 @@ const App = () => {
   const [rssItems, setRssItems]                 = useState([]);
   const [rssLoading, setRssLoading]             = useState(false);
   const [rssError, setRssError]                 = useState('');
+  // ── Destiny Springs auto-profile state ──────────────────────────────────────
+  const [destinyData, setDestinyData]           = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_destiny') || 'null'); } catch { return null; } });
+  const [destinyLoading, setDestinyLoading]     = useState(false);
+  const [destinyError, setDestinyError]         = useState('');
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -185,8 +189,8 @@ const App = () => {
       { key: 'apiSecret',  label: 'Measurement Protocol Secret', placeholder: 'Your API secret', type: 'password', hint: 'GA Admin → Data Streams → Measurement Protocol → API Secrets'              },
     ],
     'Google Business': [
-      { key: 'placeId', label: 'Google Place ID', placeholder: 'ChIJxxxxxxxxxxxxxxxx',  hint: 'Google Maps → Share → place ID in embed URL'                           },
-      { key: 'apiKey',  label: 'Places API Key',  placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'console.cloud.google.com → APIs → Credentials' },
+      { key: 'placeId', label: 'Google Place ID (optional)', placeholder: 'ChIJxxxxxxxxxxxxxxxx',  hint: 'Leave blank to auto-find by name. Or: Google Maps → your listing → Share → copy place_id from the URL'             },
+      { key: 'apiKey',  label: 'Places API Key',             placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'Enables auto-sync of live Google Rating, Review Count & Reviews on the Overview tab. console.cloud.google.com → Enable "Places API" → Credentials → API Key (free up to $200/mo credit)' },
     ],
     'Meta Business Suite': [
       { key: 'accessToken', label: 'Page Access Token', placeholder: 'EAAxxxxxxxx…', type: 'password', hint: 'developers.facebook.com → Graph API Explorer → Generate Token' },
@@ -371,6 +375,68 @@ const App = () => {
     const updated = savedUrls.filter(u => u.url !== url);
     setSavedUrls(updated);
     localStorage.setItem('dmd_saved_urls', JSON.stringify(updated));
+  };
+
+  // ── Destiny Springs: one-click auto-profile fetch ────────────────────────────
+  const fetchDestinyProfile = async () => {
+    const gBizCreds = connections['Google Business'] || {};
+    const apiKey  = gBizCreds.apiKey  || '';
+    const placeId = gBizCreds.placeId || '';
+    setDestinyLoading(true);
+    setDestinyError('');
+    try {
+      const params = new URLSearchParams();
+      if (apiKey)  params.set('apiKey',  apiKey);
+      if (placeId) params.set('placeId', placeId);
+      const qs  = params.toString() ? '?' + params.toString() : '';
+      const res = await fetch('/api/destiny' + qs);
+      const data = await res.json();
+      if (!data.ok) { setDestinyError(data.error || 'Sync failed'); setDestinyLoading(false); return; }
+      setDestinyData(data);
+      localStorage.setItem('dmd_destiny', JSON.stringify(data));
+      // ── Auto-populate Google rating + review count into overrides ──────────
+      if (data.google?.rating) {
+        const overrides = { rating: String(data.google.rating), totalReviews: String(data.google.reviewCount || '') };
+        setReviewOverrides(overrides);
+        localStorage.setItem('dmd_review_overrides', JSON.stringify(overrides));
+      }
+      // ── Push Google reviews into manualData so Reviews tab populates ───────
+      if (data.google?.reviews?.length) {
+        const autoReviews = data.google.reviews.map(rv => ({
+          name:     rv.author || 'Anonymous',
+          rating:   rv.rating,
+          text:     rv.text   || '',
+          date:     rv.time   ? rv.time.slice(0, 10) : '',
+          platform: 'Google',
+          source:   'auto-sync',
+        }));
+        setManualData(prev => {
+          const existing = (prev.reviews || []).filter(r => r.source !== 'auto-sync');
+          const updated  = { ...prev, reviews: [...autoReviews, ...existing] };
+          localStorage.setItem('dmd_manual', JSON.stringify(updated));
+          return updated;
+        });
+      }
+      // ── Feed Google Business liveData ──────────────────────────────────────
+      if (data.google) {
+        setLiveData(d => ({ ...d, 'Google Business': {
+          rating:      data.google.rating,
+          reviewCount: data.google.reviewCount,
+          phone:       data.google.phone,
+          address:     data.google.address,
+          isOpen:      data.google.isOpen,
+          fetchedAt:   data.google.fetchedAt,
+        }}));
+        const now = new Date().toLocaleString();
+        setConnections(c => {
+          const updated = { ...c, 'Google Business': { ...c['Google Business'], connected: true, lastSync: now } };
+          localStorage.setItem('dmd_connections', JSON.stringify(updated));
+          return updated;
+        });
+        setSyncStatus(s => ({ ...s, 'Google Business': 'ok' }));
+      }
+    } catch (e) { setDestinyError(e.message); }
+    setDestinyLoading(false);
   };
 
   const syncIntegrationWithCreds = async (name, creds) => {
@@ -609,6 +675,15 @@ const App = () => {
       Object.entries(cur).filter(([, v]) => v?.connected).forEach(([n, creds]) => syncIntegrationWithCreds(n, creds));
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-run Destiny Springs profile sync on load (website is always free; Google needs key)
+  useEffect(() => {
+    const STALE_MS = 30 * 60 * 1000; // re-sync if data is older than 30 min
+    const existing = (() => { try { return JSON.parse(localStorage.getItem('dmd_destiny') || 'null'); } catch { return null; } })();
+    const scrapedAt = existing?.fetchedAt ? new Date(existing.fetchedAt).getTime() : 0;
+    const isStale   = !scrapedAt || (Date.now() - scrapedAt) > STALE_MS;
+    if (isStale) fetchDestinyProfile();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chart theme ─────────────────────────────────────────────────────────────
@@ -1069,6 +1144,156 @@ const App = () => {
 
 {activeTab === 'overview' && (
           <>
+            {/* ── Destiny Springs Live Profile ─────────────────────────────── */}
+            {(() => {
+              const website  = destinyData?.website;
+              const google   = destinyData?.google;
+              const fetchedAt = destinyData?.fetchedAt;
+              const gBizConnected = !!connections['Google Business']?.apiKey;
+              const needsKey = !gBizConnected && !google;
+              return (
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                  <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
+                    <SectionHeader icon={Heart} color="text-teal-500" title="Destiny Springs Live Snapshot" subtitle={fetchedAt ? `Last synced ${new Date(fetchedAt).toLocaleString()}` : 'Pull your live website & Google data with one click'} />
+                    <button
+                      onClick={fetchDestinyProfile}
+                      disabled={destinyLoading}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-colors flex-shrink-0"
+                    >
+                      <RefreshCw size={14} className={destinyLoading ? 'animate-spin' : ''} />
+                      {destinyLoading ? 'Syncing…' : 'Sync Now'}
+                    </button>
+                  </div>
+
+                  {destinyError && (
+                    <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/10 border border-rose-200 dark:border-rose-800 text-sm text-rose-600 dark:text-rose-400 flex items-center justify-between">
+                      <span>{destinyError}</span>
+                      <button onClick={() => setDestinyError('')}><X size={14} /></button>
+                    </div>
+                  )}
+
+                  {needsKey && !destinyLoading && !destinyData && (
+                    <div className="mb-5 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl">
+                      <p className={`text-sm text-amber-700 dark:text-amber-300`}>
+                        <strong>Add a Google Places API Key</strong> on the Integrations tab under <em>Google Business</em> to automatically pull your live star rating and reviews. Website data requires no key.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* ── Google column ── */}
+                    <div>
+                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3 flex items-center gap-1.5`}><Star size={11} className="text-amber-500" /> Google Business</p>
+                      {google ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                            <div className="text-center">
+                              <div className="text-4xl font-black text-amber-500">{google.rating}</div>
+                              <div className={`text-[11px] ${subtl} mt-0.5`}>{google.reviewCount?.toLocaleString()} reviews</div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-black text-sm ${txt} truncate`}>{google.name}</p>
+                              {google.vicinity && <p className={`text-xs ${subtl} mt-0.5`}>📍 {google.vicinity}</p>}
+                              {google.phone    && <p className={`text-xs ${subtl} mt-0.5`}>📞 {google.phone}</p>}
+                              <span className={`inline-flex mt-1.5 items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full ${
+                                google.isOpen === true  ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
+                                google.isOpen === false ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500'                                 :
+                                'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                              }`}>{google.isOpen === true ? '● Open Now' : google.isOpen === false ? '● Closed' : '● Status Unknown'}</span>
+                            </div>
+                          </div>
+                          {google.hours?.length > 0 && (
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                              <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Hours</p>
+                              <div className="space-y-0.5">
+                                {google.hours.map((h, i) => <p key={i} className={`text-xs ${txt2}`}>{h}</p>)}
+                              </div>
+                            </div>
+                          )}
+                          {google.reviews?.length > 0 && (
+                            <div>
+                              <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Recent Google Reviews</p>
+                              <div className="space-y-2">
+                                {google.reviews.slice(0, 3).map((rv, i) => (
+                                  <div key={i} className={`p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border ${brd}`}>
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <span className={`text-xs font-black ${txt}`}>{rv.author}</span>
+                                      <div className="flex gap-0.5">
+                                        {[1,2,3,4,5].map(s => <Star key={s} size={9} className={s<=rv.rating?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
+                                      </div>
+                                    </div>
+                                    <p className={`text-xs ${subtl} line-clamp-2`}>{rv.text}</p>
+                                    {rv.relativeTime && <p className={`text-[11px] text-slate-400 dark:text-slate-500 mt-1`}>{rv.relativeTime}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                              {google.googleUrl && (
+                                <a href={google.googleUrl} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400 font-black">
+                                  <ExternalLink size={11} /> View all on Google
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className={`p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center ${subtl} text-xs`}>
+                          {destinyLoading ? 'Fetching Google data…' : 'Click Sync Now to load Google Business data'}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Website column ── */}
+                    <div>
+                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3 flex items-center gap-1.5`}><Globe size={11} className="text-teal-500" /> Website — destinyspringshealthcare.com</p>
+                      {website ? (
+                        <div className="space-y-3">
+                          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                            <p className={`font-black text-sm ${txt} mb-1`}>{website.title}</p>
+                            {website.description && <p className={`text-xs ${txt2}`}>{website.description}</p>}
+                          </div>
+                          {website.h1 && (
+                            <div className="p-3 rounded-2xl bg-teal-50 dark:bg-teal-900/10 border border-teal-200 dark:border-teal-800">
+                              <p className={`text-[11px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-wider mb-1`}>H1</p>
+                              <p className={`text-sm font-black text-teal-700 dark:text-teal-300`}>{website.h1}</p>
+                            </div>
+                          )}
+                          {website.h2s?.length > 0 && (
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                              <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Page Sections</p>
+                              <ul className="space-y-1">
+                                {website.h2s.map((h, i) => <li key={i} className={`text-xs ${txt2}`}>• {h}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                          {website.phones?.length > 0 && (
+                            <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800">
+                              <p className={`text-[11px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1`}>Phone on Website</p>
+                              {website.phones.map((p, i) => <p key={i} className="text-sm font-black text-emerald-700 dark:text-emerald-300">{p}</p>)}
+                            </div>
+                          )}
+                          {website.services?.length > 0 && (
+                            <div>
+                              <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Services Detected</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {website.services.slice(0, 12).map((s, i) => (
+                                  <span key={i} className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 capitalize">{s}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className={`text-[11px] ${subtl}`}>{website.wordCount?.toLocaleString()} words on page · scraped {website.scrapedAt ? new Date(website.scrapedAt).toLocaleString() : ''}</div>
+                        </div>
+                      ) : (
+                        <div className={`p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center ${subtl} text-xs`}>
+                          {destinyLoading ? 'Scraping website…' : 'Click Sync Now to pull website data'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Top KPI Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Google Rating"     value={metrics.googleScore}    trend={metrics.googleTrend} icon={Star}        color="bg-amber-500"   sub="Review Cleanup Performance" onClick={() => setActiveTab('reviews')} />
