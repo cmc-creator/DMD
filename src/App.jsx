@@ -1302,10 +1302,18 @@ const App = () => {
               const hg        = destinyData?.healthgrades;
               const gSearch   = destinyData?.googleSearch;
               const fetchedAt = destinyData?.fetchedAt;
-              // Best rating data to display (Google Places > Google Search > Website Schema > Healthgrades)
-              const displayRating     = google?.rating      ?? best?.rating;
-              const displayReviews    = google?.reviewCount ?? best?.reviewCount;
-              const displaySource     = google ? 'Google Business (API)' : (best?.source || null);
+              // Best rating data to display (Google Places > Google Search > Website Schema > Healthgrades > reviewPlatformData fallback)
+              const _rpFallback = (() => {
+                const priority = ['google','healthgrades','yelp','zocdoc','glassdoor','indeed'];
+                for (const k of priority) {
+                  const p = reviewPlatformData[k];
+                  if (p?.rating && Number(p.rating) > 0) return { rating: Number(p.rating), reviewCount: p.count ? Number(p.count) : null, source: k.charAt(0).toUpperCase() + k.slice(1) + ' (fetched)' };
+                }
+                return null;
+              })();
+              const displayRating     = google?.rating      ?? best?.rating      ?? _rpFallback?.rating;
+              const displayReviews    = google?.reviewCount ?? best?.reviewCount ?? _rpFallback?.reviewCount;
+              const displaySource     = google ? 'Google Business (API)' : (best?.source || _rpFallback?.source || null);
               const socialLinks       = website?.socialLinks || {};
               const hasSocialLinks    = Object.keys(socialLinks).length > 0;
               return (
