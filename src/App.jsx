@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { items as wixDataItems } from '@wix/data';
-import { createClient, OAuthStrategy } from '@wix/sdk';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
@@ -74,6 +72,7 @@ const App = () => {
   const [syncStatus, setSyncStatus]             = useState({});
   const [liveData, setLiveData]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_livedata') || '{}'); } catch { return {}; } });
   const [manualData, setManualData]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_manual') || '{}'); } catch { return {}; } });
+  const [wixData, setWixData]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_wix') || 'null') || {}; } catch { return {}; } });
   const [manualForm, setManualForm]             = useState({});
   const [showQuickAdd, setShowQuickAdd]         = useState(false);
   const fileInputRef                             = useRef(null);
@@ -198,8 +197,12 @@ const App = () => {
       { key: 'pageId',      label: 'Facebook Page ID',  placeholder: '123456789012345',                hint: 'Facebook Page → About → Page ID'                                },
     ],
     'Wix Analytics': [
-      { key: 'clientId',   label: 'OAuth Client ID',  placeholder: '7ed57615-xxxx-xxxx-xxxx-xxxxxxxxxxxx', type: 'password', hint: 'Wix Headless Settings → OAuth Apps → Client ID'                                               },
-      { key: 'collection', label: 'Data Collection (optional)', placeholder: 'e.g. BlogPosts or Stores/Products',    hint: 'Leave blank to just verify connection. Find names in Wix Dashboard → Content Manager.' },
+      { key: 'sessions',   label: 'Monthly Sessions',          placeholder: 'e.g. 1250',  hint: 'Wix Dashboard → Analytics → Reports → Traffic Overview → Sessions this month'   },
+      { key: 'bounceRate', label: 'Bounce Rate % (optional)',  placeholder: 'e.g. 42',    hint: 'Wix Analytics → Overview → Bounce Rate — enter the number only, no % sign'       },
+      { key: 'organic',    label: 'Organic Search % (optional)', placeholder: 'e.g. 45', hint: 'Wix Analytics → Traffic Sources → percentage from Organic Search'                 },
+      { key: 'social',     label: 'Social Media % (optional)', placeholder: 'e.g. 20',   hint: 'Wix Analytics → Traffic Sources → percentage from Social Media'                   },
+      { key: 'direct',     label: 'Direct % (optional)',       placeholder: 'e.g. 25',    hint: 'Wix Analytics → Traffic Sources → percentage from Direct visits'                  },
+      { key: 'referral',   label: 'Referral % (optional)',     placeholder: 'e.g. 10',    hint: 'Wix Analytics → Traffic Sources → percentage from Referral links'                 },
     ],
     'Mailchimp': [
       { key: 'apiKey',  label: 'API Key',     placeholder: 'xxxxxxxxxxxxxxxx-us1', type: 'password', hint: 'Mailchimp → Account → Extras → API Keys' },
@@ -238,37 +241,20 @@ const App = () => {
 
   // ── Live data fetch helpers ───────────────────────────────────────────────────
   const fetchWixData = async (creds) => {
-    const { clientId, collection } = creds;
-    if (!clientId) return { success: false, error: 'Missing OAuth Client ID' };
-    try {
-      const wixClient = createClient({
-        modules: { items: wixDataItems },
-        auth: OAuthStrategy({ clientId }),
-      });
-      // If no collection specified, just verify the client initializes
-      if (!collection) {
-        return { success: true, data: { connected: true }, warning: 'No collection specified — client ID accepted. Add a collection name to sync data.' };
-      }
-      const result = await wixClient.items.query(collection).find();
-      return {
-        success: true,
-        data: {
-          totalItems: result.items.length,
-          collection,
-          itemIds: result.items.slice(0, 5).map(i => i.data?._id).filter(Boolean),
-        },
-      };
-    } catch (e) {
-      // WDE0025 = collection not found — connection is valid, collection name is wrong
-      if (e.message?.includes('WDE0025') || e.message?.toLowerCase().includes('does not exist')) {
-        return {
-          success: true,
-          data: { connected: true },
-          warning: `Collection "${collection}" not found. Connection saved — check your collection name in Wix Content Manager.`,
-        };
-      }
-      return { success: false, error: e.message };
-    }
+    const { sessions } = creds;
+    if (!sessions) return { success: false, error: 'Please enter Monthly Sessions (required)' };
+    const data = {
+      sessions:   Number(sessions)        || 0,
+      bounceRate: Number(creds.bounceRate) || 0,
+      organic:    Number(creds.organic)    || 0,
+      social:     Number(creds.social)     || 0,
+      direct:     Number(creds.direct)     || 0,
+      referral:   Number(creds.referral)   || 0,
+      savedAt:    new Date().toISOString(),
+    };
+    setWixData(data);
+    localStorage.setItem('dmd_wix', JSON.stringify(data));
+    return { success: true, data };
   };
 
   const fetchTikTokData = async (creds) => {
@@ -858,7 +844,7 @@ const App = () => {
   const _seoData    = manualData.seo_rankings   || [];
   const _tiktokPosts= manualData.tiktok_posts   || [];
   const _metaLive   = liveData['Meta Business Suite'] || {};
-  const _wixLive    = liveData['Wix Analytics']      || {};
+  const _wixLive    = (wixData && wixData.sessions) ? wixData : (liveData['Wix Analytics'] || {});
   const _tikLive    = liveData['TikTok for Business'] || {};
   const _socialLive = liveData['_social']             || {};
   const _fbLive     = _socialLive.facebook            || {};
@@ -914,10 +900,10 @@ const App = () => {
 
   // ── Wix Traffic Sources ──────────────────────────────────────────────────────
   const wixSources = [
-    { name: 'Organic Search', value: 0, color: '#0d9488' },
-    { name: 'Social Media',   value: 0, color: '#8b5cf6' },
-    { name: 'Direct',         value: 0, color: '#10b981' },
-    { name: 'Referral',       value: 0, color: '#f59e0b' },
+    { name: 'Organic Search', value: Number(_wixLive.organic)  || 0, color: '#0d9488' },
+    { name: 'Social Media',   value: Number(_wixLive.social)   || 0, color: '#8b5cf6' },
+    { name: 'Direct',         value: Number(_wixLive.direct)   || 0, color: '#10b981' },
+    { name: 'Referral',       value: Number(_wixLive.referral) || 0, color: '#f59e0b' },
   ];
 
   // ── AZ Regional Traffic ──────────────────────────────────────────────────────
