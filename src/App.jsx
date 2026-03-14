@@ -1784,6 +1784,7 @@ const App = () => {
                         { label: 'Facebook',     ok: !!destinyData.facebook,      err: destinyData.sources?.facebook?.error },
                         { label: 'Instagram',    ok: !!destinyData.instagram,     err: destinyData.sources?.instagram?.error },
                         { label: 'TikTok',       ok: !!destinyData.tiktok,        err: destinyData.sources?.tiktok?.error },
+                        { label: 'LinkedIn',     ok: !!destinyData.linkedin,      err: destinyData.sources?.linkedin?.error },
                       ].map(({ label, ok, err }) => (
                         <span key={label} title={err || ''} className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
                           ok  ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' :
@@ -1801,7 +1802,7 @@ const App = () => {
                       <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3 flex items-center gap-1.5`}>
                         <Activity size={11} className="text-purple-500" /> Social Media Profiles
                       </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {/* Facebook */}
                         {(() => {
                           const fb = destinyData?.facebook;
@@ -1897,6 +1898,40 @@ const App = () => {
                                 <div>
                                   <p className={`text-[11px] text-amber-600 dark:text-amber-400`}>Blocked by TikTok</p>
                                   <a href="https://www.tiktok.com/@destinyspringshealthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-slate-700 dark:text-slate-300 hover:opacity-70 mt-1"><ExternalLink size={9}/> Open on TikTok</a>
+                                </div>
+                              ) : !destinyLoading ? (
+                                <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
+                        {/* LinkedIn */}
+                        {(() => {
+                          const li = destinyData?.linkedin;
+                          const liErr = destinyData?.sources?.linkedin?.error;
+                          const hasLi = li && !li.error;
+                          return (
+                            <div className={`p-4 rounded-2xl ${hasLi ? 'bg-sky-50 dark:bg-sky-900/10 border border-sky-200 dark:border-sky-800' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-6 h-6 rounded-lg bg-[#0A66C2] flex items-center justify-center flex-shrink-0"><span className="text-white text-[9px] font-black">in</span></div>
+                                <span className={`text-xs font-black ${hasLi ? 'text-sky-700 dark:text-sky-300' : subtl}`}>LinkedIn</span>
+                              </div>
+                              {destinyLoading && !li && <p className={`text-[11px] ${subtl}`}>Fetching…</p>}
+                              {hasLi ? (
+                                <div className="space-y-1">
+                                  {li.name && <p className={`text-xs font-black ${txt} leading-tight`}>{li.name}</p>}
+                                  {li.followers != null && <p className="text-xl font-black text-sky-600 dark:text-sky-400">{Number(li.followers).toLocaleString()} <span className={`text-xs font-normal ${subtl}`}>followers</span></p>}
+                                  {li.employees && <p className={`text-xs ${subtl}`}>{li.employees} employees</p>}
+                                  {li.tagline && <p className={`text-[11px] ${subtl} mt-1 line-clamp-2`}>{li.tagline}</p>}
+                                  <a href={li.url || 'https://www.linkedin.com/company/destiny-springs-healthcare'} target="_blank" rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-black text-sky-600 hover:text-sky-500 mt-1">
+                                    <ExternalLink size={9} /> View Page
+                                  </a>
+                                </div>
+                              ) : (li?.error || liErr) ? (
+                                <div>
+                                  <p className={`text-[11px] text-amber-600 dark:text-amber-400`}>Blocked by LinkedIn</p>
+                                  <a href="https://www.linkedin.com/company/destiny-springs-healthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-sky-600 hover:text-sky-500 mt-1"><ExternalLink size={9}/> Open on LinkedIn</a>
                                 </div>
                               ) : !destinyLoading ? (
                                 <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>

@@ -18,6 +18,7 @@
 const DS_FB  = 'https://www.facebook.com/profile.php?id=61581511228047';
 const DS_IG  = 'https://www.instagram.com/destinyspringshealthcare/';
 const DS_TT  = 'https://www.tiktok.com/@destinyspringshealthcare';
+const DS_LI  = 'https://www.linkedin.com/company/destiny-springs-healthcare';
 const DS_WEB = 'https://destinyspringshealthcare.com';
 const DS_QUERY = 'Destiny Springs Healthcare Scottsdale AZ';
 
@@ -282,7 +283,104 @@ async function scrapeTikTok(url = DS_TT) {
   }
 }
 
-// ── 5. HEALTHGRADES SCRAPER ───────────────────────────────────────────────────
+// ── 5. LINKEDIN SCRAPER ──────────────────────────────────────────────────────
+async function scrapeLinkedIn(url = DS_LI) {
+  const slug = url.match(/linkedin\.com\/company\/([^/?#\s]+)/i)?.[1] || 'destiny-springs-healthcare';
+  const cleanUrl = `https://www.linkedin.com/company/${slug}`;
+  try {
+    // Strategy A: public company page JSON-LD / meta
+    const r = await fetchH(cleanUrl, {
+      'User-Agent': 'Mozilla/5.0 (compatible; LinkedInBot/1.0; +http://www.linkedin.com/)',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    }, 9000);
+    if (!r.ok) throw new Error(`LI HTTP ${r.status}`);
+    const html = await r.text();
+
+    // LinkedIn embeds data in <code> tags with JSON inside (voyager data)
+    const codeBlocks = [];
+    const codeRx = /<code[^>]*>(<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/code>/gi;
+    let cm;
+    while ((cm = codeRx.exec(html)) && codeBlocks.length < 20) {
+      try { codeBlocks.push(JSON.parse(cm[2])); } catch {}
+    }
+
+    // Walk JSON trees for follower count
+    const findLiData = (o, d = 0) => {
+      if (!o || typeof o !== 'object' || d > 10) return null;
+      if (o.followersCount != null || o.followerCount != null) return o;
+      if (o.$recipeType === 'com.linkedin.voyager.identity.shared.MiniCompany') return o;
+      for (const v of Object.values(o)) {
+        const r = findLiData(v, d + 1);
+        if (r) return r;
+      }
+      return null;
+    };
+
+    let followers = null, name = null, tagline = null, employees = null;
+
+    for (const block of codeBlocks) {
+      const found = findLiData(block);
+      if (found) {
+        followers = found.followersCount ?? found.followerCount ?? followers;
+        name      = found.name ?? found.localizedName ?? name;
+        tagline   = found.tagline ?? found.localizedTagline ?? tagline;
+        employees = found.staffCountRange ?? found.staffCount ?? employees;
+        if (followers != null) break;
+      }
+    }
+
+    // Strategy B: meta description / page text fallbacks
+    if (followers == null) {
+      const metaM = html.match(/<meta[^>]+name="description"[^>]+content="([^"]+)"/i) ||
+                    html.match(/<meta[^>]+content="([^"]+)"[^>]+name="description"/i);
+      const metaD = metaM ? metaM[1] : '';
+      const fM = metaD.match(/([\d,]+(?:\.\d+)?[KkMm]?)\s+follower/i) ||
+                 html.match(/([\d,]+(?:\.\d+)?[KkMm]?)\s+follower/i) ||
+                 html.match(/"followersCount":(\d+)/) ||
+                 html.match(/"followerCount":(\d+)/);
+      if (fM) followers = parseCount(fM[1]);
+      if (!name) {
+        const titleM = html.match(/<title>([^<]+)<\/title>/i);
+        name = titleM ? strip(titleM[1]).replace(/\s*[|:–].*$/, '').trim() : null;
+      }
+      if (!tagline) {
+        const ogM = html.match(/<meta[^>]+property="og:description"[^>]+content="([^"]+)"/i);
+        tagline = ogM ? strip(ogM[1]).slice(0, 200) : null;
+      }
+    }
+
+    // Strategy C: try the public API endpoint for company info
+    if (followers == null) {
+      try {
+        const apiR = await fetch(`https://www.linkedin.com/voyager/api/organization/companies?q=universalName&universalName=${slug}`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            'Accept': 'application/vnd.linkedin.normalized+json+2.1',
+            'csrf-token': 'ajax:0',
+            'x-li-lang': 'en_US',
+            'x-li-track': '{"clientVersion":"1.13.5765"}',
+          },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (apiR.ok) {
+          const aj = await apiR.json();
+          const elem = aj?.included?.find(e => e.followersCount != null);
+          if (elem) followers = elem.followersCount;
+        }
+      } catch {}
+    }
+
+    return {
+      platform: 'LinkedIn', url: cleanUrl, slug, name,
+      tagline, followers, employees: typeof employees === 'object' ? `${employees.start || ''}–${employees.end || ''}` : employees,
+      fetchedAt: new Date().toISOString(),
+    };
+  } catch (e) {
+    return { platform: 'LinkedIn', url: cleanUrl, error: e.message, fetchedAt: new Date().toISOString() };
+  }
+}
+
+// ── 6. HEALTHGRADES SCRAPER ───────────────────────────────────────────────────
 async function scrapeHealthgrades() {
   try {
     const searchUrl = `https://www.healthgrades.com/search?what=${encodeURIComponent('Destiny Springs Healthcare')}&where=${encodeURIComponent('Scottsdale, AZ')}&pt=HOSPITAL`;
@@ -304,7 +402,7 @@ async function scrapeHealthgrades() {
   } catch { return null; }
 }
 
-// ── 6. GOOGLE SEARCH KNOWLEDGE PANEL ─────────────────────────────────────────
+// ── 7. GOOGLE SEARCH KNOWLEDGE PANEL ─────────────────────────────────────────
 async function scrapeGoogleRating() {
   try {
     const url = `https://www.google.com/search?q=${encodeURIComponent(DS_QUERY + ' reviews rating')}&num=3&hl=en`;
@@ -325,7 +423,7 @@ async function scrapeGoogleRating() {
   } catch { return null; }
 }
 
-// ── 7. GOOGLE PLACES API (optional — needs GOOGLE_PLACES_KEY env var) ─────────
+// ── 8. GOOGLE PLACES API (optional — needs GOOGLE_PLACES_KEY env var) ─────────
 async function findPlaceId(apiKey) {
   const url = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(DS_QUERY)}&inputtype=textquery&fields=place_id,name,rating,formatted_address&key=${apiKey}`;
   const r = await fetch(url, { signal: AbortSignal.timeout(7000) });
@@ -371,6 +469,7 @@ export default async function handler(req, res) {
     if (action === 'facebook')  return res.json({ ok:true, facebook:  await scrapeFacebook() });
     if (action === 'instagram') return res.json({ ok:true, instagram: await scrapeInstagram() });
     if (action === 'tiktok')    return res.json({ ok:true, tiktok:    await scrapeTikTok() });
+    if (action === 'linkedin')  return res.json({ ok:true, linkedin:  await scrapeLinkedIn() });
     if (action === 'hg')        return res.json({ ok:true, healthgrades: await scrapeHealthgrades() });
     if (action === 'gsearch')   return res.json({ ok:true, googleSearch: await scrapeGoogleRating() });
     if (action === 'findplace') {
@@ -381,12 +480,13 @@ export default async function handler(req, res) {
     // ── Run ALL sources in TRUE parallel ──────────────────────────────────────
     const result = { ok: true, fetchedAt: new Date().toISOString(), sources: {} };
 
-    const [website, facebook, instagram, tiktok, healthgrades, googleSearch, googlePlaces] =
+    const [website, facebook, instagram, tiktok, linkedin, healthgrades, googleSearch, googlePlaces] =
       await Promise.all([
         scrapeWebsite().catch(e    => ({ error: `Website: ${e.message}` })),
         scrapeFacebook().catch(e   => ({ platform:'Facebook',  error: e.message })),
         scrapeInstagram().catch(e  => ({ platform:'Instagram', error: e.message })),
         scrapeTikTok().catch(e     => ({ platform:'TikTok',    error: e.message })),
+        scrapeLinkedIn().catch(e   => ({ platform:'LinkedIn',  error: e.message })),
         scrapeHealthgrades().catch(() => null),
         scrapeGoogleRating().catch(() => null),
         apiKey
@@ -413,6 +513,9 @@ export default async function handler(req, res) {
     if (tiktok && !tiktok.error) result.tiktok = tiktok;
     else result.sources.tiktok = { error: tiktok?.error || 'Blocked or not found' };
 
+    if (linkedin && !linkedin.error) result.linkedin = linkedin;
+    else result.sources.linkedin = { error: linkedin?.error || 'Blocked or not found' };
+
     if (healthgrades) result.healthgrades = healthgrades;
     if (googleSearch) result.googleSearch = googleSearch;
     if (googlePlaces && !googlePlaces.error) result.google = googlePlaces;
@@ -437,6 +540,7 @@ export default async function handler(req, res) {
       facebookError:  facebook?.error,
       instagramError: instagram?.error,
       tiktokError:    tiktok?.error,
+      linkedinError:  linkedin?.error,
       websiteError:   website?.error,
     };
 
