@@ -24,13 +24,49 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   // Support both direct Upstash env vars and Vercel KV integration env vars
-  const KV_URL   = process.env.UPSTASH_REDIS_REST_URL   || process.env.KV_REST_API_URL;
-  const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  const KV_URL   = process.env.UPSTASH_REDIS_REST_URL   || process.env.KV_REST_API_URL   || process.env.KV_URL;
+  const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || process.env.KV_REST_API_READ_ONLY_TOKEN;
+
+  // ── Status / debug endpoint — GET /api/data?action=status ─────────────────
+  if (req.method === 'GET' && req.query.action === 'status') {
+    const envCheck = {
+      UPSTASH_REDIS_REST_URL:   !!process.env.UPSTASH_REDIS_REST_URL,
+      UPSTASH_REDIS_REST_TOKEN: !!process.env.UPSTASH_REDIS_REST_TOKEN,
+      KV_REST_API_URL:          !!process.env.KV_REST_API_URL,
+      KV_REST_API_TOKEN:        !!process.env.KV_REST_API_TOKEN,
+      KV_URL:                   !!process.env.KV_URL,
+      resolved_url_prefix:      KV_URL ? KV_URL.slice(0, 30) + '…' : null,
+      connected:                !!(KV_URL && KV_TOKEN),
+    };
+    if (!KV_URL || !KV_TOKEN) return res.status(200).json({ status: 'not_configured', envCheck });
+
+    try {
+      const kv = (cmd) =>
+        fetch(KV_URL, {
+          method:  'POST',
+          headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+          body:    JSON.stringify(cmd),
+        }).then(r => r.json());
+
+      const [hashKeys, legacyKey] = await Promise.all([
+        kv(['HKEYS', 'dmd:store']),
+        kv(['EXISTS', 'dmd_shared']),
+      ]);
+      return res.status(200).json({
+        status: 'ok',
+        envCheck,
+        hash_fields:    hashKeys.result || [],
+        legacy_exists:  legacyKey.result === 1,
+      });
+    } catch (e) {
+      return res.status(200).json({ status: 'error', envCheck, error: e.message });
+    }
+  }
 
   if (!KV_URL || !KV_TOKEN) {
     return res.status(503).json({
-      error: 'not configured — add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to Vercel env vars.',
-      setup: 'https://upstash.com → Create Redis Database → copy REST URL + token → paste into Vercel env vars',
+      error: 'not configured',
+      hint:  'Vercel KV / Upstash env vars not found. Visit /api/data?action=status to see which vars are present.',
     });
   }
 
