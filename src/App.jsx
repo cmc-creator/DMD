@@ -107,6 +107,9 @@ const App = () => {
   const pushTimerRef                             = useRef(null);
   const chatEndRef                               = useRef(null);
   const [cloudSynced, setCloudSynced]            = useState('loading'); // 'loading'|'ok'|'syncing'|'error'|'offline'
+  const [showDbDiag, setShowDbDiag]              = useState(false);
+  const [dbDiag, setDbDiag]                      = useState(null);
+  const [dbDiagLoading, setDbDiagLoading]        = useState(false);
   const [pasteCSV, setPasteCSV]                 = useState('');
   const [pasteDataType, setPasteDataType]       = useState('Social Metrics');
   const [aiContentType, setAiContentType]       = useState('Social Post');
@@ -1566,8 +1569,85 @@ const App = () => {
             {cloudSynced === 'loading'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Connecting</span></div>}
             {cloudSynced === 'ok'       && <div className="topbar-live"><div className="live-dot" /><span>Synced</span></div>}
             {cloudSynced === 'syncing'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Saving…</span></div>}
-            {cloudSynced === 'error'    && <div className="topbar-live" style={{borderColor:'rgba(239,68,68,0.2)',background:'rgba(239,68,68,0.07)',color:'#f87171'}}><div className="live-dot" style={{background:'#f87171'}} /><span>Sync error</span></div>}
-            {cloudSynced === 'offline'  && <div className="topbar-live" style={{borderColor:'rgba(148,163,184,0.2)',background:'rgba(148,163,184,0.07)',color:'#94a3b8'}}><WifiOff size={10} /><span>Local only</span></div>}
+            {(cloudSynced === 'error' || cloudSynced === 'offline') && (
+              <button
+                onClick={async () => {
+                  setShowDbDiag(true);
+                  setDbDiag(null);
+                  setDbDiagLoading(true);
+                  try {
+                    const r = await fetch('/api/data?action=status');
+                    const d = await r.json();
+                    setDbDiag(d);
+                  } catch (e) {
+                    setDbDiag({ status: 'fetch_failed', error: e.message });
+                  }
+                  setDbDiagLoading(false);
+                }}
+                className="topbar-live cursor-pointer hover:opacity-80 transition-opacity"
+                style={cloudSynced === 'offline'
+                  ? {borderColor:'rgba(148,163,184,0.2)',background:'rgba(148,163,184,0.07)',color:'#94a3b8'}
+                  : {borderColor:'rgba(239,68,68,0.2)',background:'rgba(239,68,68,0.07)',color:'#f87171'}}
+                title="Click to diagnose database connection"
+              >
+                <WifiOff size={10} />
+                <span>{cloudSynced === 'offline' ? 'Local only' : 'Sync error'} — tap to fix</span>
+              </button>
+            )}
+            {/* DB Diagnostic Modal */}
+            {showDbDiag && (
+              <div className="fixed inset-0 z-[999] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.7)'}} onClick={() => setShowDbDiag(false)}>
+                <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 max-w-lg w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-white font-black text-lg">Database Connection</h2>
+                    <button onClick={() => setShowDbDiag(false)} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+                  </div>
+                  {dbDiagLoading && <p className="text-slate-400 text-sm">Running diagnostics…</p>}
+                  {dbDiag && (() => {
+                    const connected = dbDiag.envCheck?.connected;
+                    const hasKvUrl  = dbDiag.envCheck?.KV_REST_API_URL || dbDiag.envCheck?.UPSTASH_REDIS_REST_URL;
+                    const hasKvTok  = dbDiag.envCheck?.KV_REST_API_TOKEN || dbDiag.envCheck?.UPSTASH_REDIS_REST_TOKEN;
+                    return (
+                      <div className="space-y-4">
+                        <div className={`p-4 rounded-2xl text-sm font-bold ${
+                          connected ? 'bg-teal-900/40 text-teal-300 border border-teal-700/40'
+                                    : 'bg-red-900/40 text-red-300 border border-red-700/40'}`}>
+                          {connected ? '✅ Connected to Upstash Redis' : '❌ Not connected — env vars missing'}
+                        </div>
+                        <div className="space-y-2">
+                          {[['KV_REST_API_URL', dbDiag.envCheck?.KV_REST_API_URL], ['KV_REST_API_TOKEN', dbDiag.envCheck?.KV_REST_API_TOKEN],
+                            ['UPSTASH_REDIS_REST_URL', dbDiag.envCheck?.UPSTASH_REDIS_REST_URL], ['UPSTASH_REDIS_REST_TOKEN', dbDiag.envCheck?.UPSTASH_REDIS_REST_TOKEN]]
+                            .map(([name, val]) => (
+                              <div key={name} className="flex items-center justify-between text-xs">
+                                <span className="text-slate-400 font-mono">{name}</span>
+                                <span className={val ? 'text-teal-400 font-bold' : 'text-red-400 font-bold'}>{val ? '✓ set' : '✗ missing'}</span>
+                              </div>
+                            ))}
+                        </div>
+                        {!connected && (
+                          <div className="p-4 rounded-2xl bg-amber-900/30 border border-amber-700/40 text-amber-200 text-sm space-y-2">
+                            <p className="font-black">How to fix:</p>
+                            <ol className="list-decimal list-inside space-y-1 text-xs leading-relaxed">
+                              <li>Go to <strong>vercel.com</strong> → your project</li>
+                              <li>Click <strong>Storage</strong> tab → connect your KV database</li>
+                              <li>If already connected, go to <strong>Settings → Environment Variables</strong> and confirm <code>KV_REST_API_URL</code> and <code>KV_REST_API_TOKEN</code> are listed</li>
+                              <li><strong>Redeploy</strong> the project so the new vars are picked up</li>
+                            </ol>
+                          </div>
+                        )}
+                        {connected && (
+                          <div className="text-xs text-slate-400">
+                            <p>Stored keys: {dbDiag.hash_fields?.length ? dbDiag.hash_fields.join(', ') : 'none yet'}</p>
+                            <p>Legacy data: {dbDiag.legacy_exists ? 'found (will be merged on next load)' : 'none'}</p>
+                            {dbDiag.resolved_url_prefix && <p className="font-mono">URL: {dbDiag.envCheck?.resolved_url_prefix}</p>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
             <button onClick={() => setDarkMode(d => !d)} className="topbar-btn topbar-btn-ghost">
               {darkMode ? <Sun size={13} /> : <Moon size={13} />}
               <span>{darkMode ? 'Light' : 'Dark'}</span>
