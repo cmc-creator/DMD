@@ -117,6 +117,11 @@ async function scrapeWebsite() {
     if (/linkedin\.com\/(company|in)/.test(href)       && !socialLinks.linkedin)  socialLinks.linkedin  = href;
     if (/youtube\.com\/@?[a-zA-Z]/.test(href)          && !socialLinks.youtube)   socialLinks.youtube   = href;
   }
+  // Fallback: always include known Destiny Springs handles even if not linked from the site
+  if (!socialLinks.facebook)  socialLinks.facebook  = DS_FB;
+  if (!socialLinks.instagram) socialLinks.instagram = DS_IG;
+  if (!socialLinks.tiktok)    socialLinks.tiktok    = DS_TT;
+  if (!socialLinks.linkedin)  socialLinks.linkedin  = DS_LI;
 
   return { url: DS_WEB, title: ogTitle||title, description: ogDesc||metaDesc, image: ogImage, h1, h2s, phones: [...new Set(phones)], services, wordCount, schemaRating, socialLinks, scrapedAt: new Date().toISOString() };
 }
