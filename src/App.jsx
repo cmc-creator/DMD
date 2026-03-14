@@ -385,12 +385,22 @@ const App = () => {
   };
 
   const fetchMetaPageData = async (creds) => {
-    const { accessToken, pageId } = creds;
-    if (!accessToken || !pageId) return { success: false, error: 'Missing access token or page ID' };
+    // Prefer page access token (from OAuth flow); fall back to manually-entered access token
+    const { accessToken, pageToken, pageId } = creds;
+    const token = pageToken || accessToken;
+    if (!token || !pageId) return { success: false, error: 'Missing access token or page ID' };
     try {
-      const res  = await fetch(`https://graph.facebook.com/v18.0/${pageId}?fields=fan_count,followers_count,name&access_token=${encodeURIComponent(accessToken)}`);
-      const data = await res.json();
+      const [statsRes, feedRes] = await Promise.all([
+        fetch(`https://graph.facebook.com/v18.0/${pageId}?fields=fan_count,followers_count,name&access_token=${encodeURIComponent(token)}`),
+        fetch(`/api/meta?action=feed&token=${encodeURIComponent(token)}&pageId=${encodeURIComponent(pageId)}`),
+      ]);
+      const data     = await statsRes.json();
+      const feedData = await feedRes.json();
       if (data.error) return { success: false, error: data.error.message };
+      if (feedData.ok) {
+        data.fbPosts = feedData.fbPosts;
+        data.igPosts = feedData.igPosts;
+      }
       return { success: true, data };
     } catch (e) { return { success: false, error: e.message }; }
   };
@@ -2703,6 +2713,76 @@ const App = () => {
                 )}
               </div>
             </div>
+            {/* ── Recent Content from Meta Graph API ───────────────────────── */}
+            {(_metaLive.igPosts?.length > 0 || _metaLive.fbPosts?.length > 0) && (
+              <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                <SectionHeader icon={Share2} color="text-pink-500" title="Recent Content" subtitle="Latest posts pulled via Meta Graph API" />
+
+                {/* Instagram grid */}
+                {_metaLive.igPosts?.length > 0 && (
+                  <div className="mt-5">
+                    <p className="text-[11px] font-black text-pink-500 uppercase tracking-wider mb-3">Instagram — Latest Posts</p>
+                    <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+                      {_metaLive.igPosts.map(post => (
+                        <a key={post.id} href={post.url || '#'} target="_blank" rel="noreferrer"
+                          className="aspect-square rounded-xl overflow-hidden relative group block bg-pink-100 dark:bg-pink-900/30">
+                          {post.image ? (
+                            <img src={post.image} alt={post.caption || ''}
+                              className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <PlayCircle size={20} className="text-pink-400" />
+                            </div>
+                          )}
+                          {post.type === 'VIDEO' && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <PlayCircle size={18} className="text-white drop-shadow-md opacity-80" />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex-col items-center justify-center gap-1 hidden group-hover:flex">
+                            <span className="text-white text-[10px] font-black">❤ {post.likes.toLocaleString()}</span>
+                            <span className="text-white text-[10px]">💬 {post.comments}</span>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                    {_metaLive.igPosts.length > 0 && (
+                      <p className={`text-[10px] ${subtl} mt-2`}>Media URLs expire after ~1 hour — reconnect Meta to refresh</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Facebook posts list */}
+                {_metaLive.fbPosts?.length > 0 && (
+                  <div className={`${_metaLive.igPosts?.length > 0 ? 'mt-6 pt-6 border-t ' + brd : 'mt-5'}`}>
+                    <p className="text-[11px] font-black text-blue-500 uppercase tracking-wider mb-3">Facebook — Recent Posts</p>
+                    <div className="space-y-3">
+                      {_metaLive.fbPosts.slice(0, 5).map(post => (
+                        <a key={post.id} href={post.url || '#'} target="_blank" rel="noreferrer"
+                          className={`flex gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 border border-blue-100 dark:border-blue-900 transition-colors`}>
+                          {post.image && (
+                            <img src={post.image} alt="" loading="lazy"
+                              className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-xs font-bold ${txt} leading-relaxed line-clamp-2`}>
+                              {post.message || '(No caption)'}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1.5">
+                              <span className={`text-[10px] ${subtl}`}>{new Date(post.date).toLocaleDateString()}</span>
+                              <span className="text-[10px] text-blue-500 font-black">❤ {post.likes.toLocaleString()}</span>
+                              <span className={`text-[10px] ${subtl} font-bold`}>💬 {post.comments}</span>
+                            </div>
+                          </div>
+                          <ExternalLink size={12} className={`${subtl} flex-shrink-0 mt-1`} />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Quick-Add: Social Metrics */}
             <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
               <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowQuickAdd(p => !p)}>

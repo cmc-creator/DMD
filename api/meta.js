@@ -76,6 +76,61 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── 4. Fetch recent FB posts + IG media ──────────────────────────────────────
+  if (action === 'feed') {
+    const { token: pageToken, pageId } = req.query;
+    if (!pageToken || !pageId) return res.status(400).json({ error: 'token and pageId required' });
+    try {
+      const [postsRes, igLinkRes] = await Promise.all([
+        fetch(
+          `https://graph.facebook.com/v18.0/${pageId}/posts?` +
+          `fields=message,story,created_time,full_picture,permalink_url,likes.summary(true),comments.summary(true)&` +
+          `limit=10&access_token=${encodeURIComponent(pageToken)}`
+        ),
+        fetch(
+          `https://graph.facebook.com/v18.0/${pageId}?fields=instagram_business_account&access_token=${encodeURIComponent(pageToken)}`
+        ),
+      ]);
+      const postsData  = await postsRes.json();
+      const igLinkData = await igLinkRes.json();
+
+      const fbPosts = (postsData.data || []).map(p => ({
+        id:       p.id,
+        message:  p.message || p.story || '',
+        image:    p.full_picture || null,
+        url:      p.permalink_url || null,
+        date:     p.created_time,
+        likes:    p.likes?.summary?.total_count    || 0,
+        comments: p.comments?.summary?.total_count || 0,
+      }));
+
+      let igPosts = [];
+      if (igLinkData.instagram_business_account?.id) {
+        const igId     = igLinkData.instagram_business_account.id;
+        const mediaRes = await fetch(
+          `https://graph.facebook.com/v18.0/${igId}/media?` +
+          `fields=id,media_type,media_url,thumbnail_url,permalink,caption,timestamp,like_count,comments_count&` +
+          `limit=12&access_token=${encodeURIComponent(pageToken)}`
+        );
+        const mediaData = await mediaRes.json();
+        igPosts = (mediaData.data || []).map(p => ({
+          id:       p.id,
+          type:     p.media_type,
+          image:    p.media_url || p.thumbnail_url || null,
+          url:      p.permalink || null,
+          caption:  p.caption ? p.caption.slice(0, 120) : '',
+          date:     p.timestamp,
+          likes:    p.like_count     || 0,
+          comments: p.comments_count || 0,
+        }));
+      }
+
+      return res.json({ ok: true, fbPosts, igPosts, fetchedAt: new Date().toISOString() });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
   return res.status(400).json({ error: 'Invalid request — use ?action=login, or OAuth callback ?code=' });
 }
 
