@@ -23,6 +23,12 @@ export default async function handler(req, res) {
   const hasUrl   = !!(process.env.KV_REST_API_URL          || process.env.UPSTASH_REDIS_REST_URL);
   const hasToken = !!(process.env.KV_REST_API_TOKEN         || process.env.UPSTASH_REDIS_REST_TOKEN);
 
+  // Build Redis instance using whichever env var names Vercel injected
+  const makeRedis = () => new Redis({
+    url:   process.env.KV_REST_API_URL   || process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
+  });
+
   // ── Diagnostic endpoints (work even without SDK connection) ─────────────────
   if (req.method === 'GET' && req.query.action) {
     const envCheck = {
@@ -38,7 +44,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      const redis = Redis.fromEnv();
+      const redis = makeRedis();
       if (req.query.action === 'status') {
         const [hashFields, legacyExists] = await Promise.all([
           redis.hkeys('dmd:store'),
@@ -76,7 +82,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const redis = Redis.fromEnv();
+    const redis = makeRedis();
     const HASH  = 'dmd:store';
 
     // ── GET ───────────────────────────────────────────────────────────────────
