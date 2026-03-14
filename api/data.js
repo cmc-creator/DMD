@@ -1,6 +1,150 @@
-// /api/data.js — multi-key cloud store backed by Upstash Redis (free tier)
+// /api/data.js — multi-key cloud store backed by Upstash Redis (Vercel KV integration)
 //
-// Works automatically with Vercel's built-in Upstash/KV storage integration.
+// Uses the official @upstash/redis SDK which auto-reads KV_REST_API_URL + KV_REST_API_TOKEN
+// injected by Vercel's built-in Upstash KV storage integration.
+//
+// Endpoints
+//   GET    /api/data               → { data: { dmd_destiny: {…}, … } }
+//   GET    /api/data?key=X         → { value: <stored value> }
+//   GET    /api/data?action=status → connection diagnostic
+//   GET    /api/data?action=recover→ show both legacy + new hash contents
+//   POST   /api/data               → body = flat object of keys to upsert
+//   POST   /api/data?key=X         → body = value to store for one key
+//   DELETE /api/data?key=X         → remove one field
+
+import { Redis } from '@upstash/redis';
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const hasUrl   = !!(process.env.KV_REST_API_URL          || process.env.UPSTASH_REDIS_REST_URL);
+  const hasToken = !!(process.env.KV_REST_API_TOKEN         || process.env.UPSTASH_REDIS_REST_TOKEN);
+
+  // ── Diagnostic endpoints (work even without SDK connection) ─────────────────
+  if (req.method === 'GET' && req.query.action) {
+    const envCheck = {
+      KV_REST_API_URL:          !!process.env.KV_REST_API_URL,
+      KV_REST_API_TOKEN:        !!process.env.KV_REST_API_TOKEN,
+      UPSTASH_REDIS_REST_URL:   !!process.env.UPSTASH_REDIS_REST_URL,
+      UPSTASH_REDIS_REST_TOKEN: !!process.env.UPSTASH_REDIS_REST_TOKEN,
+      connected:                hasUrl && hasToken,
+    };
+
+    if (!hasUrl || !hasToken) {
+      return res.status(200).json({ status: 'not_configured', envCheck });
+    }
+
+    try {
+      const redis = Redis.fromEnv();
+      if (req.query.action === 'status') {
+        const [hashFields, legacyExists] = await Promise.all([
+          redis.hkeys('dmd:store'),
+          redis.exists('dmd_shared'),
+        ]);
+        return res.status(200).json({
+          status:       'ok',
+          envCheck,
+          hash_fields:  hashFields  || [],
+          legacy_exists: legacyExists === 1,
+        });
+      }
+      if (req.query.action === 'recover') {
+        const [legacy, hashData] = await Promise.all([
+          redis.get('dmd_shared'),
+          redis.hgetall('dmd:store'),
+        ]);
+        return res.status(200).json({
+          legacy_data:  legacy   || null,
+          hash_data:    hashData || {},
+          legacy_keys:  legacy   ? Object.keys(legacy)   : [],
+          hash_keys:    hashData ? Object.keys(hashData) : [],
+        });
+      }
+    } catch (e) {
+      return res.status(200).json({ status: 'error', envCheck, error: e.message });
+    }
+  }
+
+  if (!hasUrl || !hasToken) {
+    return res.status(503).json({
+      error: 'not configured — KV env vars missing',
+      hint:  'Check /api/data?action=status for diagnostics',
+    });
+  }
+
+  try {
+    const redis = Redis.fromEnv();
+    const HASH  = 'dmd:store';
+
+    // ── GET ───────────────────────────────────────────────────────────────────
+    if (req.method === 'GET') {
+      if (req.query.key) {
+        const value = await redis.hget(HASH, req.query.key);
+        return res.status(200).json({ value: value ?? null });
+      }
+
+      // Read new hash + legacy blob in parallel
+      const [hashData, legacy] = await Promise.all([
+        redis.hgetall(HASH),
+        redis.get('dmd_shared'),
+      ]);
+
+      const data = {};
+
+      // Layer 1: legacy blob (yesterday's data) — lowest priority
+      if (legacy && typeof legacy === 'object') {
+        Object.assign(data, legacy);
+      }
+
+      // Layer 2: new hash fields — higher priority, skip empty objects
+      if (hashData) {
+        for (const [k, v] of Object.entries(hashData)) {
+          if (v !== null && !(typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0)) {
+            data[k] = v;
+          }
+        }
+      }
+
+      // Migrate legacy → hash if hash is empty
+      if (legacy && typeof legacy === 'object' && (!hashData || Object.keys(hashData).length === 0)) {
+        const entries = Object.entries(legacy).filter(([, v]) => v !== null && v !== undefined);
+        if (entries.length) {
+          redis.hset(HASH, Object.fromEntries(entries)); // fire-and-forget
+        }
+      }
+
+      return res.status(200).json({ data });
+    }
+
+    // ── POST ──────────────────────────────────────────────────────────────────
+    if (req.method === 'POST') {
+      const body = req.body || {};
+      if (req.query.key) {
+        await redis.hset(HASH, { [req.query.key]: body });
+        return res.status(200).json({ ok: true });
+      }
+      const entries = Object.fromEntries(
+        Object.entries(body).filter(([, v]) => v !== null && v !== undefined)
+      );
+      if (Object.keys(entries).length) await redis.hset(HASH, entries);
+      return res.status(200).json({ ok: true, fields: Object.keys(entries).length });
+    }
+
+    // ── DELETE ────────────────────────────────────────────────────────────────
+    if (req.method === 'DELETE') {
+      if (!req.query.key) return res.status(400).json({ error: 'key query param required' });
+      await redis.hdel(HASH, req.query.key);
+      return res.status(200).json({ ok: true });
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
 // The Vercel integration injects KV_REST_API_URL + KV_REST_API_TOKEN — no extra setup needed.
 //
 // Endpoints
