@@ -19,6 +19,8 @@ const DS_FB  = 'https://www.facebook.com/profile.php?id=61581511228047';
 const DS_IG  = 'https://www.instagram.com/destinyspringshealthcare/';
 const DS_TT  = 'https://www.tiktok.com/@destinyspringshealthcare';
 const DS_LI  = 'https://www.linkedin.com/company/destiny-springs-healthcare';
+const DS_YELP_QUERY = 'Destiny Springs Healthcare Scottsdale AZ';
+const DS_GD  = 'destiny-springs-healthcare';
 const DS_WEB = 'https://destinyspringshealthcare.com';
 const DS_QUERY = 'Destiny Springs Healthcare Scottsdale AZ';
 
@@ -402,7 +404,131 @@ async function scrapeHealthgrades() {
   } catch { return null; }
 }
 
-// ── 7. GOOGLE SEARCH KNOWLEDGE PANEL ─────────────────────────────────────────
+// ── 8. YELP SCRAPER ────────────────────────────────────────────────────
+async function scrapeYelp() {
+  try {
+    // 1. Search for the business
+    const searchUrl = `https://www.yelp.com/search?find_desc=${encodeURIComponent(DS_YELP_QUERY)}&find_loc=${encodeURIComponent('Scottsdale, AZ')}`;
+    const r1 = await fetchH(searchUrl, {}, 8000);
+    if (!r1.ok) throw new Error(`Yelp search HTTP ${r1.status}`);
+    const html1 = await r1.text();
+
+    // Extract first business result link
+    const bizM = html1.match(/href="(\/biz\/[a-z0-9-]+)"/i);
+    if (!bizM) throw new Error('No Yelp listing found in search');
+
+    const bizUrl = 'https://www.yelp.com' + bizM[1];
+    const r2 = await fetchH(bizUrl, {}, 8000);
+    if (!r2.ok) throw new Error(`Yelp profile HTTP ${r2.status}`);
+    const html2 = await r2.text();
+
+    // Try JSON-LD first (most reliable)
+    const ld = (function() {
+      const rx  = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+      let m;
+      while ((m = rx.exec(html2))) {
+        try {
+          const j = JSON.parse(m[1]);
+          if (j.aggregateRating?.ratingValue) return j;
+          if (Array.isArray(j['@graph'])) {
+            const found = j['@graph'].find(x => x.aggregateRating?.ratingValue);
+            if (found) return found;
+          }
+        } catch {}
+      }
+      return null;
+    })();
+
+    if (ld?.aggregateRating) {
+      return {
+        platform: 'Yelp', url: bizUrl,
+        name:        strip(ld.name || ''),
+        rating:      parseFloat(ld.aggregateRating.ratingValue),
+        reviewCount: parseInt(ld.aggregateRating.reviewCount || ld.aggregateRating.ratingCount || 0) || null,
+        priceRange:  ld.priceRange || null,
+        category:    ld['@type'] || null,
+        phone:       ld.telephone || null,
+        address:     ld.address ? [ld.address.streetAddress, ld.address.addressLocality, ld.address.addressRegion].filter(Boolean).join(', ') : null,
+        fetchedAt:   new Date().toISOString(),
+      };
+    }
+
+    // Fallback: regex
+    const rM = html2.match(/"ratingValue":"?([\d.]+)/) || html2.match(/([\d.]+)\s+star rating/i);
+    const cM = html2.match(/"reviewCount":"?(\d+)/) || html2.match(/(\d+)\s+reviews?/i);
+    const nameM = html2.match(/<title>([^|<]+)/i);
+    return {
+      platform: 'Yelp', url: bizUrl,
+      name:        nameM ? strip(nameM[1]).trim() : null,
+      rating:      rM ? parseFloat(rM[1]) : null,
+      reviewCount: cM ? parseInt(cM[1]) : null,
+      fetchedAt:   new Date().toISOString(),
+    };
+  } catch (e) {
+    return { platform: 'Yelp', error: e.message, fetchedAt: new Date().toISOString() };
+  }
+}
+
+// ── 9. GLASSDOOR SCRAPER ──────────────────────────────────────────────
+const GLASSDOOR_SLUG = process.env.DS_GLASSDOOR_SLUG || DS_GD;
+async function scrapeGlassdoor() {
+  try {
+    const searchUrl = `https://www.glassdoor.com/Search/results.htm?keyword=${encodeURIComponent('Destiny Springs Healthcare')}&locId=0&locName=Anywhere`;
+    const r1 = await fetchH(searchUrl, { 'Referer': 'https://www.glassdoor.com/' }, 8000);
+    if (!r1.ok) throw new Error(`GD search HTTP ${r1.status}`);
+    const html1 = await r1.text();
+
+    // Find employer link
+    const linkM = html1.match(/href="(\/Overview\/[^"?]+)"/i) || html1.match(/href="(\/Reviews\/[^"?]+)"/i);
+    if (!linkM) throw new Error('No Glassdoor listing found');
+
+    const profileUrl = 'https://www.glassdoor.com' + linkM[1];
+    const r2 = await fetchH(profileUrl, { 'Referer': 'https://www.glassdoor.com/' }, 8000);
+    if (!r2.ok) throw new Error(`GD profile HTTP ${r2.status}`);
+    const html2 = await r2.text();
+
+    // Try JSON-LD
+    const jsonLd = (function() {
+      const rx = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+      let m;
+      while ((m = rx.exec(html2))) {
+        try {
+          const j = JSON.parse(m[1]);
+          if (j.aggregateRating || (j['@graph'] || []).some(x => x.aggregateRating)) return j;
+        } catch {}
+      }
+      return null;
+    })();
+
+    const findAR = (o) => {
+      if (!o) return null;
+      if (o.aggregateRating?.ratingValue) return o.aggregateRating;
+      if (Array.isArray(o['@graph'])) {
+        for (const i of o['@graph']) { if (i.aggregateRating?.ratingValue) return i.aggregateRating; }
+      }
+      return null;
+    };
+    const ar = findAR(jsonLd);
+
+    const rM    = html2.match(/"overallRating":"?([\d.]+)/) || html2.match(/class="[^"]*ratingNumber[^"]*">([\d.]+)</);
+    const cM    = html2.match(/"numberOfRatings":(\d+)/) || html2.match(/(\d+)\s+Reviews/i);
+    const empM  = html2.match(/"numberOfEmployees":"([^"]+)"/) || html2.match(/(\d+[–-]\d+[^<"]{0,30}employees)/i);
+    const nameM = html2.match(/"name":"([^"]+)"/i);
+
+    return {
+      platform: 'Glassdoor', url: profileUrl,
+      name:        nameM ? nameM[1] : null,
+      rating:      ar ? parseFloat(ar.ratingValue) : (rM ? parseFloat(rM[1]) : null),
+      reviewCount: ar ? parseInt(ar.reviewCount || ar.ratingCount || 0) || null : (cM ? parseInt(cM[1]) : null),
+      employees:   empM ? empM[1] : null,
+      fetchedAt:   new Date().toISOString(),
+    };
+  } catch (e) {
+    return { platform: 'Glassdoor', error: e.message, fetchedAt: new Date().toISOString() };
+  }
+}
+
+// ── 10. GOOGLE SEARCH KNOWLEDGE PANEL ───────────────────────────────────────
 async function scrapeGoogleRating() {
   try {
     const url = `https://www.google.com/search?q=${encodeURIComponent(DS_QUERY + ' reviews rating')}&num=3&hl=en`;
@@ -470,6 +596,8 @@ export default async function handler(req, res) {
     if (action === 'instagram') return res.json({ ok:true, instagram: await scrapeInstagram() });
     if (action === 'tiktok')    return res.json({ ok:true, tiktok:    await scrapeTikTok() });
     if (action === 'linkedin')  return res.json({ ok:true, linkedin:  await scrapeLinkedIn() });
+    if (action === 'yelp')      return res.json({ ok:true, yelp:      await scrapeYelp() });
+    if (action === 'glassdoor') return res.json({ ok:true, glassdoor: await scrapeGlassdoor() });
     if (action === 'hg')        return res.json({ ok:true, healthgrades: await scrapeHealthgrades() });
     if (action === 'gsearch')   return res.json({ ok:true, googleSearch: await scrapeGoogleRating() });
     if (action === 'findplace') {
@@ -480,7 +608,7 @@ export default async function handler(req, res) {
     // ── Run ALL sources in TRUE parallel ──────────────────────────────────────
     const result = { ok: true, fetchedAt: new Date().toISOString(), sources: {} };
 
-    const [website, facebook, instagram, tiktok, linkedin, healthgrades, googleSearch, googlePlaces] =
+    const [website, facebook, instagram, tiktok, linkedin, healthgrades, googleSearch, googlePlaces, yelp, glassdoor] =
       await Promise.all([
         scrapeWebsite().catch(e    => ({ error: `Website: ${e.message}` })),
         scrapeFacebook().catch(e   => ({ platform:'Facebook',  error: e.message })),
@@ -499,6 +627,8 @@ export default async function handler(req, res) {
               } catch(e) { return { error: e.message }; }
             })()
           : Promise.resolve(null),
+        scrapeYelp().catch(() => null),
+        scrapeGlassdoor().catch(() => null),
       ]);
 
     if (website && !website.error) result.website = website;
@@ -516,6 +646,12 @@ export default async function handler(req, res) {
     if (linkedin && !linkedin.error) result.linkedin = linkedin;
     else result.sources.linkedin = { error: linkedin?.error || 'Blocked or not found' };
 
+    if (yelp && !yelp.error) result.yelp = yelp;
+    else result.sources.yelp = { error: yelp?.error || 'Not found' };
+
+    if (glassdoor && !glassdoor.error) result.glassdoor = glassdoor;
+    else result.sources.glassdoor = { error: glassdoor?.error || 'Not found' };
+
     if (healthgrades) result.healthgrades = healthgrades;
     if (googleSearch) result.googleSearch = googleSearch;
     if (googlePlaces && !googlePlaces.error) result.google = googlePlaces;
@@ -524,10 +660,12 @@ export default async function handler(req, res) {
 
     // Best available rating (priority: Places API > Google Search > Website Schema > Healthgrades)
     const rCandidates = [
-      result.google      && { rating: result.google.rating, reviewCount: result.google.reviewCount, source: 'Google Business (API)' },
-      googleSearch       && { ...googleSearch },
+      result.google         && { rating: result.google.rating, reviewCount: result.google.reviewCount, source: 'Google Business (API)' },
+      googleSearch          && { ...googleSearch },
+      result.yelp           && result.yelp.rating && { rating: result.yelp.rating, reviewCount: result.yelp.reviewCount, source: 'Yelp' },
       website?.schemaRating && { ...website.schemaRating, source: 'Website JSON-LD schema' },
-      healthgrades       && { ...healthgrades },
+      healthgrades          && { ...healthgrades },
+      result.glassdoor      && result.glassdoor.rating && { rating: result.glassdoor.rating, reviewCount: result.glassdoor.reviewCount, source: 'Glassdoor' },
     ].filter(c => c && c.rating);
 
     if (rCandidates.length > 0) {
@@ -541,6 +679,8 @@ export default async function handler(req, res) {
       instagramError: instagram?.error,
       tiktokError:    tiktok?.error,
       linkedinError:  linkedin?.error,
+      yelpError:      yelp?.error,
+      glassdoorError: glassdoor?.error,
       websiteError:   website?.error,
     };
 

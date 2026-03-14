@@ -152,6 +152,13 @@ const App = () => {
   const [destinyData, setDestinyData]           = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_destiny') || 'null'); } catch { return null; } });
   const [destinyLoading, setDestinyLoading]     = useState(false);
   const [destinyError, setDestinyError]         = useState('');
+  // ── Competitor Intelligence state ──────────────────────────────────────────────
+  const [competitorData, setCompetitorData]      = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_competitors') || 'null'); } catch { return null; } });
+  const [competitorLoading, setCompetitorLoading] = useState(false);
+  // ── Overview layout customization ────────────────────────────────────────────
+  const [overviewHidden, setOverviewHidden]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_overview_hidden') || '[]'); } catch { return []; } });
+  const [showOverviewCustomizer, setShowOverviewCustomizer] = useState(false);
+  const [reviewOverrides, setReviewOverrides]     = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_overrides') || '{}'); } catch { return {}; } });
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -605,6 +612,20 @@ const App = () => {
       }
     } catch (e) { setDestinyError(e.message); }
     setDestinyLoading(false);
+  };
+
+  // ── Competitor Intelligence fetch ─────────────────────────────────────────────
+  const fetchCompetitors = async () => {
+    setCompetitorLoading(true);
+    try {
+      const res  = await fetch('/api/competitors');
+      const data = await res.json();
+      if (data.ok) {
+        setCompetitorData(data);
+        localStorage.setItem('dmd_competitors', JSON.stringify(data));
+      }
+    } catch {}
+    setCompetitorLoading(false);
   };
 
   const syncIntegrationWithCreds = async (name, creds) => {
@@ -1061,7 +1082,15 @@ const App = () => {
     return () => clearInterval(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Chart theme ─────────────────────────────────────────────────────────────
+  // Auto-fetch Competitor Intelligence on load + every 2 hours
+  useEffect(() => {
+    const STALE_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const existing = (() => { try { return JSON.parse(localStorage.getItem('dmd_competitors') || 'null'); } catch { return null; } })();
+    const fetchedAt = existing?.fetchedAt ? new Date(existing.fetchedAt).getTime() : 0;
+    if (!fetchedAt || (Date.now() - fetchedAt) > STALE_MS) fetchCompetitors();
+    const timer = setInterval(fetchCompetitors, STALE_MS);
+    return () => clearInterval(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps ─────────────────────────────────────────────────────────────
   const grid     = darkMode ? '#1e293b' : '#f1f5f9';
   const tick     = darkMode ? '#94a3b8' : '#64748b';
   const tipStyle = {
@@ -1947,6 +1976,8 @@ const App = () => {
             })()}
 
             {/* Top KPI Row */}
+            {!overviewHidden.includes('kpis') && (
+            <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Google Rating"     value={metrics.googleScore}    trend={metrics.googleTrend} icon={Star}        color="bg-amber-500"   sub="Review Cleanup Performance" onClick={() => setActiveTab('reviews')} />
               <StatCard title="Monthly Sessions"  value={metrics.wixSessions}    trend={null}                icon={Layout}      color="bg-teal-600"    sub="Wix Website Traffic"        onClick={() => setActiveTab('seo')} />
@@ -1959,8 +1990,88 @@ const App = () => {
               <StatCard title="Site Conversion"   value={metrics.siteConversion} trend={null}                icon={MousePointer} color="bg-teal-600"   sub="Visitor to Lead Rate"         onClick={() => setActiveTab('seo')} />
               <StatCard title="NPS Score"         value={metrics.nps}            trend={null}                icon={ThumbsUp}    color="bg-amber-600"   sub="Net Promoter Score"          onClick={() => setActiveTab('reviews')} />
             </div>
+            </>
+            )}
+
+            {/* ── Brand Health Score ────────────────────────────────────── */}
+            {!overviewHidden.includes('health') && (() => {
+              const dsRating  = destinyData?.google?.rating ?? destinyData?.bestRating?.rating ?? null;
+              const dsReviews = destinyData?.google?.reviewCount ?? destinyData?.bestRating?.reviewCount ?? null;
+              const socials   = ['facebook','instagram','tiktok','linkedin'].filter(p => destinyData?.[p] && !destinyData[p].error).length;
+              const wq        = destinyData?.website?.services?.length || 0;
+              const wc        = destinyData?.website?.wordCount || 0;
+              const comps     = competitorData?.competitors || [];
+              const allR      = [...comps.map(c => c.avgRating).filter(Boolean), ...(dsRating ? [dsRating] : [])].sort((a,b) => b-a);
+              const dsRank    = dsRating ? (allR.indexOf(dsRating) < 0 ? allR.findIndex(r => r <= dsRating) + 1 : allR.indexOf(dsRating) + 1) || 1 : null;
+              const totalC    = allR.length;
+              const breakdown = [];
+              let score = 0;
+              if (dsRating) { const p=Math.round((dsRating/5)*25); score+=p; breakdown.push({label:'Star Rating',pts:p,max:25,detail:`${dsRating}/5.0 ★`,color:'bg-amber-500'}); }
+              if (dsReviews) { const p=Math.min(20,Math.round((Math.min(dsReviews,200)/200)*20)); score+=p; breakdown.push({label:'Review Volume',pts:p,max:20,detail:`${dsReviews.toLocaleString()} reviews`,color:'bg-blue-500'}); }
+              const sp=Math.round((socials/4)*20); score+=sp; breakdown.push({label:'Social Presence',pts:sp,max:20,detail:`${socials}/4 platforms active`,color:'bg-pink-500'});
+              const wp=Math.min(20,Math.round((Math.min(wq,10)/10)*15)+(wc>2000?5:Math.round((wc/2000)*5))); score+=wp; breakdown.push({label:'Website Quality',pts:wp,max:20,detail:`${wq} services detected · ${wc.toLocaleString()} words`,color:'bg-teal-500'});
+              if (dsRank&&totalC>1){const p=Math.round(((totalC-dsRank)/(totalC-1))*15);score+=p;breakdown.push({label:'Competitive Rank',pts:p,max:15,detail:`#${dsRank} of ${totalC} providers`,color:'bg-purple-500'});}
+              const maxPs = breakdown.reduce((s,b)=>s+b.max,0)||100;
+              const healthScore = breakdown.length ? Math.min(100,Math.round((score/maxPs)*100)) : null;
+              const grade = healthScore!=null ? (healthScore>=85?'A':healthScore>=70?'B':healthScore>=55?'C':healthScore>=40?'D':'F') : '—';
+              const gradeColor = healthScore!=null ? (healthScore>=85?'text-emerald-500':healthScore>=70?'text-teal-500':healthScore>=55?'text-amber-500':healthScore>=40?'text-orange-500':'text-rose-500') : subtl;
+              const insights = [];
+              if (!dsRating) insights.push({ icon:'⚠️', text:'No rating data yet — run a Sync to pull live Google/Yelp/Healthgrades scores.' });
+              else if (dsRating < 4.0)  insights.push({ icon:'📈', text:`Rating of ${dsRating} is below the 4.0 threshold for strong trust. Prioritize review recovery.` });
+              else if (dsRating >= 4.5) insights.push({ icon:'⭐', text:`Excellent ${dsRating} rating. Focus on volume — more reviews = more SEO authority.` });
+              if (socials < 3)          insights.push({ icon:'🔗', text:`Only ${socials}/4 social profiles scraped. Connect missing platforms in Integrations.` });
+              if (wq < 5)               insights.push({ icon:'🌐', text:'Website content thin — consider adding more service pages for SEO.' });
+              if (dsRank === 1 && totalC > 1) insights.push({ icon:'🏆', text:`Top-rated out of ${totalC} providers tracked. Maintain and market this position!` });
+              else if (dsRank && dsRank > Math.ceil(totalC/2)) insights.push({ icon:'🔄', text:`Ranked #${dsRank} of ${totalC} locally. Primary lever: grow Google review count.` });
+              return (
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                  <div className="flex items-start gap-6 flex-wrap md:flex-nowrap">
+                    {/* Score circle */}
+                    <div className="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800/60 rounded-3xl p-6 flex-shrink-0 min-w-[140px]">
+                      <span className={`text-6xl font-black ${gradeColor} leading-none`}>{grade}</span>
+                      {healthScore != null && <span className={`text-2xl font-black ${gradeColor} mt-1`}>{healthScore}<span className={`text-sm font-normal ${subtl}`}>/100</span></span>}
+                      <span className={`text-[11px] font-black ${subtl} uppercase tracking-wider mt-2`}>Brand Health</span>
+                    </div>
+                    {/* Breakdown bars */}
+                    <div className="flex-1 min-w-0">
+                      <SectionHeader icon={Award} color="text-amber-500" title="Brand Health Score" subtitle="Computed from ratings, reviews, social presence & competitive position" />
+                      {breakdown.length === 0 ? (
+                        <p className={`text-sm ${subtl} mt-2`}>Run a Sync Now to compute your brand health score.</p>
+                      ) : (
+                        <div className="space-y-3 mt-4">
+                          {breakdown.map(b => (
+                            <div key={b.label}>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className={`text-xs font-black ${txt2}`}>{b.label}</span>
+                                <span className={`text-xs font-black ${txt}`}>{b.pts}<span className={`font-normal ${subtl}`}>/{b.max}</span></span>
+                              </div>
+                              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${b.color}`} style={{ width: `${Math.round((b.pts/b.max)*100)}%`, transition: 'width 0.6s ease' }} />
+                              </div>
+                              <p className={`text-[10px] ${subtl} mt-0.5`}>{b.detail}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {insights.length > 0 && (
+                    <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3`}>⚡ AI Insights</p>
+                      {insights.map((ins, i) => (
+                        <div key={i} className="flex items-start gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                          <span className="text-base leading-none mt-0.5">{ins.icon}</span>
+                          <p className={`text-[12px] ${txt2} leading-relaxed`}>{ins.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* 6-Month Trend */}
+            {!overviewHidden.includes('trend') && (
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={TrendingUp} color="text-teal-500" title="6-Month Growth Trend" subtitle="Sessions, Reach & Lead Volume" />
               <div className="h-72">
@@ -1983,8 +2094,117 @@ const App = () => {
                 )}
               </div>
             </div>
+            )}
 
-            {/* NPS / Wix / Regional */}
+            {/* ── Competitor Intelligence ──────────────────────────────── */}
+            {!overviewHidden.includes('competitors') && (() => {
+              const dsRating  = destinyData?.google?.rating ?? destinyData?.bestRating?.rating ?? null;
+              const dsReviews = destinyData?.google?.reviewCount ?? destinyData?.bestRating?.reviewCount ?? null;
+              const comps     = competitorData?.competitors || [];
+              // Build combined list: Destiny Springs + all competitors
+              const allProviders = [
+                {
+                  id: 'destiny-springs', name: 'Destiny Springs Healthcare', isUs: true,
+                  web: 'https://destinyspringshealthcare.com',
+                  google:      dsRating   ? { rating: dsRating,   reviewCount: dsReviews }  : null,
+                  healthgrades: destinyData?.healthgrades || null,
+                  avgRating:   dsRating,
+                  totalReviews: dsReviews,
+                  services:    destinyData?.website?.services?.length || 0,
+                },
+                ...comps,
+              ].sort((a, b) => {
+                if (a.avgRating == null && b.avgRating == null) return 0;
+                if (a.avgRating == null) return 1;
+                if (b.avgRating == null) return -1;
+                return b.avgRating - a.avgRating;
+              });
+              const starBar = (r) => {
+                if (!r) return <span className={`text-[11px] ${subtl}`}>—</span>;
+                const pct = Math.round((r / 5) * 100);
+                return (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-16 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-400 rounded-full" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className={`text-xs font-black ${txt}`}>{r.toFixed(1)}</span>
+                  </div>
+                );
+              };
+              return (
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                  <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+                    <SectionHeader icon={Scale} color="text-purple-500" title="Competitor Intelligence" subtitle={`Live ratings vs. ${comps.length} local behavioral health providers`} />
+                    <button onClick={fetchCompetitors} disabled={competitorLoading}
+                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-colors">
+                      <RefreshCw size={13} className={competitorLoading ? 'animate-spin' : ''} />
+                      {competitorLoading ? 'Scanning…' : 'Refresh'}
+                    </button>
+                  </div>
+                  {competitorLoading && !competitorData && (
+                    <div className="flex items-center gap-3 py-8 justify-center">
+                      <RefreshCw size={18} className="animate-spin text-purple-500" />
+                      <p className={`text-sm font-bold ${subtl}`}>Scraping competitor data… this takes ~30s</p>
+                    </div>
+                  )}
+                  {!competitorLoading && !competitorData && (
+                    <p className={`text-sm ${subtl} text-center py-6`}>Auto-loads every 2 hours. Click Refresh to load now.</p>
+                  )}
+                  {allProviders.length > 1 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className={`border-b ${brd}`}>
+                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>#</th>
+                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Provider</th>
+                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Google Rating</th>
+                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Reviews</th>
+                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Healthgrades</th>
+                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider`}>Services</th>
+                          </tr>
+                        </thead>
+                        <tbody className={`divide-y ${divdr}`}>
+                          {allProviders.map((p, idx) => (
+                            <tr key={p.id} className={`${p.isUs ? 'bg-teal-50/60 dark:bg-teal-900/10' : rowCls}`}>
+                              <td className={`py-3 pr-4 text-xs font-black ${p.isUs ? 'text-teal-600 dark:text-teal-400' : subtl}`}>
+                                {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`}
+                              </td>
+                              <td className="py-3 pr-4">
+                                <div className="flex items-center gap-2">
+                                  {p.isUs && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300">YOU</span>}
+                                  <div>
+                                    <p className={`text-xs font-black ${p.isUs ? 'text-teal-700 dark:text-teal-300' : txt}`}>{p.name}</p>
+                                    {p.web && <a href={p.web} target="_blank" rel="noreferrer" className={`text-[10px] ${subtl} hover:text-teal-500`}>{p.web.replace(/https?:\/\//,'').replace(/\//,'')}</a>}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 pr-4">{starBar(p.google?.rating || p.avgRating)}</td>
+                              <td className="py-3 pr-4">
+                                {p.totalReviews || p.google?.reviewCount
+                                  ? <span className={`text-xs font-bold ${txt2}`}>{(p.totalReviews || p.google?.reviewCount || 0).toLocaleString()}</span>
+                                  : <span className={`text-[11px] ${subtl}`}>—</span>}
+                              </td>
+                              <td className="py-3 pr-4">
+                                {p.healthgrades?.rating
+                                  ? <span className={`text-xs font-bold ${txt2}`}>{p.healthgrades.rating.toFixed(1)} ★</span>
+                                  : <span className={`text-[11px] ${subtl}`}>—</span>}
+                              </td>
+                              <td className="py-3">
+                                {(p.services || p.website?.services?.length)
+                                  ? <span className={`text-xs font-bold ${txt2}`}>{p.services || p.website?.services?.length} detected</span>
+                                  : <span className={`text-[11px] ${subtl}`}>—</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {competitorData?.fetchedAt && <p className={`text-[10px] ${subtl} mt-3`}>Last scanned: {new Date(competitorData.fetchedAt).toLocaleString()}</p>}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {!overviewHidden.includes('nps_wix') && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
               <div className={`lg:col-span-4 ${card} p-8 rounded-[2.5rem] flex flex-col`}>
                 <SectionHeader icon={ThumbsUp} color="text-amber-500" title="NPS Breakdown" subtitle="Promoters / Passives / Detractors" />
@@ -2066,8 +2286,10 @@ const App = () => {
                 </div>
               </div>
             </div>
+            )}
 
             {/* UX Path & Content Velocity */}
+            {!overviewHidden.includes('ux_content') && (<>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <div className={`${card} p-7 rounded-[2.5rem]`}>
                 <SectionHeader icon={MousePointer} color="text-teal-500" title="Video Tracing Analysis" subtitle="UX Depth & Page Retention" />
@@ -2164,6 +2386,8 @@ const App = () => {
                 <div className="h-10 w-10 rounded-full bg-teal-600 border-2 border-slate-800 flex items-center justify-center text-[13px] font-black">0</div>
               </div>
             </div>
+            </>)}
+
           </>
         )}
 
