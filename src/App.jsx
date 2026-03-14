@@ -178,11 +178,18 @@ const App = () => {
         if (error || !data) { cloudLoadedRef.current = true; setCloudSynced('offline'); return; }
         // Mark that we're restoring from cloud so the auto-push doesn't immediately mirror back
         skipNextPushRef.current = true;
-        if (data.dmd_destiny)          { setDestinyData(data.dmd_destiny);                 localStorage.setItem('dmd_destiny',          JSON.stringify(data.dmd_destiny)); }
-        if (data.dmd_review_platforms) { setReviewPlatformData(data.dmd_review_platforms); localStorage.setItem('dmd_review_platforms',  JSON.stringify(data.dmd_review_platforms)); }
-        if (data.dmd_manual)           { setManualData(data.dmd_manual);                   localStorage.setItem('dmd_manual',            JSON.stringify(data.dmd_manual)); }
-        if (data.dmd_wix)              { setWixData(data.dmd_wix);                         localStorage.setItem('dmd_wix',               JSON.stringify(data.dmd_wix)); }
-        if (data.dmd_livedata)         { setLiveData(data.dmd_livedata);                   localStorage.setItem('dmd_livedata',           JSON.stringify(data.dmd_livedata)); }
+        const ls = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+        if (data.dmd_destiny)          { setDestinyData(data.dmd_destiny);                 ls('dmd_destiny',          data.dmd_destiny); }
+        if (data.dmd_review_platforms) { setReviewPlatformData(data.dmd_review_platforms); ls('dmd_review_platforms',  data.dmd_review_platforms); }
+        if (data.dmd_manual)           { setManualData(data.dmd_manual);                   ls('dmd_manual',            data.dmd_manual); }
+        if (data.dmd_wix)              { setWixData(data.dmd_wix);                         ls('dmd_wix',               data.dmd_wix); }
+        if (data.dmd_livedata)         { setLiveData(data.dmd_livedata);                   ls('dmd_livedata',          data.dmd_livedata); }
+        if (data.dmd_competitors)      { setCompetitorData(data.dmd_competitors);           ls('dmd_competitors',       data.dmd_competitors); }
+        if (data.dmd_overview_hidden)  { setOverviewHidden(data.dmd_overview_hidden);       ls('dmd_overview_hidden',   data.dmd_overview_hidden); }
+        if (data.dmd_review_overrides) { setReviewOverrides(data.dmd_review_overrides);     ls('dmd_review_overrides',  data.dmd_review_overrides); }
+        if (data.dmd_connections)      { setConnections(data.dmd_connections);              ls('dmd_connections',        data.dmd_connections); }
+        if (data.dmd_saved_urls)       { setSavedUrls(data.dmd_saved_urls);                 ls('dmd_saved_urls',        data.dmd_saved_urls); }
+        if (data.dmd_facility_profiles){ setFacilityProfiles(data.dmd_facility_profiles);   ls('dmd_facility_profiles', data.dmd_facility_profiles); }
         cloudLoadedRef.current = true;
         setCloudSynced('ok');
         setTimeout(() => { skipNextPushRef.current = false; }, 600);
@@ -196,12 +203,18 @@ const App = () => {
     clearTimeout(pushTimerRef.current);
     pushTimerRef.current = setTimeout(() => {
       const payload = {
-        dmd_destiny:          (() => { try { return JSON.parse(localStorage.getItem('dmd_destiny')          || 'null'); } catch { return null; } })(),
-        dmd_review_platforms: (() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}');   } catch { return {}; } })(),
-        dmd_manual:           (() => { try { return JSON.parse(localStorage.getItem('dmd_manual')           || '{}');   } catch { return {}; } })(),
-        dmd_wix:              (() => { try { return JSON.parse(localStorage.getItem('dmd_wix')              || 'null'); } catch { return null; } })(),
-        dmd_livedata:         (() => { try { return JSON.parse(localStorage.getItem('dmd_livedata')         || '{}');   } catch { return {}; } })(),
-        _updatedAt:           new Date().toISOString(),
+        dmd_destiny:           destinyData,
+        dmd_review_platforms:  reviewPlatformData,
+        dmd_manual:            manualData,
+        dmd_wix:               wixData,
+        dmd_livedata:          liveData,
+        dmd_competitors:       competitorData,
+        dmd_overview_hidden:   overviewHidden,
+        dmd_review_overrides:  reviewOverrides,
+        dmd_connections:       connections,
+        dmd_saved_urls:        savedUrls,
+        dmd_facility_profiles: facilityProfiles,
+        _updatedAt:            new Date().toISOString(),
       };
       setCloudSynced('syncing');
       fetch('/api/data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -210,7 +223,7 @@ const App = () => {
         .catch(() => setCloudSynced('error'));
     }, 3000);
     return () => clearTimeout(pushTimerRef.current);
-  }, [destinyData, reviewPlatformData, manualData, wixData, liveData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { setShowQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
 

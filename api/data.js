@@ -1,11 +1,26 @@
-// /api/data.js — shared cloud store for the DMD dashboard
-// Backed by Upstash Redis (free tier). All devices read/write the same data.
-// Setup: upstash.com → Create Database (Redis) → copy REST URL + token
-//        → add as UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN in Vercel env vars.
+// /api/data.js — multi-key cloud store backed by Upstash Redis (free tier)
+//
+// Each dashboard key is stored as a separate field in a Redis Hash (`dmd:store`),
+// so reads/writes are atomic per-key and never stomp each other across devices.
+//
+// ONE-TIME SETUP:
+//   1. upstash.com → Create Redis Database (free tier) → copy REST URL + token
+//   2. Vercel → your project → Settings → Environment Variables:
+//        UPSTASH_REDIS_REST_URL   = https://xxxx.upstash.io
+//        UPSTASH_REDIS_REST_TOKEN = AXxx...
+//   3. Redeploy — dashboard syncs across all devices automatically.
+//
+// Endpoints
+//   GET    /api/data          → { data: { dmd_destiny: {…}, dmd_manual: {…}, … } }
+//   GET    /api/data?key=X    → { value: <stored value> }
+//   POST   /api/data          → body = flat object of keys to upsert  (bulk)
+//   POST   /api/data?key=X    → body = value to store                 (single key)
+//   DELETE /api/data?key=X    → removes one field
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   // Support both direct Upstash env vars and Vercel KV integration env vars
@@ -15,6 +30,7 @@ export default async function handler(req, res) {
   if (!KV_URL || !KV_TOKEN) {
     return res.status(503).json({
       error: 'not configured — add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to Vercel env vars.',
+      setup: 'https://upstash.com → Create Redis Database → copy REST URL + token → paste into Vercel env vars',
     });
   }
 
@@ -26,15 +42,71 @@ export default async function handler(req, res) {
       body:    JSON.stringify(cmd),
     }).then(r => r.json());
 
+  const HASH = 'dmd:store'; // Redis Hash — one field per dmd_ key
+  const { key } = req.query;
+
   try {
+    // ── GET ──────────────────────────────────────────────────────────────────
     if (req.method === 'GET') {
-      const { result } = await kv(['GET', 'dmd_shared']);
-      return res.status(200).json({ data: result ? JSON.parse(result) : null });
+      if (key) {
+        // Single field lookup
+        const { result } = await kv(['HGET', HASH, key]);
+        let value = null;
+        try { value = result ? JSON.parse(result) : null; } catch { value = result; }
+        return res.status(200).json({ value });
+      }
+
+      // All fields — HGETALL returns [field, value, field, value, …]
+      const { result } = await kv(['HGETALL', HASH]);
+      const data = {};
+      if (Array.isArray(result)) {
+        for (let i = 0; i < result.length; i += 2) {
+          try { data[result[i]] = JSON.parse(result[i + 1]); } catch { data[result[i]] = result[i + 1]; }
+        }
+      }
+
+      // ── Migrate legacy single-blob format (dmd_shared key) ───────────────
+      // On first run after this upgrade the hash will be empty; read the old key.
+      if (Object.keys(data).length === 0) {
+        const { result: legacy } = await kv(['GET', 'dmd_shared']);
+        if (legacy) {
+          try {
+            const parsed = JSON.parse(legacy);
+            const pairs  = [];
+            for (const [k, v] of Object.entries(parsed)) {
+              if (v !== null && v !== undefined) { pairs.push(k, JSON.stringify(v)); data[k] = v; }
+            }
+            if (pairs.length) await kv(['HSET', HASH, ...pairs]); // migrate once
+          } catch { /* ignore malformed legacy */ }
+        }
+      }
+
+      return res.status(200).json({ data });
     }
 
+    // ── POST ─────────────────────────────────────────────────────────────────
     if (req.method === 'POST') {
-      const value = JSON.stringify(req.body);
-      await kv(['SET', 'dmd_shared', value]);
+      const body = req.body || {};
+
+      if (key) {
+        // Single-key mode: POST /api/data?key=X  with body = value
+        await kv(['HSET', HASH, key, JSON.stringify(body)]);
+        return res.status(200).json({ ok: true });
+      }
+
+      // Bulk mode: body is a flat object { dmd_key: value, … }
+      const pairs = [];
+      for (const [k, v] of Object.entries(body)) {
+        if (v !== null && v !== undefined) pairs.push(k, JSON.stringify(v));
+      }
+      if (pairs.length) await kv(['HSET', HASH, ...pairs]);
+      return res.status(200).json({ ok: true, fields: pairs.length / 2 });
+    }
+
+    // ── DELETE ────────────────────────────────────────────────────────────────
+    if (req.method === 'DELETE') {
+      if (!key) return res.status(400).json({ error: 'key query param required' });
+      await kv(['HDEL', HASH, key]);
       return res.status(200).json({ ok: true });
     }
 
