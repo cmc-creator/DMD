@@ -119,6 +119,8 @@ const App = () => {
   const [aiOutput, setAiOutput]                 = useState('');
   const [aiGenerating, setAiGenerating]         = useState(false);
   const [fileImportLog, setFileImportLog]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_import_log') || '[]'); } catch { return []; } });
+  const [surveyParsed, setSurveyParsed]         = useState(null);  // parsed SM preview before confirm
+  const surveyFileRef                            = useRef(null);
   const [aiInsights, setAiInsights]             = useState('');
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [chatOpen, setChatOpen]                 = useState(false);
@@ -735,6 +737,7 @@ const App = () => {
   // ── Import helpers ──────────────────────────────────────────────────────
   const detectTypeFromHeaders = (headers) => {
     const h = headers.map(x => x.toLowerCase().trim());
+    if (h.some(x => x.includes('respondent') || x.includes('collector id'))) return 'Survey Results';
     if (h.some(x => x.includes('keyword') || x.includes('rank'))) return 'SEO Rankings';
     if (h.some(x => x.includes('spend') || x.includes('cpc') || x.includes('cpl'))) return 'Ad Spend';
     if (h.some(x => x.includes('sent') || x.includes('open') || x.includes('click') && h.some(y => y.includes('email') || y.includes('campaign')))) return 'Email Stats';
@@ -837,10 +840,21 @@ const App = () => {
           setImportNotice('Invalid JSON file.');
         }
       } else {
-        // CSV / plain text
+        // CSV / plain text — check for SurveyMonkey 2-row header format
         const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
         if (lines.length < 2) { setImportNotice('File needs at least a header row and one data row.'); return; }
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        const firstCols = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+        const isSurveyMonkey = firstCols[0]?.includes('respondent') || firstCols[1]?.includes('collector');
+        if (isSurveyMonkey) {
+          // Route to the SM parser — switch to survey mode and pre-fill paste area
+          setImportMode('survey');
+          setSurveyParsed(null);
+          setPasteCSV(text);
+          setImportNotice('SurveyMonkey file detected — click "Parse Survey" to review results before saving.');
+          setFileImportLog(prev => { const upd = [{ name: file.name, date: new Date().toLocaleString(), rows: lines.length - 2, type: 'SurveyMonkey' }, ...prev].slice(0, 100); localStorage.setItem('dmd_import_log', JSON.stringify(upd)); return upd; });
+          return;
+        }
+        const headers = firstCols.map(h => h.replace(/^"|"$/g, ''));
         const type = detectTypeFromHeaders(headers);
         const rows = lines.slice(1).map(line => {
           const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
@@ -856,6 +870,126 @@ const App = () => {
     };
     reader.onerror = () => setImportNotice('Error reading file.');
     reader.readAsText(file);
+  };
+
+  // ── SurveyMonkey CSV Parser ─────────────────────────────────────────────────
+  const parseSurveyMonkeyCSV = (text) => {
+    if (!text.trim()) { setImportNotice('Paste your SurveyMonkey CSV export first.'); return; }
+
+    // Robust CSV line splitter (handles quoted commas)
+    const splitLine = (line) => {
+      const vals = []; let cur = '', inQ = false;
+      for (const c of line) {
+        if (c === '"') { inQ = !inQ; }
+        else if (c === ',' && !inQ) { vals.push(cur.trim()); cur = ''; }
+        else cur += c;
+      }
+      vals.push(cur.trim());
+      return vals;
+    };
+
+    const rawLines = text.trim().split(/\r?\n/).filter(l => l.trim());
+    if (rawLines.length < 2) { setImportNotice('Need at least a header row and one data row.'); return; }
+
+    // SurveyMonkey uses 2 header rows: row 1 = question text, row 2 = sub-labels/answer choices
+    const row1 = splitLine(rawLines[0]);
+    const isSmFormat = /respondent|collector|start.?date/i.test(row1.slice(0, 5).join(','));
+    let questionRow, subRow, dataLines;
+    if (isSmFormat && rawLines.length >= 3) {
+      questionRow = splitLine(rawLines[0]);
+      subRow      = splitLine(rawLines[1]);
+      dataLines   = rawLines.slice(2);
+    } else {
+      questionRow = row1;
+      subRow      = row1.map(() => '');
+      dataLines   = rawLines.slice(1);
+    }
+
+    const cols = questionRow.map((q, i) => ({ q: q.trim(), sub: (subRow[i] || '').trim(), i }));
+
+    // Find NPS column (recommend + 0-10 range)
+    const npsCol = cols.find(c =>
+      /recommend|nps|promoter/i.test(c.q + c.sub) ||
+      (/0.{1,6}10|10.{1,6}0/.test(c.q) && !/time|minute|hour/i.test(c.q))
+    );
+
+    // Find satisfaction columns
+    const satisfCols = cols.filter(c =>
+      /satisf|experience|overall|care|staff|treatment|service/i.test(c.q + c.sub) &&
+      (!npsCol || c.i !== npsCol.i)
+    );
+
+    // Skip metadata columns
+    const metaRx = /respondent|collector|start date|end date|ip address|email|first name|last name|custom data/i;
+
+    const responses = dataLines
+      .map(splitLine)
+      .filter(row => row.some(v => v !== ''))
+      .map(row => {
+        const obj = { respondentId: row[0] || '', date: row[2] || '' };
+        if (npsCol != null) { const n = parseInt(row[npsCol.i]); if (!isNaN(n)) obj.npsScore = n; }
+        if (satisfCols.length > 0) { const s = parseFloat(row[satisfCols[0].i]); if (!isNaN(s)) obj.satisfaction = s; }
+        cols.forEach(c => { obj[`_q${c.i}`] = row[c.i] ?? ''; });
+        return obj;
+      });
+
+    if (responses.length === 0) { setImportNotice('No response rows found. Make sure your export includes data rows.'); return; }
+
+    // NPS calc
+    const npsVals = responses.map(r => r.npsScore).filter(n => n != null && n >= 0 && n <= 10);
+    let npsScore     = null;
+    let npsBreakdown = null;
+    if (npsVals.length > 0) {
+      const promoters  = npsVals.filter(n => n >= 9).length;
+      const passives   = npsVals.filter(n => n >= 7 && n <= 8).length;
+      const detractors = npsVals.filter(n => n <= 6).length;
+      npsScore     = Math.round(((promoters - detractors) / npsVals.length) * 100);
+      npsBreakdown = { promoters, passives, detractors };
+    }
+
+    // Avg satisfaction
+    const satisfVals = responses.map(r => r.satisfaction).filter(n => n != null && !isNaN(n) && n >= 1);
+    const avgSatisfaction = satisfVals.length > 0
+      ? (satisfVals.reduce((s, v) => s + v, 0) / satisfVals.length).toFixed(1)
+      : null;
+
+    // Question breakdown (skips metadata)
+    const questionBreakdown = cols
+      .filter(c => c.q && !metaRx.test(c.q))
+      .slice(0, 12)
+      .map(c => {
+        const vals    = responses.map(r => r[`_q${c.i}`]).filter(v => v);
+        const numVals = vals.map(v => parseFloat(v)).filter(n => !isNaN(n));
+        const avg     = numVals.length > 0 ? (numVals.reduce((s, v) => s + v, 0) / numVals.length).toFixed(1) : null;
+        // Top text answers (open-ended)
+        const textMap = {};
+        vals.filter(v => isNaN(parseFloat(v))).forEach(v => { textMap[v] = (textMap[v] || 0) + 1; });
+        const topAnswers = Object.entries(textMap).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([answer, count]) => ({ answer, count }));
+        return { question: (c.q + (c.sub ? ' — ' + c.sub : '')).slice(0, 100), responseCount: vals.length, avg, topAnswers };
+      });
+
+    setSurveyParsed({
+      importedAt:      new Date().toISOString(),
+      totalResponses:  responses.length,
+      npsScore,
+      npsBreakdown,
+      avgSatisfaction,
+      questionBreakdown,
+      _raw: responses.slice(0, 100),
+    });
+  };
+
+  const confirmSaveSurvey = () => {
+    if (!surveyParsed) return;
+    const entry = { ...surveyParsed, _savedAt: new Date().toLocaleString() };
+    setManualData(prev => {
+      const updated = { ...prev, survey_results: [entry, ...(prev.survey_results || [])] };
+      localStorage.setItem('dmd_manual', JSON.stringify(updated));
+      return updated;
+    });
+    setImportNotice(`\u2705 Survey imported — ${surveyParsed.totalResponses} responses, NPS ${surveyParsed.npsScore ?? 'n/a'}`);
+    setSurveyParsed(null);
+    setPasteCSV('');
   };
 
   // ── AI Content Generator ────────────────────────────────────────────────────
@@ -1182,6 +1316,7 @@ const App = () => {
   // Patch placeholder metrics with computed values
   Object.assign(metrics, {
     googleScore:        _avgRating ? _avgRating + ' ★' : '—',
+    nps:                _latestSurvey?.npsScore != null ? String(_latestSurvey.npsScore) : '—',
     videoViews:         _tikLive.recentViews  ? Number(_tikLive.recentViews).toLocaleString()  : '—',
     tiktokVelocity:     (_tiktokPosts.length  || _tikLive.recentPosts) ? String(_tiktokPosts.length || _tikLive.recentPosts) : '—',
     socialPostsMonthly: _socialMet.reduce((s, e) => s + (Number(e.posts) || 0), 0) || '—',
@@ -1265,8 +1400,13 @@ const App = () => {
   }));
   const _totalImpressions = _adSpend.reduce((s,e)=>s+Number(e.impressions||0),0);
 
-  // ── NPS Breakdown ─────────────────────────────────────────────────────────────
-  const npsData = [
+  // ── NPS Breakdown — pulls from latest imported survey if available ───────────
+  const _latestSurvey = (manualData.survey_results || [])[0] || null;
+  const npsData = _latestSurvey?.npsBreakdown ? [
+    { name: 'Promoters',  value: _latestSurvey.npsBreakdown.promoters,  color: '#10b981' },
+    { name: 'Passives',   value: _latestSurvey.npsBreakdown.passives,   color: '#f59e0b' },
+    { name: 'Detractors', value: _latestSurvey.npsBreakdown.detractors, color: '#ef4444' },
+  ] : [
     { name: 'Promoters',  value: 0, color: '#10b981' },
     { name: 'Passives',   value: 0, color: '#f59e0b' },
     { name: 'Detractors', value: 0, color: '#ef4444' },
@@ -4347,14 +4487,19 @@ const App = () => {
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Upload} color="text-teal-500" title="Import Data" subtitle="Upload files, paste CSV, or enter data manually" />
-              <div className="flex gap-2 mb-6">
+              <div className="flex gap-2 mb-6 flex-wrap">
                 {[
                   ['upload',   <><Upload size={12} className="inline mr-1" />File Upload</>],
                   ['paste',    <><FileText size={12} className="inline mr-1" />Paste CSV</>],
                   ['manual',   <><Pencil size={12} className="inline mr-1" />Manual Entry</>],
+                  ['survey',   <><ThumbsUp size={12} className="inline mr-1" />SurveyMonkey</>],
                 ].map(([m, label]) => (
-                  <button key={m} onClick={() => setImportMode(m)}
-                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${importMode===m ? 'bg-teal-600 text-white' : `bg-slate-100 dark:bg-slate-800 ${muted} hover:text-teal-500`}`}>
+                  <button key={m} onClick={() => { setImportMode(m); setSurveyParsed(null); setPasteCSV(''); }}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                      importMode===m
+                        ? m==='survey' ? 'bg-amber-500 text-white' : 'bg-teal-600 text-white'
+                        : `bg-slate-100 dark:bg-slate-800 ${muted} hover:text-teal-500`
+                    }`}>
                     {label}
                   </button>
                 ))}
@@ -4393,7 +4538,7 @@ const App = () => {
                     <button className={`px-6 py-2.5 ${card} ${muted} rounded-xl text-sm font-black border hover:text-teal-500 transition-all`}><Download size={13} className="inline mr-1.5" />Download Template</button>
                   </div>
                   <div className="flex gap-2 justify-center mt-5 flex-wrap">
-                    {['Google Analytics', 'Meta Business', 'Mailchimp', 'Google Ads', 'TikTok', 'Generic CSV'].map(fmt => (
+                    {['Google Analytics', 'Meta Business', 'Mailchimp', 'Google Ads', 'TikTok', 'SurveyMonkey', 'Generic CSV'].map(fmt => (
                       <span key={fmt} className={`text-[13px] font-black px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 ${muted}`}>{fmt}</span>
                     ))}
                   </div>
@@ -4412,6 +4557,153 @@ const App = () => {
                   <textarea value={pasteCSV} onChange={e => setPasteCSV(e.target.value)} className={`w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} font-mono h-44 resize-none focus:outline-none focus:border-teal-500 mb-4`}
                     placeholder={'month,sessions,leads,reach\nJan,1200,45,8500\nFeb,1350,52,9200\nMar,1580,61,10400'} />
                   <button onClick={() => parseCSVText(pasteCSV, pasteDataType)} className="px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">Parse &amp; Import</button>
+                </div>
+              )}
+
+              {importMode === 'survey' && (
+                <div>
+                  {/* Instructions */}
+                  <div className="mb-5 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
+                    <p className="text-sm font-black text-amber-700 dark:text-amber-400 mb-1">How to export from SurveyMonkey</p>
+                    <ol className="text-xs text-amber-600 dark:text-amber-500 space-y-0.5 list-decimal list-inside">
+                      <li>Open your survey → <strong>Analyze Results</strong> tab</li>
+                      <li>Click <strong>Export All</strong> → <strong>Export File</strong></li>
+                      <li>Choose <strong>All Responses Data</strong> → format <strong>CSV</strong></li>
+                      <li>Paste the file contents below or drop the file onto the drop zone</li>
+                    </ol>
+                  </div>
+
+                  {/* Drop zone */}
+                  <div
+                    className="border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-2xl p-8 text-center mb-4 cursor-pointer hover:border-amber-500 transition-colors"
+                    onClick={() => surveyFileRef.current?.click()}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
+                      e.preventDefault();
+                      const f = e.dataTransfer.files[0];
+                      if (!f) return;
+                      const reader = new FileReader();
+                      reader.onload = ev => setPasteCSV(ev.target.result);
+                      reader.readAsText(f);
+                    }}
+                  >
+                    <input type="file" ref={surveyFileRef} accept=".csv,.txt" className="hidden"
+                      onChange={e => {
+                        const f = e.target.files[0]; if (!f) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => setPasteCSV(ev.target.result);
+                        reader.readAsText(f);
+                        e.target.value = '';
+                      }}
+                    />
+                    <Upload size={28} className="text-amber-400 mx-auto mb-2" />
+                    <p className={`text-sm font-black ${txt}`}>Drop your SurveyMonkey CSV here</p>
+                    <p className={`text-xs ${subtl} mt-1`}>or click to browse</p>
+                  </div>
+
+                  {/* Paste area */}
+                  <div className="mb-4">
+                    <label className={`block text-[11px] font-black ${muted} uppercase tracking-wider mb-1.5`}>Or paste CSV text</label>
+                    <textarea
+                      value={pasteCSV}
+                      onChange={e => { setPasteCSV(e.target.value); setSurveyParsed(null); }}
+                      className={`w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs ${txt} font-mono h-40 resize-none focus:outline-none focus:border-amber-500`}
+                      placeholder={`Respondent ID,Collector ID,Start Date,End Date,...,"How likely are you to recommend us? (0-10)","Overall satisfaction"
+,,,,...,"NPS Rating","1-5"
+1001,col1,2026-01-10,...,9,4
+1002,col1,2026-01-11,...,7,5`}
+                    />
+                  </div>
+
+                  <div className="flex gap-3 mb-6">
+                    <button
+                      onClick={() => parseSurveyMonkeyCSV(pasteCSV)}
+                      disabled={!pasteCSV.trim()}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-white rounded-xl text-sm font-black transition-colors"
+                    >
+                      <Search size={13} /> Parse Survey
+                    </button>
+                    {surveyParsed && (
+                      <button
+                        onClick={confirmSaveSurvey}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-black transition-colors"
+                      >
+                        <CheckCircle size={13} /> Confirm &amp; Save
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Parsed preview */}
+                  {surveyParsed && (
+                    <div className="rounded-2xl border-2 border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/10 p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-black text-amber-700 dark:text-amber-400">Survey Preview — review before saving</p>
+                        <span className={`text-[11px] font-bold ${subtl}`}>{surveyParsed.totalResponses} responses</span>
+                      </div>
+
+                      {/* Key metrics row */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-800 text-center">
+                          <p className={`text-2xl font-black ${ surveyParsed.npsScore == null ? subtl : surveyParsed.npsScore >= 50 ? 'text-emerald-600' : surveyParsed.npsScore >= 0 ? 'text-amber-500' : 'text-rose-500' }`}>
+                            {surveyParsed.npsScore != null ? surveyParsed.npsScore : '—'}
+                          </p>
+                          <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-0.5`}>NPS Score</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-800 text-center">
+                          <p className={`text-2xl font-black ${surveyParsed.avgSatisfaction ? 'text-teal-600' : subtl}`}>
+                            {surveyParsed.avgSatisfaction ?? '—'}
+                          </p>
+                          <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-0.5`}>Avg Satisfaction</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-800 text-center">
+                          <p className={`text-2xl font-black ${txt}`}>{surveyParsed.totalResponses}</p>
+                          <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-0.5`}>Responses</p>
+                        </div>
+                      </div>
+
+                      {/* NPS breakdown */}
+                      {surveyParsed.npsBreakdown && (
+                        <div className="flex gap-2">
+                          {[['Promoters', surveyParsed.npsBreakdown.promoters, 'bg-emerald-500'],
+                            ['Passives',  surveyParsed.npsBreakdown.passives,  'bg-amber-400'],
+                            ['Detractors',surveyParsed.npsBreakdown.detractors,'bg-rose-500']].map(([label, count, color]) => (
+                            <div key={label} className="flex-1 flex flex-col items-center p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                              <div className={`w-2.5 h-2.5 rounded-full ${color} mb-1`} />
+                              <p className={`text-base font-black ${txt}`}>{count}</p>
+                              <p className={`text-[9px] font-black ${subtl} uppercase tracking-wider`}>{label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Question breakdown */}
+                      {surveyParsed.questionBreakdown.length > 0 && (
+                        <div>
+                          <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-2`}>Question Results</p>
+                          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                            {surveyParsed.questionBreakdown.map((q, i) => (
+                              <div key={i} className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                                <p className={`text-xs font-bold ${txt} leading-snug mb-1`}>{q.question}</p>
+                                <div className={`flex items-center gap-3 text-[11px] ${subtl}`}>
+                                  <span>{q.responseCount} answers</span>
+                                  {q.avg && <span className="font-black text-teal-500">Avg {q.avg}</span>}
+                                </div>
+                                {q.topAnswers.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {q.topAnswers.map((a, j) => (
+                                      <span key={j} className={`text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 ${txt2}`}>
+                                        {a.answer.slice(0, 40)} <span className="font-black">×{a.count}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -4624,6 +4916,59 @@ const App = () => {
                 ))}
               </div>
             </div>
+
+            {/* ── Survey Results history ──────────────────────────────────────────── */}
+            {(manualData.survey_results || []).length > 0 && (
+              <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
+                <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
+                  <SectionHeader icon={ThumbsUp} color="text-amber-500" title="Survey Results" subtitle="Patient satisfaction data imported from SurveyMonkey" />
+                  <button
+                    onClick={() => { setImportMode('survey'); setSurveyParsed(null); setPasteCSV(''); }}
+                    className="text-xs font-black px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-700 hover:bg-amber-100 transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus size={11} /> Import More
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {(manualData.survey_results || []).slice(0, 5).map((survey, idx) => (
+                    <div key={idx} className={`p-4 rounded-2xl border ${brd} ${idx === 0 ? 'bg-amber-50 dark:bg-amber-900/10' : ''}`}>
+                      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-black px-2 py-0.5 rounded-full ${idx === 0 ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-slate-800 ' + subtl}`}>{idx === 0 ? 'Latest' : `#${idx + 1}`}</span>
+                          <span className={`text-xs ${subtl}`}>{survey._savedAt || new Date(survey.importedAt).toLocaleString()}</span>
+                        </div>
+                        <span className={`text-xs font-black ${subtl}`}>{survey.totalResponses} responses</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="text-center">
+                          <p className={`text-2xl font-black ${survey.npsScore == null ? subtl : survey.npsScore >= 50 ? 'text-emerald-600 dark:text-emerald-400' : survey.npsScore >= 0 ? 'text-amber-500' : 'text-rose-500'}`}>
+                            {survey.npsScore != null ? survey.npsScore : '—'}
+                          </p>
+                          <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>NPS</p>
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-2xl font-black ${survey.avgSatisfaction ? 'text-teal-600 dark:text-teal-400' : subtl}`}>
+                            {survey.avgSatisfaction ?? '—'}
+                          </p>
+                          <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>Avg Sat.</p>
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-2xl font-black ${txt}`}>{survey.totalResponses}</p>
+                          <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>Responses</p>
+                        </div>
+                      </div>
+                      {survey.npsBreakdown && (
+                        <div className={`flex gap-4 mt-3 pt-3 border-t ${brd} text-xs ${subtl}`}>
+                          <span>🟢 Promoters: <strong className={txt}>{survey.npsBreakdown.promoters}</strong></span>
+                          <span>🟡 Passives: <strong className={txt}>{survey.npsBreakdown.passives}</strong></span>
+                          <span>🔴 Detractors: <strong className={txt}>{survey.npsBreakdown.detractors}</strong></span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
               <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
