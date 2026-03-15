@@ -1283,11 +1283,120 @@ const App = () => {
     setChatMessages(updatedMsgs);
     setChatInput('');
     setChatLoading(true);
-    const adSpend   = manualData.ad_spend || [];
+
+    // ── Build rich context snapshot for Captain KPI ──────────────────────────
+    const adSpend    = manualData.ad_spend || [];
     const totalSpend = adSpend.reduce((s, e) => s + (Number(e.spend) || 0), 0);
     const totalLeads = adSpend.reduce((s, e) => s + (Number(e.leads) || 0), 0);
     const googleRating = destinyData?.bestRating?.rating || destinyData?.googleSearch?.rating || destinyData?.google?.rating || 'unknown';
-    const systemPrompt = `You are Captain KPI 🫡 — a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a mental health clinic in Scottsdale, AZ. Be helpful, concise, and funny but professional. Keep responses under 200 words unless asked for more.\n\nCurrent dashboard context:\n- Google rating: ${googleRating}\n- Ad spend records: ${adSpend.length} (total $${totalSpend.toFixed(0)}, leads: ${totalLeads})\n- Wix sessions: ${wixData?.sessions || '—'}\n- Data types imported: ${Object.keys(manualData).filter(k => (manualData[k] || []).length > 0).join(', ') || 'none yet'}\n- Platform ratings tracked: ${Object.keys(reviewPlatformData).filter(k => reviewPlatformData[k]?.rating).join(', ') || 'none'}`;
+
+    // Live integration snapshots (computed inline because they are defined after this fn in render order)
+    const _meta  = liveData['Meta Business Suite']  || {};
+    const _tik   = liveData['TikTok for Business']  || {};
+    const _mail  = liveData['Mailchimp']             || {};
+    const _ga    = liveData['Google Analytics']      || {};
+    const _wix   = (wixData?.sessions) ? wixData : (liveData['Wix Analytics'] || {});
+    const _yt    = liveData['YouTube Analytics']     || {};
+    const _yelp  = liveData['Yelp Reviews']          || {};
+    const _gb    = liveData['Google Business']       || {};
+
+    // Social metrics from manual data
+    const socialRows = (manualData.social_metrics || []).slice(-3);
+
+    // Wix / GA traffic sources
+    const trafficSources = [
+      _wix.organic   != null ? `organic search ${_wix.organic}%`  : null,
+      _wix.social    != null ? `social media ${_wix.social}%`     : null,
+      _wix.direct    != null ? `direct ${_wix.direct}%`           : null,
+      _wix.referral  != null ? `referral ${_wix.referral}%`       : null,
+    ].filter(Boolean).join(', ');
+
+    // Competitor / referral intel
+    const competitors = (competitorData?.competitors || []).slice(0, 5).map(c => c.name || c.url).join(', ');
+    const savedUrlsStr = (savedUrls || []).slice(0, 8).map(u => u.url || u).join(', ');
+
+    // Reviews breakdown
+    const platformReviewStr = Object.entries(reviewPlatformData)
+      .filter(([, v]) => v?.rating)
+      .map(([k, v]) => `${k} ${v.rating}★ (${v.count || '?'} reviews)`)
+      .join(', ');
+
+    // Destiny Springs auto-profile data
+    const dsPhone   = destinyData?.website?.phone     || destinyData?.phone     || 'not loaded';
+    const dsAddr    = destinyData?.website?.address   || destinyData?.address   || 'not loaded';
+    const dsServices = (destinyData?.website?.services || destinyData?.services || []).slice(0, 8).join(', ') || 'not loaded';
+    const dsSocials = destinyData?.socials ? Object.entries(destinyData.socials).map(([k, v]) => `${k}: ${v}`).join(', ') : 'not loaded';
+    const dsKeywords = destinyData?.website?.keywords || destinyData?.keywords  || 'not loaded';
+    const dsReviews  = destinyData?.google?.reviewCount || destinyData?.bestRating?.reviewCount || 'unknown';
+
+    // Recent news saved
+    const newsStr = (newsItems || []).slice(0, 3).map(n => n.title).join(' | ');
+
+    const systemPrompt = `You are Captain KPI 🫡 — a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a behavioral health / mental health clinic in Scottsdale/Surprise AZ. Be helpful, specific, and occasionally funny but always professional. Keep responses under 250 words unless asked for more. Use bullet points for lists.
+
+══ LIVE DASHBOARD DATA ══
+
+BUSINESS PROFILE:
+- Phone: ${dsPhone} | Address: ${dsAddr}
+- Google rating: ${googleRating} (${dsReviews} reviews)
+- Services offered: ${dsServices}
+- Keywords tracked: ${dsKeywords}
+- Social profiles: ${dsSocials}
+
+REVIEW PLATFORM SCORES:
+${platformReviewStr || 'No platform review data loaded yet — user can fetch from Reviews tab.'}
+
+WEBSITE TRAFFIC (Wix/GA4):
+- Sessions: ${_wix.sessions || _ga.sessions || '—'}
+- Bounce rate: ${_wix.bounceRate || _ga.bounceRate || '—'}%
+- Avg session duration: ${_ga.avgDuration || '—'}
+- New users: ${_ga.newUsers || '—'}
+- Traffic sources: ${trafficSources || 'not loaded — user can enter in Settings → Wix Analytics fields'}
+- Conversions: ${_ga.conversions || '—'}
+
+FACEBOOK / INSTAGRAM (Meta Business Suite):
+- Page fans/likes: ${_meta.fanCount || _meta.fans || '—'}
+- Instagram followers: ${_meta.instagramFollowers || '—'}
+- Recent FB posts: ${(_meta.fbPosts || []).length > 0 ? `${_meta.fbPosts.length} loaded, top post ${_meta.fbPosts[0]?.likes || 0} likes` : 'not loaded'}
+- Recent IG posts: ${(_meta.igPosts || []).length > 0 ? `${_meta.igPosts.length} loaded` : 'not loaded'}
+- Connected: ${connections['Meta Business Suite']?.connected ? 'yes' : 'no'}
+
+TIKTOK:
+- Followers: ${_tik.followers || '—'} | Videos: ${_tik.videoCount || '—'} | Total views: ${_tik.totalViews || '—'}
+- Connected: ${connections['TikTok for Business']?.connected ? 'yes' : 'no'}
+
+EMAIL (Mailchimp):
+- List: ${_mail.listName || '—'} | Subscribers: ${_mail.subscribers || '—'}
+- Open rate: ${_mail.openRate || '—'} | Click rate: ${_mail.clickRate || '—'}
+- Total campaigns: ${_mail.totalCampaigns || '—'}
+- Connected: ${connections['Mailchimp']?.connected ? 'yes' : 'no'}
+
+YOUTUBE: subscribers ${_yt.subscribers || '—'}, views ${_yt.totalViews || '—'}
+YELP: ${_yelp.rating ? `${_yelp.rating}★ (${_yelp.reviewCount || '?'} reviews)` : 'not connected'}
+GOOGLE BUSINESS: searches ${_gb.searches || '—'}, direction requests ${_gb.directionRequests || '—'}
+
+PAID ADS: ${adSpend.length} records, total $${totalSpend.toFixed(0)} spend, ${totalLeads} leads${totalLeads > 0 ? `, CPL $${(totalSpend/totalLeads).toFixed(0)}` : ''}
+
+CONTENT CALENDAR: ${contentItems?.length || 0} items scheduled
+SOCIAL METRICS (last 3 entries): ${socialRows.length > 0 ? socialRows.map(r => `${r.platform || ''} ${r.month || ''}: followers ${r.followers || '—'}, reach ${r.reach || '—'}`).join(' | ') : 'none entered'}
+COMPETITOR INTEL: ${competitors || 'not loaded'}
+SAVED INTEL URLS: ${savedUrlsStr || 'none'}
+RECENT NEWS: ${newsStr || 'none loaded'}
+
+POTENTIAL REFERRAL SOURCES TO SUGGEST (even without live data):
+- Primary care physicians, psychiatrists, therapists in Scottsdale/Surprise/Peoria AZ
+- Employee Assistance Programs (EAPs): Aetna, UHC, CIGNA
+- AZ DES / ADHS (Arizona behavioral health referrals)
+- VA (veterans mental health referrals) — VA Phoenix HCS
+- Schools/universities: ASU, GCU, Maricopa Community Colleges
+- Hospitals: HonorHealth, Banner Health, Dignity Health in the West Valley
+- Crisis lines: 988 Suicide & Crisis Lifeline — can cross-refer
+- Online directories: Psychology Today, SAMHSA locator, ZocDoc, Headway
+- Insurance case managers: BCBS AZ, Mercy Care, UHC Community Plan
+- Faith communities, community health centers, FQHC partners in Maricopa County
+
+Always give actionable, specific suggestions. You HAVE the data above — use it. Never say you lack access to data.`;
+
     try {
       const r = await fetch('/api/chat', {
         method: 'POST',
