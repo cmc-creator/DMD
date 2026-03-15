@@ -274,8 +274,10 @@ body {
 /* ══ CONTENT AREA ════════════════════════════════════════════════*/
 .content-area {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   padding: 28px;
   background: #f8fafc;
 }

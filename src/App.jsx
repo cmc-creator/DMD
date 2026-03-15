@@ -2079,7 +2079,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                             .map(([name, val]) => (
                               <div key={name} className="flex items-center justify-between text-xs">
                                 <span className="text-slate-400 font-mono">{name}</span>
-                                <span className={val ? 'text-teal-400 font-bold' : 'text-red-400 font-bold'}>{val ? '✓ set' : '✗ missing'}</span>
+                                <span className={val ? 'text-teal-400 font-bold' : 'text-red-400 font-bold'}>{val ? '✅ set' : '✗ missing'}</span>
                               </div>
                             ))}
                         </div>
@@ -4231,7 +4231,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                           {reviewDraftLoading[i] ? 'Writing…' : reviewDrafts[i] ? 'Regenerate' : 'AI Draft Response'}
                         </button>
                         <span className={`text-[12px] font-black px-2 py-1 rounded-full ${r.responded ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
-                          {r.responded ? '✓ Responded' : 'Needs Response'}
+                          {r.responded ? <><CheckCircle size={9} className="inline mr-1" />Responded</> : 'Needs Response'}
                         </span>
                       </div>
                     </div>
