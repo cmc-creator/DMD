@@ -128,7 +128,47 @@ async function scrapeWebsite() {
 
 // ── 2. FACEBOOK SCRAPER ───────────────────────────────────────────────────────
 async function scrapeFacebook(url = DS_FB) {
-  // Mobile Facebook has lighter, more parseable HTML
+  // ── Strategy A: Facebook Graph API (reliable for any public Business Page) ──
+  const APP_ID     = process.env.META_APP_ID;
+  const APP_SECRET = process.env.META_APP_SECRET;
+  if (APP_ID && APP_SECRET) {
+    try {
+      const pageId   = url.match(/[?&]id=(\d+)/)?.[1] || url.replace(/\/$/, '').split('/').pop() || '';
+      const appToken = `${APP_ID}|${APP_SECRET}`;
+      const [pageRes, postsRes] = await Promise.all([
+        fetch(`https://graph.facebook.com/v18.0/${pageId}?fields=name,fan_count,followers_count,about,category,website,picture.type(large)&access_token=${appToken}`, { signal: AbortSignal.timeout(8000) }),
+        fetch(`https://graph.facebook.com/v18.0/${pageId}/posts?fields=message,story,created_time,full_picture,permalink_url,likes.summary(true),comments.summary(true),shares&limit=12&access_token=${appToken}`, { signal: AbortSignal.timeout(8000) }),
+      ]);
+      const pageData  = await pageRes.json();
+      const postsData = await postsRes.json();
+      if (!pageData.error && pageData.name) {
+        const posts = (postsData.data || []).map(p => ({
+          id:       p.id,
+          message:  p.message || p.story || '',
+          image:    p.full_picture     || null,
+          url:      p.permalink_url    || null,
+          date:     p.created_time,
+          likes:    p.likes?.summary?.total_count    || 0,
+          comments: p.comments?.summary?.total_count || 0,
+          shares:   p.shares?.count || 0,
+        }));
+        return {
+          platform:  'Facebook',
+          url:       `https://www.facebook.com/${pageId}`,
+          name:      pageData.name,
+          followers: pageData.followers_count || pageData.fan_count || 0,
+          likes:     pageData.fan_count       || 0,
+          about:     pageData.about           || null,
+          picture:   pageData.picture?.data?.url || null,
+          posts,
+          fetchedAt: new Date().toISOString(),
+          method:    'graph_api',
+        };
+      }
+    } catch (_) { /* fall through to HTML scrape */ }
+  }
+
+  // ── Strategy B: Mobile HTML scrape (fallback when Graph API unavailable) ──
   const mobileUrl = url.replace('www.facebook.com','m.facebook.com').replace('//facebook.com','//m.facebook.com');
   try {
     const r = await fetchH(mobileUrl, {
@@ -163,8 +203,54 @@ async function scrapeFacebook(url = DS_FB) {
 // ── 3. INSTAGRAM SCRAPER ──────────────────────────────────────────────────────
 async function scrapeInstagram(url = DS_IG) {
   const username = url.match(/instagram\.com\/([^/?#\s]+)/i)?.[1] || 'destinyspringshealthcare';
+
+  // ── Strategy A: Graph API via the linked Facebook Page ──
+  const APP_ID     = process.env.META_APP_ID;
+  const APP_SECRET = process.env.META_APP_SECRET;
+  if (APP_ID && APP_SECRET) {
+    try {
+      const fbPageId = DS_FB.match(/[?&]id=(\d+)/)?.[1] || '61581511228047';
+      const appToken = `${APP_ID}|${APP_SECRET}`;
+      const igChkRes = await fetch(`https://graph.facebook.com/v18.0/${fbPageId}?fields=instagram_business_account&access_token=${appToken}`, { signal: AbortSignal.timeout(6000) });
+      const igChk    = await igChkRes.json();
+      if (igChk.instagram_business_account?.id) {
+        const igId = igChk.instagram_business_account.id;
+        const [igRes, mediaRes] = await Promise.all([
+          fetch(`https://graph.facebook.com/v18.0/${igId}?fields=followers_count,media_count,name,username,biography,profile_picture_url&access_token=${appToken}`, { signal: AbortSignal.timeout(6000) }),
+          fetch(`https://graph.facebook.com/v18.0/${igId}/media?fields=id,media_type,media_url,thumbnail_url,permalink,caption,timestamp,like_count,comments_count&limit=12&access_token=${appToken}`, { signal: AbortSignal.timeout(6000) }),
+        ]);
+        const igData    = await igRes.json();
+        const mediaData = await mediaRes.json();
+        if (!igData.error && igData.username) {
+          return {
+            platform:    'Instagram',
+            url:         `https://www.instagram.com/${igData.username}/`,
+            username:    igData.username,
+            fullName:    igData.name,
+            bio:         igData.biography,
+            followers:   igData.followers_count,
+            posts:       igData.media_count,
+            profilePic:  igData.profile_picture_url,
+            recentMedia: (mediaData.data || []).map(p => ({
+              id:       p.id,
+              type:     p.media_type,
+              image:    p.media_url || p.thumbnail_url,
+              url:      p.permalink,
+              caption:  p.caption?.slice(0, 120) || '',
+              date:     p.timestamp,
+              likes:    p.like_count     || 0,
+              comments: p.comments_count || 0,
+            })),
+            fetchedAt: new Date().toISOString(),
+            method:    'graph_api',
+          };
+        }
+      }
+    } catch (_) { /* fall through */ }
+  }
+
   try {
-    // Strategy A: unofficial profile info API (most reliable for public accounts)
+    // Strategy B: unofficial profile info API
     try {
       const apiRes = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`, {
         headers: {

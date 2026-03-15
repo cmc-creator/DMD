@@ -409,8 +409,31 @@ const App = () => {
     } catch (e) { return { success: false, error: e.message }; }
   };
 
+  const fetchMailchimpDirect = async (creds) => {
+    const { apiKey, listId } = creds;
+    if (!apiKey) return { success: false, error: 'Enter your Mailchimp API key in Integrations → Mailchimp → Connect' };
+    try {
+      const params = new URLSearchParams({ action: 'data', apiKey, ...(listId && { listId }) });
+      const res  = await fetch(`/api/mailchimp?${params}`);
+      const data = await res.json();
+      if (!data.ok) return { success: false, error: data.error || 'Mailchimp fetch failed' };
+      return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+  };
+
+  const fetchGoogleAnalyticsData = async (creds) => {
+    const { refresh_token, propertyId } = creds;
+    if (!refresh_token) return { success: false, error: 'Not connected — click the Google OAuth login button to authorize' };
+    try {
+      const params = new URLSearchParams({ action: 'refresh', refresh_token, ...(propertyId && { propertyId }) });
+      const res  = await fetch(`/api/google?${params}`);
+      const data = await res.json();
+      if (!data.ok) return { success: false, error: data.error || 'Google Analytics refresh failed' };
+      return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+  };
+
   const fetchMetaAdsData = async (creds) => {
-    const { accessToken, adAccountId } = creds;
     if (!accessToken || !adAccountId) return { success: false, error: 'Missing credentials' };
     try {
       const res  = await fetch(`https://graph.facebook.com/v18.0/${adAccountId}?fields=name,currency,account_status&access_token=${encodeURIComponent(accessToken)}`);
@@ -640,6 +663,27 @@ const App = () => {
           };
         });
       }
+      // ── Bridge Graph API posts ⇒ Meta Business Suite so Social tab shows real content ──
+      if ((data.facebook?.posts?.length) || (data.instagram?.recentMedia?.length)) {
+        setLiveData(d => ({
+          ...d,
+          'Meta Business Suite': {
+            ...d['Meta Business Suite'],
+            ...(data.facebook?.posts?.length   && { fbPosts: data.facebook.posts }),
+            ...(data.instagram?.recentMedia?.length && { igPosts: data.instagram.recentMedia }),
+            ...(data.facebook?.followers && { fanCount:   data.facebook.followers }),
+            ...(data.facebook?.likes     && { followers:  data.facebook.likes     }),
+            ...(data.instagram?.followers && { instagramFollowers: data.instagram.followers }),
+          },
+        }));
+        const now = new Date().toLocaleString();
+        setConnections(c => {
+          const updated = { ...c, 'Meta Business Suite': { ...(c['Meta Business Suite'] || {}), connected: true, lastSync: now } };
+          localStorage.setItem('dmd_connections', JSON.stringify(updated));
+          return updated;
+        });
+        setSyncStatus(s => ({ ...s, 'Meta Business Suite': 'ok' }));
+      }
     } catch (e) { setDestinyError(e.message); }
     setDestinyLoading(false);
   };
@@ -669,6 +713,8 @@ const App = () => {
       else if (name === 'TikTok for Business') result = await fetchTikTokData(creds);
       else if (name === 'YouTube Analytics') result = await fetchYouTubeData(creds);
       else if (name === 'Yelp Reviews') result = await fetchYelpData(creds);
+      else if (name === 'Mailchimp') result = await fetchMailchimpDirect(creds);
+      else if (name === 'Google Analytics') result = await fetchGoogleAnalyticsData(creds);
       // Other platforms require a server-side proxy — mark synced but no live payload
       if (result.success) {
         if (result.data && Object.keys(result.data).length > 0) setLiveData(d => ({ ...d, [name]: result.data }));
@@ -699,6 +745,8 @@ const App = () => {
     else if (name === 'TikTok for Business') testResult = await fetchTikTokData(formData);
     else if (name === 'YouTube Analytics') testResult = await fetchYouTubeData(formData);
     else if (name === 'Yelp Reviews') testResult = await fetchYelpData(formData);
+    else if (name === 'Mailchimp') testResult = await fetchMailchimpDirect(formData);
+    else if (name === 'Google Analytics') testResult = await fetchGoogleAnalyticsData(formData);
     setConnectTesting(false);
     if (!testResult.success) { setConnectError(`Connection failed: ${testResult.error}`); return; }
     if (testResult.warning) { setConnectError(`⚠️ ${testResult.warning}`); }
@@ -1293,6 +1341,8 @@ const App = () => {
   const _metaLive   = liveData['Meta Business Suite'] || {};
   const _wixLive    = (wixData && wixData.sessions) ? wixData : (liveData['Wix Analytics'] || {});
   const _tikLive    = liveData['TikTok for Business'] || {};
+  const _mailLive   = liveData['Mailchimp']           || {};
+  const _gaLive     = liveData['Google Analytics']    || {};
   const _socialLive = liveData['_social']             || {};
   const _fbLive     = _socialLive.facebook            || {};
   const _igLive     = _socialLive.instagram           || {};
@@ -1322,9 +1372,12 @@ const App = () => {
     videoViews:         _tikLive.recentViews  ? Number(_tikLive.recentViews).toLocaleString()  : '—',
     tiktokVelocity:     (_tiktokPosts.length  || _tikLive.recentPosts) ? String(_tiktokPosts.length || _tikLive.recentPosts) : '—',
     socialPostsMonthly: _socialMet.reduce((s, e) => s + (Number(e.posts) || 0), 0) || '—',
-    wixSessions:        _wixLive.sessions   ? Number(_wixLive.sessions).toLocaleString()  : '—',
-    wixBounceRate:      _wixLive.bounceRate  ? _wixLive.bounceRate + '%'                   : '—',
-    emailOpenRate:      _emailStats.length   ? (_emailStats.reduce((s, e) => s + (e.sent ? Number(e.opened || 0) / Number(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : '—',
+    wixSessions:        _gaLive.sessions    ? Number(_gaLive.sessions).replace?.(/,/g,'') ? _gaLive.sessions : String(Number(_gaLive.sessions)).toLocaleString()
+                      : _wixLive.sessions   ? Number(_wixLive.sessions).toLocaleString()  : '—',
+    wixBounceRate:      _gaLive.bounceRate  ? _gaLive.bounceRate
+                      : _wixLive.bounceRate ? _wixLive.bounceRate + '%'                   : '—',
+    emailOpenRate:      _mailLive.openRate  ? _mailLive.openRate
+                      : _emailStats.length  ? (_emailStats.reduce((s, e) => s + (e.sent ? Number(e.opened || 0) / Number(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : '—',
     costPerLead:        (_totalSpend && _totalLeads) ? '$' + (_totalSpend / _totalLeads).toFixed(0) : '—',
     totalLeads:         _totalLeads || '—',
   });
@@ -3174,11 +3227,45 @@ const App = () => {
         {activeTab === 'email' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Avg Open Rate"     value={metrics.emailOpenRate} trend={null}  icon={Mail}        color="bg-teal-600"   sub="All Campaigns"      />
-              <StatCard title="Total Sent"        value={emailCampaigns.reduce((s,c)=>s+c.sent,0)>0 ? emailCampaigns.reduce((s,c)=>s+c.sent,0).toLocaleString() : '---'} trend={null} icon={Users} color="bg-purple-600" sub="Total Emails Sent" />
-              <StatCard title="Avg Click Rate"    value={emailCampaigns.length>0 ? (emailCampaigns.reduce((s,c)=>s+c.clicked,0)/Math.max(1,emailCampaigns.reduce((s,c)=>s+c.sent,0))*100).toFixed(1)+'%' : '---'} trend={null} icon={MousePointer} color="bg-emerald-600" sub="Avg CTR" />
-              <StatCard title="Conversions"       value={emailCampaigns.reduce((s,c)=>s+(c.conversions||0),0)||'---'} trend={null} icon={CheckCircle} color="bg-amber-600" sub="Email-Attributed" />
+              <StatCard title="Avg Open Rate"  value={_mailLive.openRate  || metrics.emailOpenRate} trend={null} icon={Mail}         color="bg-teal-600"   sub={_mailLive.listName ? `${_mailLive.listName} · Mailchimp` : 'All Campaigns'} />
+              <StatCard title="Subscribers"    value={_mailLive.subscribers ? Number(_mailLive.subscribers).toLocaleString() : (emailCampaigns.reduce((s,c)=>s+c.sent,0)>0 ? emailCampaigns.reduce((s,c)=>s+c.sent,0).toLocaleString() : '---')} trend={null} icon={Users} color="bg-purple-600" sub={_mailLive.subscribers ? 'Mailchimp Audience' : 'Total Emails Sent'} />
+              <StatCard title="Avg Click Rate" value={_mailLive.clickRate  || (emailCampaigns.length>0 ? (emailCampaigns.reduce((s,c)=>s+c.clicked,0)/Math.max(1,emailCampaigns.reduce((s,c)=>s+c.sent,0))*100).toFixed(1)+'%' : '---')} trend={null} icon={MousePointer} color="bg-emerald-600" sub="Avg CTR" />
+              <StatCard title="Total Campaigns" value={_mailLive.totalCampaigns || emailCampaigns.reduce((s,c)=>s+(c.conversions||0),0)||'---'} trend={null} icon={CheckCircle} color="bg-amber-600" sub={_mailLive.totalCampaigns ? 'Sent via Mailchimp' : 'Email-Attributed'} />
             </div>
+
+            {/* \u2500\u2500 Live Mailchimp campaign list \u2500\u2500 */}
+            {_mailLive.recentCampaigns?.length > 0 && (
+              <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
+                <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+                  <SectionHeader icon={Mail} color="text-yellow-500" title="Recent Mailchimp Campaigns" subtitle={`${_mailLive.listName || 'Audience'} \u00b7 ${_mailLive.subscribers?.toLocaleString() || 0} subscribers`} />
+                  <button onClick={() => syncIntegrationWithCreds('Mailchimp', connections['Mailchimp'])} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-white text-xs font-black transition-all">
+                    <RefreshCw size={11} className={syncStatus['Mailchimp']==='syncing'?'animate-spin':''} /> Refresh
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className={`text-[13px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
+                        {['Campaign','Sent','Open Rate','Click Rate','Date'].map(h => (
+                          <th key={h} className={`${h==='Campaign'?'text-left':'text-right'} pb-3 px-3`}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className={`divide-y ${divdr}`}>
+                      {_mailLive.recentCampaigns.map(c => (
+                        <tr key={c.id}>
+                          <td className={`py-3 pr-3 text-sm font-bold ${txt} max-w-[220px] truncate`} title={c.subject}>{c.title || c.subject}</td>
+                          <td className={`py-3 px-3 text-right text-sm font-bold ${txt2}`}>{c.emailsSent?.toLocaleString() || c.uniqueOpens?.toLocaleString() || '—'}</td>
+                          <td className="py-3 px-3 text-right"><span className="text-sm font-bold text-blue-500">{c.openRate}</span></td>
+                          <td className="py-3 px-3 text-right"><span className="text-sm font-bold text-purple-500">{c.clickRate}</span></td>
+                          <td className={`py-3 pl-3 text-right text-xs ${subtl}`}>{c.sentAt ? new Date(c.sentAt).toLocaleDateString() : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Mail} color="text-teal-500" title="Email Campaign Performance" subtitle="Sends, Opens, Clicks & Conversions" />
               <div className="overflow-x-auto">
