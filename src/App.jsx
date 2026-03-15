@@ -11,7 +11,7 @@ import {
   Target, Award, Bell, TrendingDown, Sun, Moon, Printer,
   Calendar, DollarSign, Plug, Trophy, Heart, WifiOff,
   RefreshCw, Pencil, Send, Zap, BadgeCheck, ShieldCheck, Megaphone,
-  ChevronLeft, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
+  ChevronLeft, ChevronRight, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
   Trash2, Layers, Scale, Tag,
 } from 'lucide-react';
@@ -84,6 +84,8 @@ const App = () => {
   const [activeTab, setActiveTab]               = useState('overview');
   const [darkMode, setDarkMode]                 = useState(true);
   const [calFilter, setCalFilter]               = useState('All');
+  const [calView,     setCalView]               = useState('month');
+  const [calViewDate, setCalViewDate]           = useState(() => new Date().toISOString().slice(0, 10));
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen]       = useState(false);
   const [showAddPost, setShowAddPost]           = useState(false);
@@ -1475,6 +1477,36 @@ const App = () => {
 
   const calendarTypes = ['All', 'Blog', 'Social', 'TikTok', 'Email'];
   const filteredContent = calFilter === 'All' ? contentItems : contentItems.filter(c => c.type === calFilter);
+
+  // ── Calendar view helpers ─────────────────────────────────────────────────
+  const parseItemDate = (dateStr) => {
+    if (!dateStr) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return new Date(dateStr + 'T12:00:00');
+    const m = dateStr.match(/(\d+)/);
+    if (m) {
+      const [yr, mo] = calViewDate.split('-');
+      const dt = new Date(Number(yr), Number(mo) - 1, parseInt(m[1], 10), 12, 0, 0);
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+    return null;
+  };
+  const _calAnchor     = new Date(calViewDate + 'T12:00:00');
+  const _calYear       = _calAnchor.getFullYear();
+  const _calMonth      = _calAnchor.getMonth();
+  const _calDaysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+  const _calFirstDow   = new Date(_calYear, _calMonth, 1).getDay();
+  const _calWeekStart  = (() => { const d = new Date(_calAnchor); d.setDate(_calAnchor.getDate() - _calAnchor.getDay()); return d; })();
+  const _calWeekDays   = Array.from({ length: 7 }, (_, i) => { const d = new Date(_calWeekStart); d.setDate(_calWeekStart.getDate() + i); return d; });
+  const _calToday      = (() => { const d = new Date(); d.setHours(12, 0, 0, 0); return d; })();
+  const _calNavLabel   = calView === 'week'
+    ? `${_calWeekDays[0].toLocaleDateString('default', { month: 'short', day: 'numeric' })} – ${_calWeekDays[6].toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    : _calAnchor.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const navigateCal = (dir) => {
+    const d = new Date(calViewDate + 'T12:00:00');
+    if (calView === 'month') { d.setDate(1); d.setMonth(d.getMonth() + dir); }
+    else { d.setDate(d.getDate() + dir * 7); }
+    setCalViewDate(d.toISOString().slice(0, 10));
+  };
 
   const typeColor = {
     Blog:   'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
@@ -3433,20 +3465,35 @@ const App = () => {
         {/* ══════════════════ CONTENT CALENDAR ══════════════════ */}
         {activeTab === 'calendar' && (
           <>
+            {/* ── Toolbar: view toggle + type filter + schedule button ── */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-              <div className="flex gap-2 flex-wrap">
-                {calendarTypes.map(f => (
-                  <button key={f} onClick={() => setCalFilter(f)}
-                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${calFilter===f ? 'bg-teal-600 text-white shadow-md' : `${card} ${muted} hover:border-teal-400 hover:text-teal-500`}`}>
-                    {f}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* View toggle pill */}
+                <div className="flex rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                  {['month','week','list'].map(v => (
+                    <button key={v} onClick={() => setCalView(v)}
+                      className={`px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${calView===v ? 'bg-teal-600 text-white' : `bg-white dark:bg-slate-800 ${muted} hover:text-teal-500`}`}>
+                      {v}
+                    </button>
+                  ))}
+                </div>
+                {/* Type filter */}
+                <div className="flex gap-1 flex-wrap">
+                  {calendarTypes.map(f => (
+                    <button key={f} onClick={() => setCalFilter(f)}
+                      className={`px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${calFilter===f ? 'bg-teal-600 text-white shadow-md' : `${card} ${muted} hover:border-teal-400 hover:text-teal-500`}`}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
               </div>
               <button onClick={() => setShowAddPost(s => !s)}
                 className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all shadow-lg shadow-teal-900/30">
                 <Plus size={14} /> Schedule Post
               </button>
             </div>
+
+            {/* ── Schedule Post form ── */}
             {showAddPost && (
               <div className={`${card} p-6 rounded-[2rem] mb-6`} style={{ borderColor: 'rgba(13,148,136,0.35)' }}>
                 <div className="flex items-center justify-between mb-5">
@@ -3457,7 +3504,7 @@ const App = () => {
                   {[
                     { label: 'Title',    key: 'title',    type: 'text',   placeholder: 'e.g. Mental Health Awareness Post' },
                     { label: 'Platform', key: 'platform', type: 'select', opts: ['Facebook','Instagram','LinkedIn','TikTok','Mailchimp','Website','TikTok, Instagram','Facebook, LinkedIn','Meta Ads'] },
-                    { label: 'Date',     key: 'date',     type: 'text',   placeholder: 'e.g. Mon 24' },
+                    { label: 'Date',     key: 'date',     type: 'date',   placeholder: '' },
                     { label: 'Type',     key: 'type',     type: 'select', opts: ['Social','Blog','TikTok','Email'] },
                     { label: 'Status',   key: 'status',   type: 'select', opts: ['scheduled','draft','filming','idea'] },
                     { label: 'Notes',    key: 'notes',    type: 'text',   placeholder: 'Brief description or details...' },
@@ -3469,7 +3516,7 @@ const App = () => {
                             className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500 transition-colors`}>
                             {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
                           </select>
-                        : <input type="text" value={newPost[f.key]} onChange={e => setNewPost(p => ({...p, [f.key]: e.target.value}))} placeholder={f.placeholder}
+                        : <input type={f.type} value={newPost[f.key]} onChange={e => setNewPost(p => ({...p, [f.key]: e.target.value}))} placeholder={f.placeholder}
                             className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-teal-500 transition-colors placeholder:text-slate-400`} />
                       }
                     </div>
@@ -3487,6 +3534,8 @@ const App = () => {
                 </div>
               </div>
             )}
+
+            {/* ── Status summary chips ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               {[
                 { label: 'Scheduled',     value: contentItems.filter(c=>c.status==='scheduled').length, color: 'text-teal-500'   },
@@ -3500,24 +3549,132 @@ const App = () => {
                 </div>
               ))}
             </div>
+
+            {/* ── Content Calendar card ── */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="Upcoming Posts &amp; Deadlines" />
-              <div className="space-y-3">
-                {filteredContent.map((item, i) => (
-                  <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
-                    <div className={`shrink-0 text-center w-12 ${card} px-2 py-1.5 rounded-xl`}>
-                      <div className={`text-[13px] font-black uppercase ${subtl}`}>{item.date.split(' ')[0]}</div>
-                      <div className={`text-lg font-black ${txt}`}>{item.date.split(' ')[1]}</div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold ${txt} truncate`}>{item.title}</p>
-                      <p className={`text-[13px] ${muted} font-medium mt-0.5`}>{item.platform}</p>
-                    </div>
-                    <span className={`shrink-0 text-[13px] font-black px-2 py-1 rounded-full ${typeColor[item.type]||''}`}>{item.type}</span>
-                    <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full capitalize ${statusColor[item.status]||''}`}>{item.status}</span>
+              <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+                <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="Upcoming Posts &amp; Deadlines" />
+                {/* Month / week navigation arrows */}
+                {calView !== 'list' && (
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => navigateCal(-1)} className={`p-2 rounded-xl ${card} ${muted} hover:text-teal-500 transition-colors border border-slate-200 dark:border-slate-700`}>
+                      <ChevronLeft size={16} />
+                    </button>
+                    <span className={`text-sm font-black ${txt} min-w-[200px] text-center`}>{_calNavLabel}</span>
+                    <button onClick={() => navigateCal(1)} className={`p-2 rounded-xl ${card} ${muted} hover:text-teal-500 transition-colors border border-slate-200 dark:border-slate-700`}>
+                      <ChevronRight size={16} />
+                    </button>
                   </div>
-                ))}
+                )}
               </div>
+
+              {/* ──── MONTH VIEW ──── */}
+              {calView === 'month' && (() => {
+                const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                const cells = [];
+                for (let i = 0; i < _calFirstDow; i++) cells.push(null);
+                for (let d = 1; d <= _calDaysInMonth; d++) cells.push(d);
+                const rows = [];
+                for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
+                while (rows[rows.length - 1].length < 7) rows[rows.length - 1].push(null);
+                return (
+                  <div>
+                    <div className="grid grid-cols-7 mb-1">
+                      {DAY_NAMES.map(d => (
+                        <div key={d} className={`text-center text-[11px] font-black ${subtl} uppercase py-1.5`}>{d}</div>
+                      ))}
+                    </div>
+                    {rows.map((row, ri) => (
+                      <div key={ri} className="grid grid-cols-7 gap-1 mb-1">
+                        {row.map((day, ci) => {
+                          if (!day) return <div key={ci} className="min-h-[80px] rounded-xl opacity-0" />;
+                          const isToday = new Date(_calYear, _calMonth, day, 12).toDateString() === _calToday.toDateString();
+                          const dayItems = filteredContent.filter(item => {
+                            const pd = parseItemDate(item.date);
+                            return pd && pd.getDate() === day && pd.getMonth() === _calMonth && pd.getFullYear() === _calYear;
+                          });
+                          return (
+                            <div key={ci} className={`min-h-[80px] p-1.5 rounded-xl border transition-colors ${isToday ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' : 'border-transparent hover:border-slate-200 dark:hover:border-slate-700'}`}>
+                              <div className={`text-[12px] font-black mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-teal-600 text-white' : txt}`}>{day}</div>
+                              <div className="space-y-0.5">
+                                {dayItems.slice(0, 3).map((item, ii) => (
+                                  <div key={ii} title={`${item.title} — ${item.platform}`}
+                                    className={`text-[9px] font-black px-1 py-0.5 rounded truncate leading-tight ${typeColor[item.type] || 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                                    {item.title}
+                                  </div>
+                                ))}
+                                {dayItems.length > 3 && (
+                                  <div className={`text-[9px] font-bold ${subtl}`}>+{dayItems.length - 3} more</div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* ──── WEEK VIEW ──── */}
+              {calView === 'week' && (() => {
+                const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                return (
+                  <div className="grid grid-cols-7 gap-2">
+                    {_calWeekDays.map((wd, i) => {
+                      const isToday = wd.toDateString() === _calToday.toDateString();
+                      const dayItems = filteredContent.filter(item => {
+                        const pd = parseItemDate(item.date);
+                        return pd && pd.toDateString() === wd.toDateString();
+                      });
+                      return (
+                        <div key={i} className={`rounded-2xl p-2 border ${isToday ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' : 'border-slate-200 dark:border-slate-700'}`}>
+                          <div className="text-center mb-2">
+                            <div className={`text-[11px] font-black uppercase ${subtl} mb-0.5`}>{DAY_NAMES[wd.getDay()]}</div>
+                            <div className={`text-base font-black w-8 h-8 mx-auto flex items-center justify-center rounded-full ${isToday ? 'bg-teal-600 text-white' : txt}`}>{wd.getDate()}</div>
+                          </div>
+                          <div className="space-y-1">
+                            {dayItems.map((item, ii) => (
+                              <div key={ii} title={`${item.title} — ${item.platform}`}
+                                className={`text-[10px] font-black px-1.5 py-1 rounded-lg truncate ${typeColor[item.type] || 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                                {item.title}
+                              </div>
+                            ))}
+                            {dayItems.length === 0 && (
+                              <div className={`text-[10px] ${subtl} text-center py-2`}>—</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* ──── LIST VIEW ──── */}
+              {calView === 'list' && (
+                <div className="space-y-3">
+                  {filteredContent.map((item, i) => {
+                    const isIso = /^\d{4}-\d{2}-\d{2}$/.test(item.date);
+                    const dow   = isIso ? new Date(item.date + 'T12:00:00').toLocaleDateString('default', { weekday: 'short' }) : item.date.split(' ')[0];
+                    const dom   = isIso ? new Date(item.date + 'T12:00:00').getDate() : item.date.split(' ')[1];
+                    return (
+                      <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
+                        <div className={`shrink-0 text-center w-12 ${card} px-2 py-1.5 rounded-xl`}>
+                          <div className={`text-[13px] font-black uppercase ${subtl}`}>{dow}</div>
+                          <div className={`text-lg font-black ${txt}`}>{dom}</div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-bold ${txt} truncate`}>{item.title}</p>
+                          <p className={`text-[13px] ${muted} font-medium mt-0.5`}>{item.platform}</p>
+                        </div>
+                        <span className={`shrink-0 text-[13px] font-black px-2 py-1 rounded-full ${typeColor[item.type]||''}`}>{item.type}</span>
+                        <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full capitalize ${statusColor[item.status]||''}`}>{item.status}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </>
         )}
