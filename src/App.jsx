@@ -167,6 +167,34 @@ const App = () => {
   const [showOverviewCustomizer, setShowOverviewCustomizer] = useState(false);
   const [reviewOverrides, setReviewOverrides]     = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_overrides') || '{}'); } catch { return {}; } });
 
+  // ── Feature state ─────────────────────────────────────────────────────────
+  const [captionGenerating, setCaptionGenerating]   = useState(false);
+  const [reviewDrafts, setReviewDrafts]             = useState({});
+  const [reviewDraftLoading, setReviewDraftLoading] = useState({});
+  const [autoPostLoading, setAutoPostLoading]       = useState({});
+  const [digestSending, setDigestSending]           = useState(false);
+  const [digestResult, setDigestResult]             = useState('');
+  const [contentItems, setContentItems]             = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('dmd_content') || 'null');
+      if (Array.isArray(s) && s.length) return s;
+    } catch {}
+    return [
+      { title: 'Mental Health Awareness Post',       platform: 'Facebook, Instagram', date: '2026-03-03', type: 'Social', status: 'scheduled', notes: 'Focus on stigma reduction'          },
+      { title: '5 Signs You Need Support (TikTok)',  platform: 'TikTok',              date: '2026-03-04', type: 'TikTok', status: 'filming',   notes: 'Short-form, 60s max'                },
+      { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: '2026-03-05', type: 'Blog',   status: 'draft',     notes: '1,200 words – SEO optimized'        },
+      { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: '2026-03-06', type: 'Email',  status: 'scheduled', notes: 'All subscribers – 3pm send time'    },
+      { title: 'Success Story Spotlight',            platform: 'LinkedIn',            date: '2026-03-07', type: 'Social', status: 'idea',      notes: 'Patient testimonial (anonymized)'   },
+      { title: 'Weekend Wellness Tip',               platform: 'Instagram',           date: '2026-03-08', type: 'Social', status: 'scheduled', notes: '5 breathing exercises for calm'     },
+      { title: 'Staff Introduction Video',           platform: 'TikTok, Instagram',   date: '2026-03-10', type: 'TikTok', status: 'filming',   notes: 'Behind the scenes series'           },
+      { title: 'SEO Blog: Finding a Therapist AZ',  platform: 'Website',             date: '2026-03-13', type: 'Blog',   status: 'idea',      notes: 'Target: therapist near me Arizona'  },
+      { title: 'Monthly Patient Outreach Email',     platform: 'Mailchimp',           date: '2026-03-14', type: 'Email',  status: 'scheduled', notes: 'Re-engagement campaign'             },
+      { title: 'Recovery Awareness Post',            platform: 'Facebook, LinkedIn',  date: '2026-03-17', type: 'Social', status: 'scheduled', notes: 'Link to latest blog article'        },
+      { title: 'TikTok Q&A: Common Questions',       platform: 'TikTok',              date: '2026-03-19', type: 'TikTok', status: 'idea',      notes: '3-part Q&A series'                 },
+      { title: 'Ad Creative: New Patient Special',   platform: 'Meta Ads',            date: '2026-03-20', type: 'Social', status: 'draft',     notes: 'A/B test 2 creative variants'      },
+    ];
+  });
+
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
     else          document.documentElement.classList.remove('dark');
@@ -176,6 +204,11 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('dmd_livedata', JSON.stringify(liveData));
   }, [liveData]);
+
+  // Persist contentItems to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('dmd_content', JSON.stringify(contentItems));
+  }, [contentItems]);
 
   // ── Cloud sync: pull shared data from Vercel KV on mount ────────────────────
   useEffect(() => {
@@ -197,6 +230,7 @@ const App = () => {
         if (data.dmd_connections)      { setConnections(data.dmd_connections);              ls('dmd_connections',        data.dmd_connections); }
         if (data.dmd_saved_urls)       { setSavedUrls(data.dmd_saved_urls);                 ls('dmd_saved_urls',        data.dmd_saved_urls); }
         if (data.dmd_facility_profiles){ setFacilityProfiles(data.dmd_facility_profiles);   ls('dmd_facility_profiles', data.dmd_facility_profiles); }
+        if (data.dmd_content)          { setContentItems(data.dmd_content);                   ls('dmd_content',           data.dmd_content); }
         cloudLoadedRef.current = true;
         setCloudSynced('ok');
         setTimeout(() => { skipNextPushRef.current = false; }, 600);
@@ -221,6 +255,7 @@ const App = () => {
         dmd_connections:       connections,
         dmd_saved_urls:        savedUrls,
         dmd_facility_profiles: facilityProfiles,
+        dmd_content:           contentItems,
         _updatedAt:            new Date().toISOString(),
       };
       setCloudSynced('syncing');
@@ -230,7 +265,7 @@ const App = () => {
         .catch(() => setCloudSynced('error'));
     }, 3000);
     return () => clearTimeout(pushTimerRef.current);
-  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { setShowQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
 
@@ -431,6 +466,100 @@ const App = () => {
       if (!data.ok) return { success: false, error: data.error || 'Google Analytics refresh failed' };
       return { success: true, data };
     } catch (e) { return { success: false, error: e.message }; }
+  };
+
+  // ── AI caption generation ─────────────────────────────────────────────────────
+  const generateCaption = async (title, platform, type) => {
+    if (!title) return;
+    setCaptionGenerating(true);
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          maxTokens: 300,
+          messages: [{ role: 'user', content: `Write a compelling, HIPAA-safe social media caption for a behavioral health/mental wellness facility. Post type: ${type}. Platform: ${platform}. Topic: "${title}". Keep it empathetic, professional, and engaging. Include 3-5 relevant hashtags. Output ONLY the caption text.` }],
+          systemPrompt: 'You are a healthcare social media copywriter specializing in mental health and behavioral wellness. Write warm, professional, stigma-free content. Never mention specific treatment outcomes or patient stories. Always include a gentle call to action.',
+        }),
+      });
+      const d = await res.json();
+      if (d.reply) setNewPost(p => ({ ...p, notes: d.reply }));
+    } catch {}
+    setCaptionGenerating(false);
+  };
+
+  // ── AI review response draft ─────────────────────────────────────────────────
+  const generateReviewResponse = async (review, idx) => {
+    setReviewDraftLoading(l => ({ ...l, [idx]: true }));
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          maxTokens: 250,
+          messages: [{ role: 'user', content: `Write a professional, HIPAA-compliant response to this ${review.rating}-star ${review.platform} review from "${review.author}":\n\n"${review.text}"\n\nRespond as Destiny Springs Healthcare. Be warm, professional, and never reference specific treatment details or confirm they are/were a patient.` }],
+          systemPrompt: 'You are a healthcare reputation manager. Write HIPAA-safe, empathetic review responses. Never confirm/deny patient status. Thank positive reviewers. Address concerns constructively for negative ones. Keep it under 100 words.',
+        }),
+      });
+      const d = await res.json();
+      if (d.reply) setReviewDrafts(prev => ({ ...prev, [idx]: d.reply }));
+    } catch {}
+    setReviewDraftLoading(l => ({ ...l, [idx]: false }));
+  };
+
+  // ── Auto-post to Facebook/Instagram via Graph API ────────────────────────
+  const publishPost = async (item, idx) => {
+    const metaCreds = connections['Meta Business Suite'];
+    if (!metaCreds?.connected || !metaCreds?.accessToken || !metaCreds?.pageId) {
+      alert('Connect Meta Business Suite with a Page Access Token first (Settings → Integrations).');
+      return;
+    }
+    setAutoPostLoading(l => ({ ...l, [idx]: true }));
+    try {
+      const res = await fetch('/api/post', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: item.notes || item.title,
+          pageId:  metaCreds.pageId,
+          token:   metaCreds.accessToken,
+          published: item.status === 'scheduled',
+        }),
+      });
+      const d = await res.json();
+      if (d.ok) {
+        setContentItems(prev => prev.map((c, i) => i === idx ? { ...c, status: 'published', postId: d.postId } : c));
+        alert(`✅ Published! Post ID: ${d.postId}`);
+      } else {
+        alert(`❌ Publish failed: ${d.error}`);
+      }
+    } catch (e) { alert(`❌ Error: ${e.message}`); }
+    setAutoPostLoading(l => ({ ...l, [idx]: false }));
+  };
+
+  // ── Send weekly digest via Mailchimp ─────────────────────────────────────
+  const sendWeeklyDigest = async () => {
+    const mc = connections['Mailchimp'];
+    if (!mc?.connected || !mc?.apiKey) {
+      alert('Connect Mailchimp with an API Key first (Settings → Integrations).');
+      return;
+    }
+    setDigestSending(true); setDigestResult('');
+    try {
+      const res = await fetch('/api/mailchimp?action=sendDigest', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: mc.apiKey,
+          listId: mc.listId,
+          stats: {
+            openRate: _mailLive.openRate,
+            subscribers: _mailLive.subscribers,
+            clickRate: _mailLive.clickRate,
+            totalCampaigns: _mailLive.totalCampaigns,
+          },
+        }),
+      });
+      const d = await res.json();
+      setDigestResult(d.ok ? `✅ Digest campaign created! ${d.campaignId ? 'ID: ' + d.campaignId : ''}` : `❌ ${d.error || 'Failed to create digest'}`);
+    } catch (e) { setDigestResult(`❌ Error: ${e.message}`); }
+    setDigestSending(false);
   };
 
   const fetchMetaAdsData = async (creds) => {
@@ -756,6 +885,7 @@ const App = () => {
     localStorage.setItem('dmd_connections', JSON.stringify(updated));
     if (testResult.data && Object.keys(testResult.data).length > 0) setLiveData(d => ({ ...d, [name]: testResult.data }));
     setSyncStatus(s => ({ ...s, [name]: 'ok' }));
+    setLiveData(d => ({ ...d, _timestamps: { ...(d._timestamps || {}), [name]: new Date().toISOString() } }));
     setConnectModal(null);
     setConnectFormData({});
     setConnectError(null);
@@ -1513,21 +1643,6 @@ const App = () => {
   ];
 
   // ── Content Calendar data ────────────────────────────────────────────────────
-  const [contentItems, setContentItems] = useState([
-    { title: 'Mental Health Awareness Post',       platform: 'Facebook, Instagram', date: 'Mon 3',  type: 'Social', status: 'scheduled', notes: 'Focus on stigma reduction'          },
-    { title: '5 Signs You Need Support (TikTok)',  platform: 'TikTok',              date: 'Tue 4',  type: 'TikTok', status: 'filming',   notes: 'Short-form, 60s max'                },
-    { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: 'Wed 5',  type: 'Blog',   status: 'draft',     notes: '1,200 words – SEO optimized'        },
-    { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: 'Thu 6',  type: 'Email',  status: 'scheduled', notes: 'All subscribers – 3pm send time'    },
-    { title: 'Success Story Spotlight',            platform: 'LinkedIn',            date: 'Fri 7',  type: 'Social', status: 'idea',      notes: 'Patient testimonial (anonymized)'   },
-    { title: 'Weekend Wellness Tip',               platform: 'Instagram',           date: 'Sat 8',  type: 'Social', status: 'scheduled', notes: '5 breathing exercises for calm'     },
-    { title: 'Staff Introduction Video',           platform: 'TikTok, Instagram',   date: 'Mon 10', type: 'TikTok', status: 'filming',   notes: 'Behind the scenes series'           },
-    { title: 'SEO Blog: Finding a Therapist AZ',   platform: 'Website',             date: 'Thu 13', type: 'Blog',   status: 'idea',      notes: 'Target: therapist near me Arizona'  },
-    { title: 'Monthly Patient Outreach Email',     platform: 'Mailchimp',           date: 'Fri 14', type: 'Email',  status: 'scheduled', notes: 'Re-engagement campaign'             },
-    { title: 'Recovery Awareness Post',            platform: 'Facebook, LinkedIn',  date: 'Mon 17', type: 'Social', status: 'scheduled', notes: 'Link to latest blog article'        },
-    { title: 'TikTok Q&A: Common Questions',       platform: 'TikTok',              date: 'Wed 19', type: 'TikTok', status: 'idea',      notes: '3-part Q&A series'                 },
-    { title: 'Ad Creative: New Patient Special',   platform: 'Meta Ads',            date: 'Thu 20', type: 'Social', status: 'draft',     notes: 'A/B test 2 creative variants'      },
-  ]);
-
   const calendarTypes = ['All', 'Blog', 'Social', 'TikTok', 'Email'];
   const filteredContent = calFilter === 'All' ? contentItems : contentItems.filter(c => c.type === calFilter);
 
@@ -2981,28 +3096,39 @@ const App = () => {
                 {_metaLive.fbPosts?.length > 0 && (
                   <div className={`${_metaLive.igPosts?.length > 0 ? 'mt-6 pt-6 border-t ' + brd : 'mt-5'}`}>
                     <p className="text-[11px] font-black text-blue-500 uppercase tracking-wider mb-3">Facebook — Recent Posts</p>
-                    <div className="space-y-3">
-                      {_metaLive.fbPosts.slice(0, 5).map(post => (
-                        <a key={post.id} href={post.url || '#'} target="_blank" rel="noreferrer"
-                          className={`flex gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 border border-blue-100 dark:border-blue-900 transition-colors`}>
-                          {post.image && (
-                            <img src={post.image} alt="" loading="lazy"
-                              className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className={`text-xs font-bold ${txt} leading-relaxed line-clamp-2`}>
-                              {post.message || '(No caption)'}
-                            </p>
-                            <div className="flex items-center gap-3 mt-1.5">
-                              <span className={`text-[10px] ${subtl}`}>{new Date(post.date).toLocaleDateString()}</span>
-                              <span className="text-[10px] text-blue-500 font-black">❤ {post.likes.toLocaleString()}</span>
-                              <span className={`text-[10px] ${subtl} font-bold`}>💬 {post.comments}</span>
-                            </div>
-                          </div>
-                          <ExternalLink size={12} className={`${subtl} flex-shrink-0 mt-1`} />
-                        </a>
-                      ))}
-                    </div>
+                    {(() => {
+                      const engScore = (p) => (p.likes || 0) + (p.comments || 0) * 2 + (p.shares || 0) * 3;
+                      const maxEng   = Math.max(1, ..._metaLive.fbPosts.map(p => engScore(p)));
+                      return (
+                        <div className="space-y-3">
+                          {_metaLive.fbPosts.slice(0, 5).map(post => {
+                            const score = Math.round((engScore(post) / maxEng) * 100);
+                            const scoreColor = score >= 75 ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : score >= 40 ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-500 bg-slate-100 dark:bg-slate-800';
+                            return (
+                              <a key={post.id} href={post.url || '#'} target="_blank" rel="noreferrer"
+                                className={`flex gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 border border-blue-100 dark:border-blue-900 transition-colors`}>
+                                {post.image && (
+                                  <img src={post.image} alt="" loading="lazy"
+                                    className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p className={`text-xs font-bold ${txt} leading-relaxed line-clamp-2`}>
+                                    {post.message || '(No caption)'}
+                                  </p>
+                                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                    <span className={`text-[10px] ${subtl}`}>{new Date(post.date).toLocaleDateString()}</span>
+                                    <span className="text-[10px] text-blue-500 font-black">❤ {post.likes.toLocaleString()}</span>
+                                    <span className={`text-[10px] ${subtl} font-bold`}>💬 {post.comments}</span>
+                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${scoreColor}`}>⚡ {score}</span>
+                                  </div>
+                                </div>
+                                <ExternalLink size={12} className={`${subtl} flex-shrink-0 mt-1`} />
+                              </a>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -3238,10 +3364,20 @@ const App = () => {
               <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
                 <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
                   <SectionHeader icon={Mail} color="text-yellow-500" title="Recent Mailchimp Campaigns" subtitle={`${_mailLive.listName || 'Audience'} \u00b7 ${_mailLive.subscribers?.toLocaleString() || 0} subscribers`} />
-                  <button onClick={() => syncIntegrationWithCreds('Mailchimp', connections['Mailchimp'])} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-white text-xs font-black transition-all">
-                    <RefreshCw size={11} className={syncStatus['Mailchimp']==='syncing'?'animate-spin':''} /> Refresh
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button onClick={() => syncIntegrationWithCreds('Mailchimp', connections['Mailchimp'])} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-white text-xs font-black transition-all">
+                      <RefreshCw size={11} className={syncStatus['Mailchimp']==='syncing'?'animate-spin':''} /> Refresh
+                    </button>
+                    <button onClick={sendWeeklyDigest} disabled={digestSending} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black transition-all disabled:opacity-40">
+                      {digestSending ? <RefreshCw size={11} className="animate-spin" /> : <Send size={11} />} {digestSending ? 'Creating\u2026' : 'Send Weekly Digest'}
+                    </button>
+                  </div>
                 </div>
+                {digestResult && (
+                  <div className={`mb-4 px-4 py-2.5 rounded-xl text-xs font-bold ${digestResult.startsWith('\u2705') ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'}`}>
+                    {digestResult}
+                  </div>
+                )}
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -3609,10 +3745,15 @@ const App = () => {
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-3 flex-wrap">
                   <button onClick={handleAddPost}
                     className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">
                     <Plus size={13} /> Add to Calendar
+                  </button>
+                  <button onClick={() => generateCaption(newPost.title, newPost.platform, newPost.type)}
+                    disabled={captionGenerating || !newPost.title}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-black hover:bg-purple-500 transition-all disabled:opacity-40">
+                    {captionGenerating ? <RefreshCw size={13} className="animate-spin" /> : <Zap size={13} />} {captionGenerating ? 'Writing…' : 'AI Caption'}
                   </button>
                   <button onClick={() => setShowAddPost(false)}
                     className={`px-6 py-2.5 ${card} ${muted} rounded-xl text-sm font-black hover:text-teal-500 transition-all border`}>
@@ -3754,9 +3895,20 @@ const App = () => {
                         <div className="flex-1 min-w-0">
                           <p className={`text-sm font-bold ${txt} truncate`}>{item.title}</p>
                           <p className={`text-[13px] ${muted} font-medium mt-0.5`}>{item.platform}</p>
+                          {item.notes && <p className={`text-[12px] ${subtl} mt-0.5 truncate`}>{item.notes}</p>}
                         </div>
                         <span className={`shrink-0 text-[13px] font-black px-2 py-1 rounded-full ${typeColor[item.type]||''}`}>{item.type}</span>
                         <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full capitalize ${statusColor[item.status]||''}`}>{item.status}</span>
+                        {item.status !== 'published' && /Facebook|Instagram/i.test(item.platform) && (
+                          <button
+                            onClick={() => publishPost(item, i)}
+                            disabled={autoPostLoading[i]}
+                            title="Publish now to Facebook via Graph API"
+                            className="shrink-0 flex items-center gap-1 text-[11px] font-black px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-40">
+                            {autoPostLoading[i] ? <RefreshCw size={10} className="animate-spin" /> : <Send size={10} />}
+                            {autoPostLoading[i] ? '…' : 'Publish'}
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -3954,9 +4106,23 @@ const App = () => {
                         </div>
                       </div>
                       <p className={`text-xs ${txt2} leading-relaxed line-clamp-2`}>{r.text}</p>
-                      <div className="flex justify-end mt-2">
+                      {reviewDrafts[i] && (
+                        <div className="mt-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+                          <p className="text-[11px] font-black text-purple-500 uppercase tracking-wider mb-1">AI Draft Response</p>
+                          <p className={`text-xs ${txt2} leading-relaxed`}>{reviewDrafts[i]}</p>
+                          <button onClick={() => { navigator.clipboard.writeText(reviewDrafts[i]); }} className="mt-1.5 text-[11px] font-black text-purple-500 hover:text-purple-400">Copy</button>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center mt-2 gap-2 flex-wrap">
+                        <button
+                          onClick={() => generateReviewResponse(r, i)}
+                          disabled={reviewDraftLoading[i]}
+                          className="flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 transition-colors disabled:opacity-40">
+                          {reviewDraftLoading[i] ? <RefreshCw size={9} className="animate-spin" /> : <Bot size={9} />}
+                          {reviewDraftLoading[i] ? 'Writing…' : reviewDrafts[i] ? 'Regenerate' : 'AI Draft Response'}
+                        </button>
                         <span className={`text-[12px] font-black px-2 py-1 rounded-full ${r.responded ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
-                          {r.responded ? '? Responded' : 'Needs Response'}
+                          {r.responded ? '✓ Responded' : 'Needs Response'}
                         </span>
                       </div>
                     </div>
@@ -4616,7 +4782,17 @@ const App = () => {
                     }
                   </div>
                   <div className={`flex items-center justify-between text-[12px] ${subtl} border-t ${brd} pt-3`}>
-                    <span className="truncate mr-2">Last sync: {intg.lastSync}</span>
+                    <div className="flex items-center gap-2 truncate mr-2">
+                      <span className="truncate">Last sync: {intg.lastSync}</span>
+                      {(() => {
+                        const ts = liveData._timestamps?.[intg.name];
+                        if (!ts) return null;
+                        const diff = Date.now() - new Date(ts).getTime();
+                        const label = diff < 60000 ? 'Just now' : diff < 3600000 ? `${Math.floor(diff/60000)}m ago` : diff < 86400000 ? `${Math.floor(diff/3600000)}h ago` : `${Math.floor(diff/86400000)}d ago`;
+                        const fresh = diff < 3600000;
+                        return <span className={`shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-full ${fresh ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>{label}</span>;
+                      })()}
+                    </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {intg.connected && (
                         <button onClick={() => disconnectIntegration(intg.name)} className="text-rose-400 hover:text-rose-300 font-black flex items-center gap-1 text-[11px]">
