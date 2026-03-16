@@ -104,6 +104,7 @@ const App = () => {
   const [manualForm, setManualForm]             = useState({});
   const [showQuickAdd, setShowQuickAdd]         = useState(false);
   const fileInputRef                             = useRef(null);
+  const wixFileRef                               = useRef(null);
   const cloudLoadedRef                           = useRef(false);
   const skipNextPushRef                          = useRef(false);
   const pushTimerRef                             = useRef(null);
@@ -130,6 +131,7 @@ const App = () => {
   const [chatInput, setChatInput]               = useState('');
   const [chatLoading, setChatLoading]           = useState(false);
   const [importNotice, setImportNotice]         = useState('');
+  const [wixFormVals, setWixFormVals]           = useState({});
   const [reviewPlatformData, setReviewPlatformData] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}'); } catch { return {}; } });
   const [reviewPlatformForm, setReviewPlatformForm]   = useState({ editingPlatform: null, rating: '', count: '', url: '' });
   const [reviewFetchingPlatform, setReviewFetchingPlatform] = useState(null);
@@ -1049,6 +1051,59 @@ const App = () => {
       }
     };
     reader.onerror = () => setImportNotice('Error reading file.');
+    reader.readAsText(file);
+  };
+
+  // ── Wix Analytics CSV import parser ────────────────────────────────────────
+  const handleWixCsvUpload = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ({ target: { result } }) => {
+      const lines = result.trim().split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { setImportNotice('CSV needs at least a header row and one data row.'); return; }
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+      const sessIdx   = headers.findIndex(h => h.includes('session'));
+      const bounceIdx = headers.findIndex(h => h.includes('bounce'));
+      const sourceIdx = headers.findIndex(h => h.includes('source') || h.includes('channel') || h.includes('traffic'));
+      let totalSessions = 0, totalBounce = 0, bounceCount = 0;
+      const sources = { organic: 0, social: 0, direct: 0, referral: 0 };
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+        if (sourceIdx !== -1 && sessIdx !== -1) {
+          const srcName = (cols[sourceIdx] || '').toLowerCase();
+          const srcSess = parseFloat(cols[sessIdx] || '0') || 0;
+          if (srcName.includes('organic') || srcName.includes('search')) sources.organic += srcSess;
+          else if (srcName.includes('social')) sources.social += srcSess;
+          else if (srcName.includes('direct')) sources.direct += srcSess;
+          else if (srcName.includes('referral')) sources.referral += srcSess;
+          totalSessions += srcSess;
+        } else if (sessIdx !== -1) {
+          const s = parseFloat(cols[sessIdx] || '0') || 0;
+          if (s > 0) totalSessions += s;
+          if (bounceIdx !== -1) {
+            const b = parseFloat(cols[bounceIdx] || '0') || 0;
+            if (b > 0) { totalBounce += b; bounceCount++; }
+          }
+        }
+      }
+      if (totalSessions === 0) { setImportNotice('\u26a0\ufe0f Could not find a sessions column. Try manual entry below.'); return; }
+      const hasSources = Object.values(sources).some(v => v > 0);
+      setWixFormVals({
+        sessions:   String(Math.round(totalSessions)),
+        bounceRate: bounceCount > 0 ? String(Math.round(totalBounce / bounceCount)) : '',
+        organic:    hasSources ? String(Math.round(sources.organic  / totalSessions * 100)) : '',
+        social:     hasSources ? String(Math.round(sources.social   / totalSessions * 100)) : '',
+        direct:     hasSources ? String(Math.round(sources.direct   / totalSessions * 100)) : '',
+        referral:   hasSources ? String(Math.round(sources.referral / totalSessions * 100)) : '',
+      });
+      setFileImportLog(prev => {
+        const upd = [{ name: file.name, date: new Date().toLocaleString(), rows: lines.length - 1, type: 'Wix Analytics' }, ...prev].slice(0, 100);
+        localStorage.setItem('dmd_import_log', JSON.stringify(upd));
+        return upd;
+      });
+      setImportNotice(`\u2705 Wix CSV parsed (${lines.length - 1} rows) \u2014 review values below and click Save Wix Data`);
+    };
+    reader.onerror = () => setImportNotice('Error reading Wix CSV.');
     reader.readAsText(file);
   };
 
@@ -4387,6 +4442,38 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                       ['library', 'Facility Library' + (facilityProfiles.length > 0 ? ' (' + facilityProfiles.length + ')' : '')],
                       ['compare', 'Compare'],
                     ].map(([id, lbl]) => (
+
+            {/* ── Captain KPI — Import Data Analysis ── */}
+            <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
+              <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
+                <SectionHeader icon={Bot} color="text-purple-500" title="AI Data Analysis" subtitle="Captain KPI reads your imported data and delivers the hard truths" />
+                <button
+                  onClick={analyzeData}
+                  disabled={aiInsightsLoading}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-all flex-shrink-0 shadow-lg"
+                >
+                  <Bot size={14} className={aiInsightsLoading ? 'animate-spin' : ''} />
+                  {aiInsightsLoading ? 'Analyzing…' : 'Analyze Imported Data'}
+                </button>
+              </div>
+              {aiInsights ? (
+                <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700/40">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <CaptainKPI size={28} />
+                    </div>
+                    <span className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">Captain KPI reporting:</span>
+                  </div>
+                  <p className={`text-sm ${txt2} whitespace-pre-wrap leading-relaxed`}>{aiInsights}</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <CaptainKPI size={48} />
+                  <p className={`text-sm font-black ${txt} mt-3 mb-1`}>Ready to analyze your data</p>
+                  <p className={`text-xs ${subtl} max-w-sm text-center`}>Import your data above, then hit Analyze — Captain KPI will break down what it means for Destiny Springs.</p>
+                </div>
+              )}
+            </div>
                       <button key={id} onClick={() => setScraperSubView(id)}
                         className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${scraperSubView===id ? 'bg-teal-600 text-white' : 'bg-slate-100 dark:bg-slate-800 ' + muted + ' hover:text-teal-500'}`}>
                         {id === 'scan' && <Globe size={11} className="inline mr-1" />}
@@ -4725,7 +4812,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                   <div className="flex flex-wrap gap-2 mb-6">
                     {[
                       { label: 'NAMI Blog',       url: 'https://www.nami.org/blog/feed/' },
-                      { label: 'Psychology Today', url: 'https://www.psychologytoday.com/us/rss.xml' },
+                      { label: 'NIMH News',        url: 'https://www.nimh.nih.gov/rss/health.rss' },
                       { label: 'Behavioral Health News', url: 'https://bhbusiness.com/feed/' },
                     ].map(f => (
                       <button key={f.label} onClick={() => { setRssFeedUrl(f.url); fetchRssFeed(f.url); }}
@@ -5022,6 +5109,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                   ['paste',    <><FileText size={12} className="inline mr-1" />Paste CSV</>],
                   ['manual',   <><Pencil size={12} className="inline mr-1" />Manual Entry</>],
                   ['survey',   <><ThumbsUp size={12} className="inline mr-1" />SurveyMonkey</>],
+                  ['wix',      <><Globe size={12} className="inline mr-1" />Wix Analytics</>],
                 ].map(([m, label]) => (
                   <button key={m} onClick={() => { setImportMode(m); setSurveyParsed(null); setPasteCSV(''); }}
                     className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
@@ -5410,6 +5498,116 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                     className="mt-5 flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">
                     <Plus size={13} /> Save Entry
                   </button>
+                </div>
+              )}
+
+              {importMode === 'wix' && (
+                <div>
+                  {/* ── Instructions ── */}
+                  <div className="mb-6 p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/50">
+                    <p className="text-[13px] font-black text-violet-700 dark:text-violet-300 mb-3 flex items-center gap-2">
+                      <Globe size={14} /> How to export from Wix Analytics
+                    </p>
+                    <ol className="space-y-2 text-xs text-violet-600 dark:text-violet-400">
+                      <li className="flex items-start gap-2">
+                        <span className="font-black shrink-0 bg-violet-200 dark:bg-violet-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">1</span>
+                        In your Wix Dashboard, go to <strong>Analytics &amp; Reports → Traffic Overview</strong>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-black shrink-0 bg-violet-200 dark:bg-violet-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">2</span>
+                        Set your date range (e.g. last 30 days), then click <strong>Export to CSV</strong>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-black shrink-0 bg-violet-200 dark:bg-violet-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">3</span>
+                        Optionally also export the <strong>Traffic Sources</strong> report for channel breakdowns
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-black shrink-0 bg-violet-200 dark:bg-violet-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">4</span>
+                        Drop the downloaded file into the upload zone below — we'll auto-parse it
+                      </li>
+                    </ol>
+                  </div>
+
+                  {/* ── CSV upload zone ── */}
+                  <div
+                    className="border-2 border-dashed border-violet-300 dark:border-violet-700/50 rounded-2xl p-10 text-center hover:border-violet-500 transition-colors cursor-pointer mb-6 group"
+                    onClick={() => wixFileRef.current?.click()}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleWixCsvUpload(f); }}
+                  >
+                    <input
+                      type="file"
+                      ref={wixFileRef}
+                      accept=".csv,.txt"
+                      className="hidden"
+                      onChange={e => { if (e.target.files[0]) handleWixCsvUpload(e.target.files[0]); e.target.value = ''; }}
+                    />
+                    <Upload size={30} className={`${subtl} group-hover:text-violet-500 mx-auto mb-2 transition-colors`} />
+                    <p className={`text-sm font-black ${txt} mb-1`}>Drop your Wix Analytics CSV here</p>
+                    <p className={`text-xs ${subtl} mb-4`}>Traffic Overview or Traffic Sources export — sessions, bounce rate &amp; channels auto-detected</p>
+                    <button
+                      className="px-5 py-2 bg-violet-600 text-white rounded-xl text-sm font-black hover:bg-violet-500 transition-all"
+                      onClick={e => { e.stopPropagation(); wixFileRef.current?.click(); }}
+                    >
+                      Browse File
+                    </button>
+                  </div>
+
+                  {/* ── Manual entry fallback ── */}
+                  <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-3`}>Or enter manually</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+                    {[
+                      { key: 'sessions',   label: 'Monthly Sessions', ph: '12000' },
+                      { key: 'bounceRate', label: 'Bounce Rate %',     ph: '45'   },
+                      { key: 'organic',    label: 'Organic Search %',  ph: '50'   },
+                      { key: 'social',     label: 'Social Media %',    ph: '20'   },
+                      { key: 'direct',     label: 'Direct %',          ph: '20'   },
+                      { key: 'referral',   label: 'Referral %',        ph: '10'   },
+                    ].map(({ key, label, ph }) => (
+                      <div key={key}>
+                        <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>{label}</label>
+                        <input
+                          type="number"
+                          placeholder={ph}
+                          value={wixFormVals[key] || ''}
+                          onChange={e => setWixFormVals(v => ({ ...v, [key]: e.target.value }))}
+                          className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} focus:outline-none focus:border-violet-500`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const r = await fetchWixData(wixFormVals);
+                      setImportNotice(r.success ? '\u2705 Wix Analytics data saved!' : `\u26a0\ufe0f ${r.error}`);
+                      if (r.success) setWixFormVals({});
+                    }}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 text-white rounded-xl text-sm font-black hover:bg-violet-500 transition-all"
+                  >
+                    <Plus size={13} /> Save Wix Data
+                  </button>
+
+                  {/* ── Current Wix data preview ── */}
+                  {wixData?.sessions > 0 && (
+                    <div className="mt-5 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                      <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-3`}>Current Wix Data on Record</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {[
+                          { key: 'sessions',   label: 'Sessions',   unit: ''  },
+                          { key: 'bounceRate', label: 'Bounce Rate', unit: '%' },
+                          { key: 'organic',    label: 'Organic',    unit: '%' },
+                          { key: 'social',     label: 'Social',     unit: '%' },
+                          { key: 'direct',     label: 'Direct',     unit: '%' },
+                          { key: 'referral',   label: 'Referral',   unit: '%' },
+                        ].filter(({ key }) => wixData[key] > 0).map(({ key, label, unit }) => (
+                          <div key={key} className="text-center p-2 rounded-xl bg-white dark:bg-slate-900/50">
+                            <p className={`text-[11px] ${subtl} uppercase tracking-wider mb-0.5`}>{label}</p>
+                            <p className="text-lg font-black text-violet-500">{Number(wixData[key]).toLocaleString()}{unit}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
