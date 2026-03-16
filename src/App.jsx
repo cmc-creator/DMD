@@ -1659,6 +1659,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   const _totalSpend = _adSpend.reduce((s, e) => s + (Number(e.spend) || 0), 0);
   const _latestSocial = {};
   _socialMet.forEach(e => { if (!_latestSocial[e.platform] || (e.month || '') > (_latestSocial[e.platform].month || '')) _latestSocial[e.platform] = e; });
+  const _latestSurvey = (manualData.survey_results || [])[0] || null;
   // Patch placeholder metrics with computed values
   Object.assign(metrics, {
     googleScore:        _avgRating ? _avgRating + ' ★' : '—',
@@ -1750,7 +1751,6 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   const _totalImpressions = _adSpend.reduce((s,e)=>s+Number(e.impressions||0),0);
 
   // ── NPS Breakdown — pulls from latest imported survey if available ───────────
-  const _latestSurvey = (manualData.survey_results || [])[0] || null;
   const npsData = _latestSurvey?.npsBreakdown ? [
     { name: 'Promoters',  value: _latestSurvey.npsBreakdown.promoters,  color: '#10b981' },
     { name: 'Passives',   value: _latestSurvey.npsBreakdown.passives,   color: '#f59e0b' },
