@@ -4442,38 +4442,6 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                       ['library', 'Facility Library' + (facilityProfiles.length > 0 ? ' (' + facilityProfiles.length + ')' : '')],
                       ['compare', 'Compare'],
                     ].map(([id, lbl]) => (
-
-            {/* ── Captain KPI — Import Data Analysis ── */}
-            <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
-              <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
-                <SectionHeader icon={Bot} color="text-purple-500" title="AI Data Analysis" subtitle="Captain KPI reads your imported data and delivers the hard truths" />
-                <button
-                  onClick={analyzeData}
-                  disabled={aiInsightsLoading}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-all flex-shrink-0 shadow-lg"
-                >
-                  <Bot size={14} className={aiInsightsLoading ? 'animate-spin' : ''} />
-                  {aiInsightsLoading ? 'Analyzing…' : 'Analyze Imported Data'}
-                </button>
-              </div>
-              {aiInsights ? (
-                <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700/40">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <CaptainKPI size={28} />
-                    </div>
-                    <span className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">Captain KPI reporting:</span>
-                  </div>
-                  <p className={`text-sm ${txt2} whitespace-pre-wrap leading-relaxed`}>{aiInsights}</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <CaptainKPI size={48} />
-                  <p className={`text-sm font-black ${txt} mt-3 mb-1`}>Ready to analyze your data</p>
-                  <p className={`text-xs ${subtl} max-w-sm text-center`}>Import your data above, then hit Analyze — Captain KPI will break down what it means for Destiny Springs.</p>
-                </div>
-              )}
-            </div>
                       <button key={id} onClick={() => setScraperSubView(id)}
                         className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${scraperSubView===id ? 'bg-teal-600 text-white' : 'bg-slate-100 dark:bg-slate-800 ' + muted + ' hover:text-teal-500'}`}>
                         {id === 'scan' && <Globe size={11} className="inline mr-1" />}
@@ -5779,6 +5747,38 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                   </div>
                 );
               })()}
+            </div>
+
+            {/* ── Captain KPI — Import Data Analysis ── */}
+            <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
+              <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
+                <SectionHeader icon={Bot} color="text-purple-500" title="AI Data Analysis" subtitle="Captain KPI reads your imported data and delivers the hard truths" />
+                <button
+                  onClick={analyzeData}
+                  disabled={aiInsightsLoading}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-all flex-shrink-0 shadow-lg"
+                >
+                  <Bot size={14} className={aiInsightsLoading ? 'animate-spin' : ''} />
+                  {aiInsightsLoading ? 'Analyzing…' : 'Analyze Imported Data'}
+                </button>
+              </div>
+              {aiInsights ? (
+                <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700/40">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <CaptainKPI size={28} />
+                    </div>
+                    <span className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">Captain KPI reporting:</span>
+                  </div>
+                  <p className={`text-sm ${txt2} whitespace-pre-wrap leading-relaxed`}>{aiInsights}</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <CaptainKPI size={48} />
+                  <p className={`text-sm font-black ${txt} mt-3 mb-1`}>Ready to analyze your data</p>
+                  <p className={`text-xs ${subtl} max-w-sm text-center`}>Import your data above, then hit Analyze — Captain KPI will break down what it means for Destiny Springs.</p>
+                </div>
+              )}
             </div>
           </>
         )}
