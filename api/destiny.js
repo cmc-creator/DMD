@@ -766,11 +766,15 @@ export default async function handler(req, res) {
       const bHtml = bRes.ok ? (await bRes.text().catch(()=>'')) : '';
       const dHtml = dRes.ok ? (await dRes.text().catch(()=>'')) : '';
       const gHtml = gRes.ok ? (await gRes.text().catch(()=>'')) : '';
-      // Find rating-relevant snippets
+      // Find rating-relevant snippets — search specifically for rating number patterns
       const ratingSnippet = (html) => {
-        const i = html.search(/ratingValue|reviewCount|review|rating|\d\.\d.*star|\d{2,}.*review/i);
-        if (i < 0) return 'NO_RATING_KEYWORD_FOUND';
-        return html.slice(Math.max(0, i - 100), i + 600);
+        // Search for patterns that look like star ratings near review counts
+        const patterns = [/\d\.\d[^\d]{1,30}\d{2,4}[^\d]{1,20}review/i, /ratingValue[":]{1,3}[\d.]+/i, /aggregateRating/i, /itemprop="rating/i, /\d{2,4}\s+(?:Google\s+)?reviews/i];
+        for (const p of patterns) {
+          const i = html.search(p);
+          if (i >= 0) return `[Found: ${p.source.slice(0,30)}] ` + html.slice(Math.max(0, i - 50), i + 400);
+        }
+        return 'NO_RATING_PATTERN_FOUND (len=' + html.length + ')';
       };
       return res.json({
         ok: true,
