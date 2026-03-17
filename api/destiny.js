@@ -753,7 +753,30 @@ export default async function handler(req, res) {
     if (action === 'yelp')      return res.json({ ok:true, yelp:      await scrapeYelp() });
     if (action === 'glassdoor') return res.json({ ok:true, glassdoor: await scrapeGlassdoor() });
     if (action === 'hg')        return res.json({ ok:true, healthgrades: await scrapeHealthgrades() });
-    if (action === 'gsearch')   return res.json({ ok:true, googleSearch: await scrapeGoogleRating() });
+    if (action === 'gsearch') {
+      // Debug mode: show status codes from each source
+      const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(DS_QUERY + ' reviews')}&setmkt=en-US&setlang=en`;
+      const ddgUrl  = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(DS_QUERY + ' reviews rating')}`;
+      const gUrl    = `https://www.google.com/search?q=${encodeURIComponent(DS_QUERY + ' reviews rating')}&num=3&hl=en`;
+      const [bRes, dRes, gRes] = await Promise.all([
+        fetchH(bingUrl, { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0', 'Referer': 'https://www.bing.com/' }, 8000).catch(e => ({ ok:false, status: 0, _err: e.message })),
+        fetchH(ddgUrl,  { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', 'Referer': 'https://duckduckgo.com/' }, 8000).catch(e => ({ ok:false, status: 0, _err: e.message })),
+        fetchH(gUrl,    { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36' }, 7000).catch(e => ({ ok:false, status: 0, _err: e.message })),
+      ]);
+      const bHtml = bRes.ok ? (await bRes.text().catch(()=>'')) : '';
+      const dHtml = dRes.ok ? (await dRes.text().catch(()=>'')) : '';
+      const gHtml = gRes.ok ? (await gRes.text().catch(()=>'')) : '';
+      return res.json({
+        ok: true,
+        bingStatus: bRes.status, bingOk: bRes.ok, bingSnippet: bHtml.slice(0, 800),
+        ddgStatus:  dRes.status, ddgOk:  dRes.ok, ddgSnippet:  dHtml.slice(0, 800),
+        googleStatus: gRes.status, googleOk: gRes.ok, googleSnippet: gHtml.slice(0, 800),
+        bingRatingHit: _parseRatingFromHtml(bHtml, 'Bing'),
+        ddgRatingHit:  _parseRatingFromHtml(dHtml, 'DDG'),
+        googleRatingHit: _parseRatingFromHtml(gHtml, 'Google'),
+        googleSearch: await scrapeGoogleRating(),
+      });
+    }
     if (action === 'findplace') {
       if (!apiKey) return res.status(400).json({ ok:false, error:'Requires GOOGLE_PLACES_KEY' });
       return res.json({ ok:true, ...(await findPlaceId(apiKey)) });
