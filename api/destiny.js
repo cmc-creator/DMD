@@ -19,10 +19,10 @@ const DS_FB  = 'https://www.facebook.com/profile.php?id=61581511228047';
 const DS_IG  = 'https://www.instagram.com/destinyspringshealthcare/';
 const DS_TT  = 'https://www.tiktok.com/@destinyspringshealthcare';
 const DS_LI  = 'https://www.linkedin.com/company/destiny-springs-healthcare';
-const DS_YELP_QUERY = 'Destiny Springs Healthcare Scottsdale AZ';
+const DS_YELP_QUERY = 'Destiny Springs Healthcare Surprise AZ';
 const DS_GD  = 'destiny-springs-healthcare';
 const DS_WEB = 'https://destinyspringshealthcare.com';
-const DS_QUERY = 'Destiny Springs Healthcare Scottsdale AZ';
+const DS_QUERY = 'Destiny Springs Healthcare Surprise AZ';
 
 // ── Shared fetch with browser UA + timeout ────────────────────────────────────
 const fetchH = (url, headers = {}, ms = 8000) =>
@@ -619,25 +619,72 @@ async function scrapeGlassdoor() {
   }
 }
 
-// ── 10. GOOGLE SEARCH KNOWLEDGE PANEL ───────────────────────────────────────
+// ── 10. GOOGLE / BING / DDG RATING SCRAPER ──────────────────────────────────
+// Tries multiple sources in order. Google blocks Vercel IPs aggressively;
+// Bing and DuckDuckGo are more permissive from cloud environments.
+function _parseRatingFromHtml(html, sourceName) {
+  // JSON-LD aggregate rating
+  const ld = findAggRating(getJsonLd(html));
+  if (ld?.rating) return { ...ld, source: sourceName };
+  // aria-label pattern (Google)
+  const aria = html.match(/aria-label=["'][Rr]ated?\s*([\d.]+)[^"']*\(([\d,]+)\s+review/i);
+  if (aria) return { rating: parseFloat(aria[1]), reviewCount: parseInt(aria[2].replace(/,/g,'')), source: sourceName };
+  // inline rating + review count
+  const inline = html.match(/([\d.]{1,3})\s*(?:(?:out of|\/)\s*5|★).*?([\d,]{3,})\s*(?:Google\s+)?reviews?/i)
+               || html.match(/([\d.]{3})\s*\([^)]*([\d,]{3,})\s*(?:Google\s+)?reviews?/i);
+  if (inline) return { rating: parseFloat(inline[1]), reviewCount: parseInt(inline[2].replace(/,/g,'')), source: sourceName };
+  // Bing structured snippets: "4.2 · 168 Google reviews"
+  const bing = html.match(/(\d\.\d)\s*[·•]\s*([\d,]+)\s+(?:Google\s+)?reviews?/i);
+  if (bing) return { rating: parseFloat(bing[1]), reviewCount: parseInt(bing[2].replace(/,/g,'')), source: sourceName };
+  // count only (no star)
+  const countOnly = html.match(/([\d,]+)\s+Google reviews/i);
+  if (countOnly) return { rating: null, reviewCount: parseInt(countOnly[1].replace(/,/g,'')), source: sourceName };
+  return null;
+}
 async function scrapeGoogleRating() {
+  // ── 1. Bing search (cloud-friendly, returns knowledge card with rating) ──
+  try {
+    const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(DS_QUERY + ' reviews')}&setmkt=en-US&setlang=en`;
+    const rb = await fetchH(bingUrl, {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Referer': 'https://www.bing.com/',
+    }, 8000);
+    if (rb.ok) {
+      const bHtml = await rb.text();
+      const res = _parseRatingFromHtml(bHtml, 'Google (search)');
+      if (res?.rating) return res;
+    }
+  } catch { /* continue */ }
+
+  // ── 2. DuckDuckGo search HTML (very permissive, no IP blocking) ──
+  try {
+    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(DS_QUERY + ' reviews rating site:google.com OR site:healthgrades.com')}`;
+    const rd = await fetchH(ddgUrl, {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Referer': 'https://duckduckgo.com/',
+    }, 8000);
+    if (rd.ok) {
+      const dHtml = await rd.text();
+      const res = _parseRatingFromHtml(dHtml, 'Google (search)');
+      if (res?.rating) return res;
+    }
+  } catch { /* continue */ }
+
+  // ── 3. Google search (often blocked from Vercel IPs, but try last) ──
   try {
     const url = `https://www.google.com/search?q=${encodeURIComponent(DS_QUERY + ' reviews rating')}&num=3&hl=en`;
     const r = await fetchH(url, {
-      'User-Agent': 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36',
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
     }, 7000);
-    if (!r.ok) return null;
-    const html = await r.text();
-    const aria = html.match(/aria-label=["'][Rr]ated?\s*([\d.]+)[^"']*\(([\d,]+)\s+review/i);
-    if (aria) return { rating: parseFloat(aria[1]), reviewCount: parseInt(aria[2].replace(/,/g,'')), source: 'Google (search)' };
-    const ld = findAggRating(getJsonLd(html));
-    if (ld) return { ...ld, source: 'Google (search)' };
-    const inline = html.match(/([\d.]{3})\s*(?:★|\()\s*(?:[^)]{0,40})?\(?([\d,]+)\s*(?:Google\s+)?reviews?/i);
-    if (inline) return { rating: parseFloat(inline[1]), reviewCount: parseInt(inline[2].replace(/,/g,'')), source: 'Google (search)' };
-    const countOnly = html.match(/([\d,]+)\s+Google reviews/i);
-    if (countOnly) return { rating: null, reviewCount: parseInt(countOnly[1].replace(/,/g,'')), source: 'Google (search)' };
-    return null;
-  } catch { return null; }
+    if (r.ok) {
+      const html = await r.text();
+      const res = _parseRatingFromHtml(html, 'Google (search)');
+      if (res?.rating) return res;
+    }
+  } catch { /* continue */ }
+
+  return null;
 }
 
 // ── 8. GOOGLE PLACES API (optional — needs GOOGLE_PLACES_KEY env var) ─────────
