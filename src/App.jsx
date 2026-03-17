@@ -2414,14 +2414,14 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                   {destinyData && !destinyLoading && (
                     <div className="mt-4 flex flex-wrap gap-2">
                       {[
-                        { label: 'Website',      ok: !!destinyData.website,       err: destinyData.websiteError },
-                        { label: 'Google Search',ok: !!destinyData.googleSearch,  err: !destinyData.googleSearch ? 'No rating found' : null },
-                        { label: 'Healthgrades', ok: !!destinyData.healthgrades,  err: !destinyData.healthgrades ? 'Not found' : null },
-                        { label: 'Google API',   ok: !!destinyData.google,        err: destinyData.googleSkipped ? 'No API key' : destinyData.googleError },
-                        { label: 'Facebook',     ok: !!destinyData.facebook,      err: destinyData.sources?.facebook?.error },
-                        { label: 'Instagram',    ok: !!destinyData.instagram,     err: destinyData.sources?.instagram?.error },
-                        { label: 'TikTok',       ok: !!destinyData.tiktok,        err: destinyData.sources?.tiktok?.error },
-                        { label: 'LinkedIn',     ok: !!destinyData.linkedin,      err: destinyData.sources?.linkedin?.error },
+                        { label: 'Website',      ok: !!destinyData.website,                                                                      err: destinyData.websiteError },
+                        { label: 'Google Search',ok: !!(destinyData.googleSearch?.rating),                                                      err: !destinyData.googleSearch ? 'No rating found' : null },
+                        { label: 'Healthgrades', ok: !!(destinyData.healthgrades?.rating),                                                      err: !destinyData.healthgrades ? 'Not found' : null },
+                        { label: 'Google API',   ok: !!destinyData.google,                                                                      err: destinyData.googleSkipped ? 'No API key — add GOOGLE_PLACES_KEY in Vercel' : destinyData.googleError },
+                        { label: 'Facebook',     ok: !!(destinyData.facebook?.likes ?? destinyData.facebook?.followers),                        err: destinyData.sources?.facebook?.error },
+                        { label: 'Instagram',    ok: destinyData.instagram?.followers != null,                                                  err: destinyData.instagram?.followers == null ? 'Blocked — add META_APP_ID + META_APP_SECRET in Vercel' : null },
+                        { label: 'TikTok',       ok: destinyData.tiktok?.followers != null,                                                     err: destinyData.tiktok?.followers == null ? 'Blocked by TikTok — no public API available' : null },
+                        { label: 'LinkedIn',     ok: destinyData.linkedin?.followers != null,                                                   err: destinyData.sources?.linkedin?.error },
                       ].map(({ label, ok, err }) => (
                         <span key={label} title={err || ''} className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
                           ok  ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' :
@@ -2430,46 +2430,6 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                           {ok ? '✓' : '–'} {label}
                         </span>
                       ))}
-                    </div>
-                  )}
-
-                  {/* ── API Key Setup Guide ───────────────────────────────── */}
-                  {destinyData && !destinyLoading && (
-                    <div className="mt-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700">
-                      <p className={`text-sm font-black text-amber-700 dark:text-amber-400 mb-1 flex items-center gap-1.5`}>
-                        <span>🔑</span> Unlock Real Data — Add These Free API Keys to Vercel
-                      </p>
-                      <p className={`text-[11px] ${subtl} mb-3`}>
-                        Instagram, TikTok, and Google block scraping from server IPs. Adding API keys is the only way to get live follower counts and ratings.
-                      </p>
-                      <div className="space-y-3 text-xs">
-                        {destinyData.googleSkipped && (
-                          <div className="flex gap-2 items-start p-3 rounded-xl bg-white/60 dark:bg-slate-800/60">
-                            <span className="text-amber-500 font-black text-sm mt-0.5 flex-shrink-0">⭐</span>
-                            <div>
-                              <p className={`font-black ${txt}`}>Google Places API Key → Google rating, reviews, hours, photos</p>
-                              <p className={`${subtl} mt-0.5 leading-relaxed`}>
-                                1. <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" className="text-teal-600 dark:text-teal-400 font-bold underline">console.cloud.google.com</a> → Enable "Places API" → Credentials → Create API Key
-                                <br/>2. Vercel Dashboard → Your Project → Settings → Environment Variables → Add <code className={`font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded`}>GOOGLE_PLACES_KEY</code>
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        {(!destinyData.instagram || destinyData.instagram.followers == null) && (
-                          <div className="flex gap-2 items-start p-3 rounded-xl bg-white/60 dark:bg-slate-800/60">
-                            <span className="text-amber-500 font-black text-sm mt-0.5 flex-shrink-0">📱</span>
-                            <div>
-                              <p className={`font-black ${txt}`}>Meta App Credentials → Facebook followers + Instagram followers + post feed</p>
-                              <p className={`${subtl} mt-0.5 leading-relaxed`}>
-                                1. <a href="https://developers.facebook.com" target="_blank" rel="noreferrer" className="text-teal-600 dark:text-teal-400 font-bold underline">developers.facebook.com</a> → Create App → Basic Settings → copy App ID and App Secret
-                                <br/>2. Vercel → Environment Variables → Add <code className={`font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded`}>META_APP_ID</code> and <code className={`font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded`}>META_APP_SECRET</code>
-                                <br/>3. After adding, go to Integrations → Meta Business Suite → Connect with your Page Access Token for post analytics
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <p className={`text-[10px] ${subtl} mt-3`}>After adding env vars, go to Vercel → Deployments → Redeploy (or push any commit) to activate them.</p>
                     </div>
                   )}
 
@@ -2517,7 +2477,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                         {/* Instagram */}
                         {(() => {
                           const ig = destinyData?.instagram;
-                          const hasIg = ig && !ig.error;
+                          const hasIg = ig?.followers != null;
                           return (
                             <div className={`p-4 rounded-2xl ${hasIg ? 'bg-pink-50 dark:bg-pink-900/10 border border-pink-200 dark:border-pink-800' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
                               <div className="flex items-center gap-2 mb-2">
@@ -2551,7 +2511,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                         {/* TikTok */}
                         {(() => {
                           const tt = destinyData?.tiktok;
-                          const hasTt = tt && !tt.error;
+                          const hasTt = tt?.followers != null;
                           return (
                             <div className={`p-4 rounded-2xl ${hasTt ? 'bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
                               <div className="flex items-center gap-2 mb-2">
