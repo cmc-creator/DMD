@@ -565,7 +565,8 @@ const App = () => {
   };
 
   const fetchMetaAdsData = async (creds) => {
-    if (!accessToken || !adAccountId) return { success: false, error: 'Missing credentials' };
+    const { accessToken, adAccountId } = creds || {};
+    if (!accessToken || !adAccountId) return { success: false, error: 'Missing Access Token or Ad Account ID — check Integrations → Meta Ads Manager' };
     try {
       const res  = await fetch(`https://graph.facebook.com/v18.0/${adAccountId}?fields=name,currency,account_status&access_token=${encodeURIComponent(accessToken)}`);
       const data = await res.json();
@@ -2432,6 +2433,46 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                     </div>
                   )}
 
+                  {/* ── API Key Setup Guide ───────────────────────────────── */}
+                  {destinyData && !destinyLoading && (
+                    <div className="mt-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700">
+                      <p className={`text-sm font-black text-amber-700 dark:text-amber-400 mb-1 flex items-center gap-1.5`}>
+                        <span>🔑</span> Unlock Real Data — Add These Free API Keys to Vercel
+                      </p>
+                      <p className={`text-[11px] ${subtl} mb-3`}>
+                        Instagram, TikTok, and Google block scraping from server IPs. Adding API keys is the only way to get live follower counts and ratings.
+                      </p>
+                      <div className="space-y-3 text-xs">
+                        {destinyData.googleSkipped && (
+                          <div className="flex gap-2 items-start p-3 rounded-xl bg-white/60 dark:bg-slate-800/60">
+                            <span className="text-amber-500 font-black text-sm mt-0.5 flex-shrink-0">⭐</span>
+                            <div>
+                              <p className={`font-black ${txt}`}>Google Places API Key → Google rating, reviews, hours, photos</p>
+                              <p className={`${subtl} mt-0.5 leading-relaxed`}>
+                                1. <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" className="text-teal-600 dark:text-teal-400 font-bold underline">console.cloud.google.com</a> → Enable "Places API" → Credentials → Create API Key
+                                <br/>2. Vercel Dashboard → Your Project → Settings → Environment Variables → Add <code className={`font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded`}>GOOGLE_PLACES_KEY</code>
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {(!destinyData.instagram || destinyData.instagram.followers == null) && (
+                          <div className="flex gap-2 items-start p-3 rounded-xl bg-white/60 dark:bg-slate-800/60">
+                            <span className="text-amber-500 font-black text-sm mt-0.5 flex-shrink-0">📱</span>
+                            <div>
+                              <p className={`font-black ${txt}`}>Meta App Credentials → Facebook followers + Instagram followers + post feed</p>
+                              <p className={`${subtl} mt-0.5 leading-relaxed`}>
+                                1. <a href="https://developers.facebook.com" target="_blank" rel="noreferrer" className="text-teal-600 dark:text-teal-400 font-bold underline">developers.facebook.com</a> → Create App → Basic Settings → copy App ID and App Secret
+                                <br/>2. Vercel → Environment Variables → Add <code className={`font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded`}>META_APP_ID</code> and <code className={`font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded`}>META_APP_SECRET</code>
+                                <br/>3. After adding, go to Integrations → Meta Business Suite → Connect with your Page Access Token for post analytics
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <p className={`text-[10px] ${subtl} mt-3`}>After adding env vars, go to Vercel → Deployments → Redeploy (or push any commit) to activate them.</p>
+                    </div>
+                  )}
+
                   {/* ── Social Media Stats Row ───────────────────────────── */}
                   {(destinyData || destinyLoading) && (
                     <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-700">
@@ -3048,7 +3089,9 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                 {/* Facebook */}
                 {(() => {
                   const fb = (destinyData?.facebook && !destinyData.facebook.error) ? destinyData.facebook : _fbLive;
-                  const hasFb = fb.followers != null;
+                  const hasFb = fb.followers != null || fb.likes != null || !!fb.name;
+                  const mainCount = fb.followers ?? fb.likes;
+                  const mainLabel = fb.followers != null ? 'Followers' : 'Page Likes';
                   return (
                     <div className={`p-5 rounded-2xl ${hasFb ? 'bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
                       <div className="flex items-center gap-2 mb-3">
@@ -3059,11 +3102,13 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                       {hasFb ? (
                         <div className="space-y-2">
                           {fb.name && <p className={`text-xs font-bold ${txt2} leading-tight`}>{fb.name}</p>}
-                          <div>
-                            <p className={`text-3xl font-black text-blue-600 dark:text-blue-400`}>{Number(fb.followers).toLocaleString()}</p>
-                            <p className={`text-xs ${subtl} mt-0.5`}>Followers</p>
-                          </div>
-                          {fb.likes != null && fb.likes !== fb.followers && (
+                          {mainCount != null && (
+                            <div>
+                              <p className={`text-3xl font-black text-blue-600 dark:text-blue-400`}>{Number(mainCount).toLocaleString()}</p>
+                              <p className={`text-xs ${subtl} mt-0.5`}>{mainLabel}</p>
+                            </div>
+                          )}
+                          {fb.likes != null && fb.followers != null && fb.likes !== fb.followers && (
                             <div className={`flex items-center justify-between text-xs ${subtl} pt-2 border-t ${brd}`}>
                               <span>Page Likes</span><span className={`font-black ${txt}`}>{Number(fb.likes).toLocaleString()}</span>
                             </div>

@@ -465,7 +465,7 @@ async function scrapeLinkedIn(url = DS_LI) {
 
     return {
       platform: 'LinkedIn', url: cleanUrl, slug, name,
-      tagline, followers, employees: typeof employees === 'object' ? `${employees.start || ''}–${employees.end || ''}` : employees,
+      tagline, followers, employees: (employees != null && typeof employees === 'object') ? `${employees.start || ''}–${employees.end || ''}` : employees,
       fetchedAt: new Date().toISOString(),
     };
   } catch (e) {
