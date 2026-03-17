@@ -681,6 +681,22 @@ export default async function handler(req, res) {
   const { action, placeId: qPid, debug } = req.query;
 
   try {
+    // ── Env-var diagnostic (no key values exposed) ────────────────────────────
+    if (action === 'envcheck') {
+      const envKeys = Object.keys(process.env);
+      return res.json({
+        ok: true,
+        GOOGLE_PLACES_KEY:  !!process.env.GOOGLE_PLACES_KEY,
+        META_APP_ID:        !!process.env.META_APP_ID,
+        META_APP_SECRET:    !!process.env.META_APP_SECRET,
+        GOOGLE_PLACES_KEY_len: (process.env.GOOGLE_PLACES_KEY || '').length,
+        META_APP_ID_len:       (process.env.META_APP_ID       || '').length,
+        META_APP_SECRET_len:   (process.env.META_APP_SECRET   || '').length,
+        allEnvKeys: envKeys.filter(k => !k.includes('SECRET') && !k.includes('KEY') && !k.includes('TOKEN') && !k.includes('PASSWORD')),
+        envCount: envKeys.length,
+      });
+    }
+
     // Single-source debug endpoints
     if (action === 'website')   return res.json({ ok:true, website:   await scrapeWebsite() });
     if (action === 'facebook')  return res.json({ ok:true, facebook:  await scrapeFacebook() });
