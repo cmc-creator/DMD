@@ -767,22 +767,25 @@ export default async function handler(req, res) {
       const dHtml = dRes.ok ? (await dRes.text().catch(()=>'')) : '';
       const gHtml = gRes.ok ? (await gRes.text().catch(()=>'')) : '';
       // Find rating-relevant snippets — search specifically for rating number patterns
-      const ratingSnippet = (html) => {
+      const ratingSnippet = (html, label) => {
         // Search for patterns that look like star ratings near review counts
-        const patterns = [/\d\.\d[^\d]{1,30}\d{2,4}[^\d]{1,20}review/i, /ratingValue[":]{1,3}[\d.]+/i, /aggregateRating/i, /itemprop="rating/i, /\d{2,4}\s+(?:Google\s+)?reviews/i];
+        const patterns = [/\d\.\d[^\d]{1,30}\d{2,4}[^\d]{1,20}review/i, /ratingValue[":]{1,3}[\d.]+/i, /aggregateRating/i, /itemprop="rating/i, /\d{2,4}\s+(?:Google\s+)?reviews/i, /3\.1/, /168\s*review/];
         for (const p of patterns) {
           const i = html.search(p);
-          if (i >= 0) return `[Found: ${p.source.slice(0,30)}] ` + html.slice(Math.max(0, i - 50), i + 400);
+          if (i >= 0) return `[${label} Found: ${p.source.slice(0,30)}] ` + html.slice(Math.max(0, i - 50), i + 400);
         }
-        return 'NO_RATING_PATTERN_FOUND (len=' + html.length + ')';
+        // Check if known rating digits appear at all
+        const has31 = html.includes('3.1');
+        const has168 = html.includes('168');
+        return `${label} NO_RATING_PATTERN (len=${html.length}, has3.1=${has31}, has168=${has168})`;
       };
       return res.json({
         ok: true,
         bingStatus: bRes.status, bingOk: bRes.ok, bingLen: bHtml.length,
-        bingRatingSnippet: ratingSnippet(bHtml),
+        bingRatingSnippet: ratingSnippet(bHtml, 'BING'),
         ddgStatus:  dRes.status, ddgOk:  dRes.ok,
         googleStatus: gRes.status, googleOk: gRes.ok, googleLen: gHtml.length,
-        googleRatingSnippet: ratingSnippet(gHtml),
+        googleRatingSnippet: ratingSnippet(gHtml, 'GOOGLE'),
         bingRatingHit: _parseRatingFromHtml(bHtml, 'Bing'),
         ddgRatingHit:  _parseRatingFromHtml(dHtml, 'DDG'),
         googleRatingHit: _parseRatingFromHtml(gHtml, 'Google'),
