@@ -2815,7 +2815,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
               <div className={`lg:col-span-4 ${card} p-8 rounded-[2.5rem] flex flex-col`}>
                 <SectionHeader icon={ThumbsUp} color="text-amber-500" title="NPS Breakdown" subtitle="Promoters / Passives / Detractors" />
-                <div className="flex-1 min-h-[180px]">
+                <div className="h-[200px] flex-shrink-0">
                   {npsData.every(d => d.value === 0) ? (
                     <EmptyChart height="min-h-[180px] h-full" message="NPS data unavailable" />
                   ) : (
@@ -2844,7 +2844,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
 
               <div className={`lg:col-span-4 ${card} p-8 rounded-[2.5rem] flex flex-col`}>
                 <SectionHeader icon={Layout} color="text-teal-500" title="Wix Analytics" subtitle="Traffic Acquisition Sources" />
-                <div className="flex-1 min-h-[180px]">
+                <div className="h-[200px] flex-shrink-0">
                   {wixSources.every(s => s.value === 0) ? (
                     <EmptyChart height="min-h-[180px] h-full" message="Connect Wix Analytics to see traffic sources" />
                   ) : (
