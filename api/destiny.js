@@ -766,11 +766,19 @@ export default async function handler(req, res) {
       const bHtml = bRes.ok ? (await bRes.text().catch(()=>'')) : '';
       const dHtml = dRes.ok ? (await dRes.text().catch(()=>'')) : '';
       const gHtml = gRes.ok ? (await gRes.text().catch(()=>'')) : '';
+      // Find rating-relevant snippets
+      const ratingSnippet = (html) => {
+        const i = html.search(/ratingValue|reviewCount|review|rating|\d\.\d.*star|\d{2,}.*review/i);
+        if (i < 0) return 'NO_RATING_KEYWORD_FOUND';
+        return html.slice(Math.max(0, i - 100), i + 600);
+      };
       return res.json({
         ok: true,
-        bingStatus: bRes.status, bingOk: bRes.ok, bingSnippet: bHtml.slice(0, 800),
-        ddgStatus:  dRes.status, ddgOk:  dRes.ok, ddgSnippet:  dHtml.slice(0, 800),
-        googleStatus: gRes.status, googleOk: gRes.ok, googleSnippet: gHtml.slice(0, 800),
+        bingStatus: bRes.status, bingOk: bRes.ok, bingLen: bHtml.length,
+        bingRatingSnippet: ratingSnippet(bHtml),
+        ddgStatus:  dRes.status, ddgOk:  dRes.ok,
+        googleStatus: gRes.status, googleOk: gRes.ok, googleLen: gHtml.length,
+        googleRatingSnippet: ratingSnippet(gHtml),
         bingRatingHit: _parseRatingFromHtml(bHtml, 'Bing'),
         ddgRatingHit:  _parseRatingFromHtml(dHtml, 'DDG'),
         googleRatingHit: _parseRatingFromHtml(gHtml, 'Google'),
