@@ -753,45 +753,7 @@ export default async function handler(req, res) {
     if (action === 'yelp')      return res.json({ ok:true, yelp:      await scrapeYelp() });
     if (action === 'glassdoor') return res.json({ ok:true, glassdoor: await scrapeGlassdoor() });
     if (action === 'hg')        return res.json({ ok:true, healthgrades: await scrapeHealthgrades() });
-    if (action === 'gsearch') {
-      // Debug mode: show status codes from each source
-      const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(DS_QUERY + ' reviews')}&setmkt=en-US&setlang=en`;
-      const ddgUrl  = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(DS_QUERY + ' reviews rating')}`;
-      const gUrl    = `https://www.google.com/search?q=${encodeURIComponent(DS_QUERY + ' reviews rating')}&num=3&hl=en`;
-      const [bRes, dRes, gRes] = await Promise.all([
-        fetchH(bingUrl, { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0', 'Referer': 'https://www.bing.com/' }, 8000).catch(e => ({ ok:false, status: 0, _err: e.message })),
-        fetchH(ddgUrl,  { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', 'Referer': 'https://duckduckgo.com/' }, 8000).catch(e => ({ ok:false, status: 0, _err: e.message })),
-        fetchH(gUrl,    { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36' }, 7000).catch(e => ({ ok:false, status: 0, _err: e.message })),
-      ]);
-      const bHtml = bRes.ok ? (await bRes.text().catch(()=>'')) : '';
-      const dHtml = dRes.ok ? (await dRes.text().catch(()=>'')) : '';
-      const gHtml = gRes.ok ? (await gRes.text().catch(()=>'')) : '';
-      // Find rating-relevant snippets — search specifically for rating number patterns
-      const ratingSnippet = (html, label) => {
-        // Search for patterns that look like star ratings near review counts
-        const patterns = [/\d\.\d[^\d]{1,30}\d{2,4}[^\d]{1,20}review/i, /ratingValue[":]{1,3}[\d.]+/i, /aggregateRating/i, /itemprop="rating/i, /\d{2,4}\s+(?:Google\s+)?reviews/i, /3\.1/, /168\s*review/];
-        for (const p of patterns) {
-          const i = html.search(p);
-          if (i >= 0) return `[${label} Found: ${p.source.slice(0,30)}] ` + html.slice(Math.max(0, i - 50), i + 400);
-        }
-        // Check if known rating digits appear at all
-        const has31 = html.includes('3.1');
-        const has168 = html.includes('168');
-        return `${label} NO_RATING_PATTERN (len=${html.length}, has3.1=${has31}, has168=${has168})`;
-      };
-      return res.json({
-        ok: true,
-        bingStatus: bRes.status, bingOk: bRes.ok, bingLen: bHtml.length,
-        bingRatingSnippet: ratingSnippet(bHtml, 'BING'),
-        ddgStatus:  dRes.status, ddgOk:  dRes.ok,
-        googleStatus: gRes.status, googleOk: gRes.ok, googleLen: gHtml.length,
-        googleRatingSnippet: ratingSnippet(gHtml, 'GOOGLE'),
-        bingRatingHit: _parseRatingFromHtml(bHtml, 'Bing'),
-        ddgRatingHit:  _parseRatingFromHtml(dHtml, 'DDG'),
-        googleRatingHit: _parseRatingFromHtml(gHtml, 'Google'),
-        googleSearch: await scrapeGoogleRating(),
-      });
-    }
+    if (action === 'gsearch')   return res.json({ ok:true, googleSearch: await scrapeGoogleRating() });
     if (action === 'findplace') {
       if (!apiKey) return res.status(400).json({ ok:false, error:'Requires GOOGLE_PLACES_KEY' });
       return res.json({ ok:true, ...(await findPlaceId(apiKey)) });

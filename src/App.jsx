@@ -168,6 +168,9 @@ const App = () => {
   const [overviewHidden, setOverviewHidden]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_overview_hidden') || '[]'); } catch { return []; } });
   const [showOverviewCustomizer, setShowOverviewCustomizer] = useState(false);
   const [reviewOverrides, setReviewOverrides]     = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_overrides') || '{}'); } catch { return {}; } });
+  const [editingRating, setEditingRating]         = useState(false);
+  const [ratingEditVal, setRatingEditVal]         = useState('');
+  const [ratingCountVal, setRatingCountVal]       = useState('');
 
   // ── Feature state ─────────────────────────────────────────────────────────
   const [captionGenerating, setCaptionGenerating]   = useState(false);
@@ -2193,13 +2196,21 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                 const priority = ['google','healthgrades','yelp','zocdoc','glassdoor','indeed'];
                 for (const k of priority) {
                   const p = reviewPlatformData[k];
-                  if (p?.rating && Number(p.rating) > 0) return { rating: Number(p.rating), reviewCount: p.count ? Number(p.count) : null, source: k.charAt(0).toUpperCase() + k.slice(1) + ' (fetched)' };
+                  if (p?.rating && Number(p.rating) > 0) return { rating: Number(p.rating), reviewCount: p.count ? Number(p.count) : null, source: k.charAt(0).toUpperCase() + k.slice(1) + ' (manual entry)' };
                 }
                 return null;
               })();
               const displayRating     = google?.rating      ?? best?.rating      ?? _rpFallback?.rating;
               const displayReviews    = google?.reviewCount ?? best?.reviewCount ?? _rpFallback?.reviewCount;
               const displaySource     = google ? 'Google Business (API)' : (best?.source || _rpFallback?.source || null);
+              const isManualRating    = !google && !best?.rating && !!_rpFallback?.rating;
+              // Inline rating editor helpers (scoped to this render)
+              const saveManualRating = (ratingVal, countVal) => {
+                if (!ratingVal || isNaN(Number(ratingVal))) return;
+                const updated = { ...reviewPlatformData, google: { rating: ratingVal, count: countVal || '' } };
+                setReviewPlatformData(updated);
+                localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
+              };
               const socialLinks       = website?.socialLinks || {};
               const hasSocialLinks    = Object.keys(socialLinks).length > 0;
               return (
@@ -2235,33 +2246,70 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                           <p className={`text-xs ${subtl}`}>Loading data…</p>
                         </div>
                       ) : displayRating ? (
-                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700">
-                          <div className="text-center flex-shrink-0">
-                            <div className="text-5xl font-black text-amber-500 leading-none">{Number(displayRating).toFixed(1)}</div>
-                            <div className="flex gap-0.5 justify-center mt-1">
-                              {[1,2,3,4,5].map(s => <Star key={s} size={11} className={s<=Math.round(displayRating)?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
+                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700 relative">
+                          {editingRating ? (
+                            <div className="flex-1 flex flex-col items-center gap-2">
+                              <p className={`text-xs font-black ${txt}`}>Update Google Rating</p>
+                              <div className="flex gap-2">
+                                <input value={ratingEditVal} onChange={e=>setRatingEditVal(e.target.value)} placeholder="3.1" maxLength={4}
+                                  className={`w-16 text-center text-sm font-black border border-amber-300 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 ${txt}`} />
+                                <input value={ratingCountVal} onChange={e=>setRatingCountVal(e.target.value)} placeholder="168" maxLength={6}
+                                  className={`w-20 text-center text-sm border border-slate-300 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 ${txt}`} />
+                              </div>
+                              <div className="flex gap-2">
+                                <button onClick={() => { saveManualRating(ratingEditVal, ratingCountVal); setEditingRating(false); }}
+                                  className="px-3 py-1 bg-teal-600 hover:bg-teal-500 text-white text-xs font-black rounded-lg">Save</button>
+                                <button onClick={() => setEditingRating(false)}
+                                  className={`px-3 py-1 text-xs rounded-lg bg-slate-200 dark:bg-slate-700 ${txt}`}>Cancel</button>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            {displayReviews && <p className={`text-2xl font-black ${txt}`}>{Number(displayReviews).toLocaleString()} <span className={`text-sm font-normal ${subtl}`}>reviews</span></p>}
-                            {google?.name && <p className={`text-xs font-black ${txt} mt-0.5 truncate`}>{google.name}</p>}
-                            {(google?.vicinity || google?.address) && <p className={`text-xs ${subtl} mt-0.5`}>📍 {google?.vicinity || google?.address}</p>}
-                            {google?.phone && <p className={`text-xs ${subtl} mt-0.5`}>📞 {google.phone}</p>}
-                            {displaySource && <p className={`text-[10px] ${subtl} mt-1 opacity-70`}>Source: {displaySource}</p>}
-                            {google && (
-                              <span className={`inline-flex mt-1.5 items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full ${
-                                google.isOpen === true  ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
-                                google.isOpen === false ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' :
-                                'bg-slate-100 dark:bg-slate-700 text-slate-500'
-                              }`}>{google.isOpen === true ? '● Open Now' : google.isOpen === false ? '● Closed' : '● Status Unknown'}</span>
-                            )}
-                          </div>
+                          ) : (
+                            <>
+                              <div className="text-center flex-shrink-0">
+                                <div className="text-5xl font-black text-amber-500 leading-none">{Number(displayRating).toFixed(1)}</div>
+                                <div className="flex gap-0.5 justify-center mt-1">
+                                  {[1,2,3,4,5].map(s => <Star key={s} size={11} className={s<=Math.round(displayRating)?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                {displayReviews && <p className={`text-2xl font-black ${txt}`}>{Number(displayReviews).toLocaleString()} <span className={`text-sm font-normal ${subtl}`}>reviews</span></p>}
+                                {google?.name && <p className={`text-xs font-black ${txt} mt-0.5 truncate`}>{google.name}</p>}
+                                {(google?.vicinity || google?.address) && <p className={`text-xs ${subtl} mt-0.5`}>📍 {google?.vicinity || google?.address}</p>}
+                                {google?.phone && <p className={`text-xs ${subtl} mt-0.5`}>📞 {google.phone}</p>}
+                                {displaySource && <p className={`text-[10px] ${subtl} mt-1 opacity-70`}>Source: {displaySource}</p>}
+                                {google && (
+                                  <span className={`inline-flex mt-1.5 items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full ${
+                                    google.isOpen === true  ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
+                                    google.isOpen === false ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' :
+                                    'bg-slate-100 dark:bg-slate-700 text-slate-500'
+                                  }`}>{google.isOpen === true ? '● Open Now' : google.isOpen === false ? '● Closed' : '● Status Unknown'}</span>
+                                )}
+                              </div>
+                              <button onClick={() => { setRatingEditVal(String(displayRating||'')); setRatingCountVal(String(displayReviews||'')); setEditingRating(true); }}
+                                title="Update rating manually" className={`absolute top-2 right-2 p-1.5 rounded-lg ${subtl} hover:text-teal-500 hover:bg-white/50 dark:hover:bg-slate-700/50 transition-colors`}>
+                                <Pencil size={12} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       ) : (
-                        <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center`}>
+                        <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50`}>
                           {(destinyLoading || cloudSynced === 'loading')
-                            ? <p className={`text-xs ${subtl}`}>Loading data…</p>
-                            : <><p className={`text-xs font-black ${txt} mb-1`}>No rating scraped yet</p><p className={`text-[11px] ${subtl}`}>Will auto-populate on sync. Google Search, Healthgrades, and your website schema are all checked automatically.</p></>
+                            ? <p className={`text-xs ${subtl} text-center`}>Loading data…</p>
+                            : (
+                              <div>
+                                <p className={`text-xs font-black ${txt} mb-1 text-center`}>No rating auto-fetched</p>
+                                <p className={`text-[11px] ${subtl} mb-2 text-center`}>Enter manually from your Google Business Profile:</p>
+                                <div className="flex gap-2 justify-center">
+                                  <input value={ratingEditVal} onChange={e=>setRatingEditVal(e.target.value)} placeholder="3.1 (star)" maxLength={4}
+                                    className={`w-24 text-center text-sm border border-slate-300 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 ${txt}`} />
+                                  <input value={ratingCountVal} onChange={e=>setRatingCountVal(e.target.value)} placeholder="168 (count)" maxLength={6}
+                                    className={`w-28 text-center text-sm border border-slate-300 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 ${txt}`} />
+                                  <button onClick={() => saveManualRating(ratingEditVal, ratingCountVal)}
+                                    className="px-3 py-1 bg-teal-600 hover:bg-teal-500 text-white text-xs font-black rounded-lg">Save</button>
+                                </div>
+                              </div>
+                            )
                           }
                         </div>
                       )}
