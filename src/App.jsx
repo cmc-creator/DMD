@@ -742,6 +742,32 @@ const App = () => {
           return updated;
         });
       }
+      // ── Auto-populate reviewPlatformData from destiny sync ─────────────────
+      // This makes metrics.googleScore (Overview KPI card) show real data
+      // without requiring manual entry in the Integrations tab.
+      setReviewPlatformData(prev => {
+        const updated = { ...prev };
+        const gRating = data.google?.rating ?? data.googleSearch?.rating ?? data.bestRating?.rating;
+        const gCount  = data.google?.reviewCount ?? data.googleSearch?.reviewCount ?? data.bestRating?.reviewCount;
+        if (gRating && gCount && Number(gCount) > 0) {
+          updated.google = {
+            rating:    String(gRating),
+            count:     String(gCount),
+            source:    data.google?.rating ? 'auto-sync' : 'auto-sync-search',
+            fetchedAt: data.fetchedAt,
+          };
+        }
+        if (data.healthgrades?.rating && data.healthgrades?.reviewCount && Number(data.healthgrades.reviewCount) > 0) {
+          updated.healthgrades = {
+            rating:    String(data.healthgrades.rating),
+            count:     String(data.healthgrades.reviewCount),
+            source:    'auto-sync',
+            fetchedAt: data.fetchedAt,
+          };
+        }
+        localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
+        return updated;
+      });
       // ── Feed Google Business liveData (uses best available rating source) ───
       const liveRating = data.google?.rating || best?.rating || null;
       if (liveRating || data.google) {
@@ -794,6 +820,7 @@ const App = () => {
               facebook:  (data.facebook  && !data.facebook.error)  ? data.facebook  : prev.facebook,
               instagram: (data.instagram && !data.instagram.error) ? data.instagram : prev.instagram,
               tiktok:    (data.tiktok    && !data.tiktok.error)    ? data.tiktok    : prev.tiktok,
+              linkedin:  (data.linkedin  && !data.linkedin.error)  ? data.linkedin  : prev.linkedin,
             },
           };
         });
@@ -1645,6 +1672,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   const _fbLive     = _socialLive.facebook            || {};
   const _igLive     = _socialLive.instagram           || {};
   const _ttLive     = _socialLive.tiktok              || {};
+  const _liLive     = _socialLive.linkedin            || {};
   const _platformEntries = Object.values(reviewPlatformData).filter(p => p.count && Number(p.count) > 0);
   const _totalReviewCount = _platformEntries.length
     ? _platformEntries.reduce((s, p) => s + (Number(p.count) || 0), 0)
@@ -1679,6 +1707,12 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                       : _emailStats.length  ? (_emailStats.reduce((s, e) => s + (e.sent ? Number(e.opened || 0) / Number(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : '—',
     costPerLead:        (_totalSpend && _totalLeads) ? '$' + (_totalSpend / _totalLeads).toFixed(0) : '—',
     totalLeads:         _totalLeads || '—',
+    siteConversion:     (() => {
+      const sessions = Number((_gaLive.sessions || _wixLive.sessions || '').toString().replace(/,/g, ''));
+      return (sessions > 0 && _totalLeads > 0)
+        ? (_totalLeads / sessions * 100).toFixed(2) + '%'
+        : '—';
+    })(),
   });
 
   // ── Monthly Trend (from ad spend + social manual entries) ────────────────────
@@ -1691,7 +1725,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   const socialAnalytics = [
     { platform: 'Facebook',  color: '#1877F2', reach: Number(_latestSocial['Facebook']?.reach  || _metaLive.reach   || 0), engagement: Number(_latestSocial['Facebook']?.engagement  || 0), clicks: Number(_latestSocial['Facebook']?.clicks  || 0), followers: Number(_fbLive.followers || _latestSocial['Facebook']?.followers  || _metaLive.fanCount || 0), posts: null,  videos: null, totalLikes: Number(_fbLive.likes     || 0) },
     { platform: 'Instagram', color: '#E4405F', reach: Number(_latestSocial['Instagram']?.reach || 0),                      engagement: Number(_latestSocial['Instagram']?.engagement || 0), clicks: Number(_latestSocial['Instagram']?.clicks || 0), followers: Number(_igLive.followers || _metaLive.instagramFollowers || _latestSocial['Instagram']?.followers || 0), posts: Number(_igLive.posts || _metaLive.instagramPosts || 0), videos: null, totalLikes: null },
-    { platform: 'LinkedIn',  color: '#0A66C2', reach: Number(_latestSocial['LinkedIn']?.reach  || 0),                      engagement: Number(_latestSocial['LinkedIn']?.engagement  || 0), clicks: Number(_latestSocial['LinkedIn']?.clicks  || 0), followers: Number(_latestSocial['LinkedIn']?.followers  || 0), posts: null, videos: null, totalLikes: null },
+    { platform: 'LinkedIn',  color: '#0A66C2', reach: Number(_latestSocial['LinkedIn']?.reach  || 0),                      engagement: Number(_latestSocial['LinkedIn']?.engagement  || 0), clicks: Number(_latestSocial['LinkedIn']?.clicks  || 0), followers: Number(_liLive.followers || _latestSocial['LinkedIn']?.followers  || 0), posts: null, videos: null, totalLikes: null },
     { platform: 'TikTok',    color: '#00f2ea', reach: Number(_latestSocial['TikTok']?.reach    || _tikLive.recentViews || 0), engagement: 0, clicks: 0, followers: Number(_ttLive.followers || _tikLive.followers || _latestSocial['TikTok']?.followers || 0), posts: null, videos: Number(_ttLive.videos || _tikLive.videos || 0), totalLikes: Number(_ttLive.likes || _tikLive.totalLikes || 0) },
   ];
 
@@ -1770,33 +1804,34 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
 
   // ── My Achievements data ────────────────────────────────────────────────────
   const myStats = [
-    { label: 'Blogs Written',    value: 0, icon: FileText,  color: 'text-purple-500', target: 0 },
-    { label: 'TikToks Produced', value: 0, icon: PlayCircle,color: 'text-pink-500',   target: 0 },
-    { label: 'Social Posts',     value: 0, icon: Share2,    color: 'text-blue-500',   target: 0 },
-    { label: 'Email Campaigns',  value: 0, icon: Mail,      color: 'text-teal-500',   target: 0 },
-    { label: 'Website Updates',  value: 0, icon: Globe,     color: 'text-emerald-500',target: 0 },
-    { label: 'Reviews Managed',  value: 0, icon: Star,      color: 'text-amber-500',  target: 0 },
+    { label: 'Blogs Written',    value: 0,                                                        icon: FileText,  color: 'text-purple-500', target: 0 },
+    { label: 'TikToks Produced', value: _tiktokPosts.length,                                      icon: PlayCircle,color: 'text-pink-500',   target: 0 },
+    { label: 'Social Posts',     value: _socialMet.reduce((s,e)=>s+(Number(e.posts)||0),0),       icon: Share2,    color: 'text-blue-500',   target: 0 },
+    { label: 'Email Campaigns',  value: _emailStats.length,                                       icon: Mail,      color: 'text-teal-500',   target: 0 },
+    { label: 'Website Updates',  value: 0,                                                        icon: Globe,     color: 'text-emerald-500',target: 0 },
+    { label: 'Reviews Managed',  value: _reviews.length,                                          icon: Star,      color: 'text-amber-500',  target: 0 },
   ];
 
+  const _ratingNum = _avgRating ? Number(_avgRating) : null;
   const milestones = [
-    { title: 'Content Machine',    desc: 'Publish milestone blogs',         icon: FileText,  earned: false, date: 'Upcoming' },
-    { title: 'TikTok Trailblazer', desc: 'Reach video view milestone',      icon: PlayCircle,earned: false, date: 'Upcoming' },
-    { title: 'SEO Climber',        desc: 'Rank top 5 on target keywords',   icon: Search,    earned: false, date: 'Upcoming' },
-    { title: 'Lead Magnet',        desc: 'Hit monthly lead goal',           icon: Target,    earned: false, date: 'Upcoming' },
-    { title: 'Review Reviver',     desc: 'Improve Google rating',           icon: Star,      earned: false, date: 'Upcoming' },
-    { title: '5-Star Elite',       desc: 'Maintain 4.5+ avg 60 days',      icon: Award,     earned: false, date: 'Upcoming' },
-    { title: 'Viral Moment',       desc: '50k+ video views / month',       icon: Zap,       earned: false, date: 'Upcoming' },
-    { title: 'Growth Architect',   desc: '500+ monthly leads',             icon: TrendingUp,earned: false, date: 'Upcoming' },
+    { title: 'Content Machine',    desc: 'Publish milestone blogs',         icon: FileText,  earned: false,                              date: 'Upcoming' },
+    { title: 'TikTok Trailblazer', desc: 'Reach video view milestone',      icon: PlayCircle,earned: _tiktokPosts.length >= 4,           date: _tiktokPosts.length >= 4 ? 'Achieved' : 'Upcoming' },
+    { title: 'SEO Climber',        desc: 'Rank top 5 on target keywords',   icon: Search,    earned: seoKeywords.some(k=>k.pos > 0 && k.pos <= 5), date: seoKeywords.some(k=>k.pos > 0 && k.pos <= 5) ? 'Achieved' : 'Upcoming' },
+    { title: 'Lead Magnet',        desc: 'Hit monthly lead goal',           icon: Target,    earned: _totalLeads >= 50,                  date: _totalLeads >= 50 ? 'Achieved' : 'Upcoming' },
+    { title: 'Review Reviver',     desc: 'Improve Google rating',           icon: Star,      earned: !!(_ratingNum && _ratingNum >= 4.0), date: (_ratingNum && _ratingNum >= 4.0) ? 'Achieved' : 'Upcoming' },
+    { title: '5-Star Elite',       desc: 'Maintain 4.5+ avg 60 days',      icon: Award,     earned: !!(_ratingNum && _ratingNum >= 4.5), date: (_ratingNum && _ratingNum >= 4.5) ? 'Achieved' : 'Upcoming' },
+    { title: 'Viral Moment',       desc: '50k+ video views / month',       icon: Zap,       earned: Number(_tikLive.recentViews || 0) >= 50000, date: Number(_tikLive.recentViews || 0) >= 50000 ? 'Achieved' : 'Upcoming' },
+    { title: 'Growth Architect',   desc: '500+ monthly leads',             icon: TrendingUp,earned: _totalLeads >= 500,                 date: _totalLeads >= 500 ? 'Achieved' : 'Upcoming' },
   ];
 
   const skillRadar = [
-    { skill: 'SEO',          score: 0 },
-    { skill: 'Social Media', score: 0 },
-    { skill: 'Content',      score: 0 },
-    { skill: 'Email Mktg',   score: 0 },
-    { skill: 'Paid Ads',     score: 0 },
-    { skill: 'Web Design',   score: 0 },
-    { skill: 'Analytics',    score: 0 },
+    { skill: 'SEO',          score: Math.min(100, seoKeywords.length * 20) },
+    { skill: 'Social Media', score: Math.min(100, _socialMet.length * 15 + (socialAnalytics.some(p=>p.followers>0) ? 25 : 0)) },
+    { skill: 'Content',      score: Math.min(100, _tiktokPosts.length * 10) },
+    { skill: 'Email Mktg',   score: Math.min(100, _emailStats.length * 20 + (_mailLive.subscribers ? 30 : 0)) },
+    { skill: 'Paid Ads',     score: Math.min(100, _adSpend.length * 15) },
+    { skill: 'Web Design',   score: destinyData?.website?.wordCount > 1000 ? 60 : destinyData?.website ? 30 : 0 },
+    { skill: 'Analytics',    score: (_gaLive.sessions || _wixLive.sessions) ? 80 : 0 },
     { skill: 'Video',        score: 0 },
   ];
 
@@ -2638,7 +2673,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
               <StatCard title="Google Rating"     value={metrics.googleScore}    trend={metrics.googleTrend} icon={Star}        color="bg-amber-500"   sub="Review Cleanup Performance" onClick={() => setActiveTab('reviews')} />
               <StatCard title="Monthly Sessions"  value={metrics.wixSessions}    trend={null}                icon={Layout}      color="bg-teal-600"    sub="Wix Website Traffic"        onClick={() => setActiveTab('seo')} />
               <StatCard title="Avg Read Time"     value={metrics.avgReadTime}    trend={null}                icon={Clock}       color="bg-emerald-600" sub="Blog & Education Retention"  onClick={() => setActiveTab('seo')} />
-              <StatCard title="Omnichannel Reach" value={_socialMet.reduce((s,e)=>s+Number(e.reach||0),0)>0 ? _socialMet.reduce((s,e)=>s+Number(e.reach||0),0).toLocaleString() : '---'}                      trend={null}                icon={Activity}    color="bg-purple-600"  sub="Combined Ad / Social"        onClick={() => setActiveTab('social')} />
+              <StatCard title="Omnichannel Reach" value={(() => { const reach = _socialMet.reduce((s,e)=>s+Number(e.reach||0),0); if (reach > 0) return reach.toLocaleString(); const audience = socialAnalytics.reduce((s,p)=>s+p.followers,0); return audience > 0 ? audience.toLocaleString() : '---'; })()} trend={null} icon={Activity} color="bg-purple-600" sub={_socialMet.reduce((s,e)=>s+Number(e.reach||0),0)>0 ? 'Combined Ad / Social' : 'Total Social Audience'} onClick={() => setActiveTab('social')} />
               </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Total Leads"       value={metrics.totalLeads}     trend={metrics.leadsGrowth} icon={Target}      color="bg-rose-500"    sub="Monthly Lead Volume"         onClick={() => setActiveTab('pipeline')} />
@@ -3385,8 +3420,8 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
         {activeTab === 'seo' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Organic Growth"  value="+24%"              trend="+24%" icon={TrendingUp} color="bg-teal-600"   sub="Statewide SEO Lift"   />
-              <StatCard title="Avg Position"    value="4.5"               trend="+2.1" icon={Search}     color="bg-blue-600"   sub="Google SERP Average"  />
+              <StatCard title="Organic Growth"  value={_wixLive.organic ? _wixLive.organic + '%' : '—'} trend={_wixLive.organic ? '+' + _wixLive.organic + '%' : null} icon={TrendingUp} color="bg-teal-600"   sub="Organic Traffic Share"   />
+              <StatCard title="Avg Position"    value={seoKeywords.length ? (seoKeywords.reduce((s,k)=>s+k.pos,0)/seoKeywords.length).toFixed(1) : '—'} trend={seoKeywords.length > 1 ? null : null} icon={Search} color="bg-blue-600" sub="Google SERP Average" />
               <StatCard title="Blog Posts / Mo" value={metrics.blogVelocity} trend="+4" icon={FileText}  color="bg-purple-600" sub="Monthly Production"   />
               <StatCard title="Avg Read Time"   value={metrics.avgReadTime} trend="+12s" icon={Clock}    color="bg-amber-600"  sub="Content Engagement"   />
             </div>
@@ -3448,7 +3483,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                 {[
                   { val: metrics.tiktokVelocity, label: 'Videos / Mo',  bg: 'bg-pink-50 dark:bg-pink-900/30',   tx: 'text-pink-900 dark:text-pink-200',   sm: 'text-pink-500'   },
                   { val: metrics.videoViews,      label: 'Total Views',  bg: 'bg-rose-50 dark:bg-rose-900/30',   tx: 'text-rose-900 dark:text-rose-200',   sm: 'text-rose-500'   },
-                  { val: '3.2k',                  label: 'Engagements',  bg: 'bg-orange-50 dark:bg-orange-900/30',tx: 'text-orange-900 dark:text-orange-200',sm: 'text-orange-500' },
+                  { val: (() => { const likes = Number(_tikLive.totalLikes || _ttLive.totalLikes || 0) + _tiktokPosts.reduce((s,e)=>s+Number(e.likes||0),0); return likes > 0 ? likes.toLocaleString() : '—'; })(), label: 'Engagements',  bg: 'bg-orange-50 dark:bg-orange-900/30',tx: 'text-orange-900 dark:text-orange-200',sm: 'text-orange-500' },
                 ].map(s => (
                   <div key={s.label} className={`p-4 ${s.bg} rounded-3xl text-center`}>
                     <div className={`text-3xl font-black ${s.tx}`}>{s.val}</div>

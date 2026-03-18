@@ -1,6 +1,5 @@
-// /api/chat.js — Google Gemini proxy for Captain KPI chatbot + AI data analysis
-// Requires GEMINI_API_KEY env var in Vercel project settings.
-// Get a free key at: aistudio.google.com → Get API Key
+// /api/chat.js — Anthropic Claude proxy for Captain KPI chatbot + AI data analysis
+// Requires CLAUDE_API env var in Vercel project settings.
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,10 +7,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const key = process.env.GEMINI_API_KEY;
+  const key = process.env.CLAUDE_API;
   if (!key) {
     return res.status(503).json({
-      error: 'not configured — add GEMINI_API_KEY to Vercel environment variables. Get a free key at aistudio.google.com',
+      error: 'not configured — add CLAUDE_API to Vercel environment variables.',
     });
   }
 
@@ -21,33 +20,29 @@ export default async function handler(req, res) {
   const system = systemPrompt ||
     "You are Captain KPI 🫡 — a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a mental health clinic in Scottsdale, AZ. Be helpful, concise, and funny but professional.";
 
-  // Gemini uses a different format — convert OpenAI-style messages to Gemini contents
-  const contents = messages.map(m => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }],
-  }));
-
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: system }] },
-          contents,
-          generationConfig: { maxOutputTokens: maxTokens || 800, temperature: 0.7 },
-        }),
-      }
-    );
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: maxTokens || 800,
+        system,
+        messages,
+      }),
+    });
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      return res.status(502).json({ error: err?.error?.message || 'Gemini API error' });
+      return res.status(502).json({ error: err?.error?.message || 'Claude API error' });
     }
 
     const data = await response.json();
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
+    const reply = data.content?.[0]?.text || 'No response generated.';
     return res.status(200).json({ reply });
   } catch (e) {
     return res.status(500).json({ error: e.message });
