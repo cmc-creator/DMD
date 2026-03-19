@@ -1694,7 +1694,11 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   const _latestSurvey = (manualData.survey_results || [])[0] || null;
   // Patch placeholder metrics with computed values
   Object.assign(metrics, {
-    googleScore:        _avgRating ? _avgRating + ' ★' : '—',
+    googleScore:        (() => {
+      if (_avgRating) return _avgRating + ' ★';
+      const dsRating = destinyData?.google?.rating ?? destinyData?.googleSearch?.rating ?? destinyData?.bestRating?.rating;
+      return dsRating ? Number(dsRating).toFixed(1) + ' ★' : '—';
+    })(),
     nps:                _latestSurvey?.npsScore != null ? String(_latestSurvey.npsScore) : '—',
     videoViews:         _tikLive.recentViews  ? Number(_tikLive.recentViews).toLocaleString()  : '—',
     tiktokVelocity:     (_tiktokPosts.length  || _tikLive.recentPosts) ? String(_tiktokPosts.length || _tikLive.recentPosts) : '—',
