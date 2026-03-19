@@ -201,16 +201,17 @@ async function scrapeFacebook(url = DS_FB) {
 }
 
 // ── 3. INSTAGRAM SCRAPER ──────────────────────────────────────────────────────
-async function scrapeInstagram(url = DS_IG) {
+async function scrapeInstagram(url = DS_IG, userToken = null, userPageId = null) {
   const username = url.match(/instagram\.com\/([^/?#\s]+)/i)?.[1] || 'destinyspringshealthcare';
 
-  // ── Strategy A: Graph API via the linked Facebook Page ──
+  // ── Strategy A: Graph API — prefer passed user token, fall back to app token ──
   const APP_ID     = process.env.META_APP_ID;
   const APP_SECRET = process.env.META_APP_SECRET;
-  if (APP_ID && APP_SECRET) {
+  const graphToken = userToken || (APP_ID && APP_SECRET ? `${APP_ID}|${APP_SECRET}` : null);
+  if (graphToken) {
     try {
-      const fbPageId = DS_FB.match(/[?&]id=(\d+)/)?.[1] || '61581511228047';
-      const appToken = `${APP_ID}|${APP_SECRET}`;
+      const fbPageId = userPageId || DS_FB.match(/[?&]id=(\d+)/)?.[1] || '61581511228047';
+      const appToken = graphToken;
       const igChkRes = await fetch(`https://graph.facebook.com/v18.0/${fbPageId}?fields=instagram_business_account&access_token=${appToken}`, { signal: AbortSignal.timeout(6000) });
       const igChk    = await igChkRes.json();
       if (igChk.instagram_business_account?.id) {
@@ -725,7 +726,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const apiKey    = process.env.GOOGLE_PLACES_KEY || req.query.apiKey || '';
-  const { action, placeId: qPid, debug } = req.query;
+  const { action, placeId: qPid, debug, metaToken, metaPageId } = req.query;
 
   try {
     // ── Env-var diagnostic (no key values exposed) ────────────────────────────
@@ -747,7 +748,7 @@ export default async function handler(req, res) {
     // Single-source debug endpoints
     if (action === 'website')   return res.json({ ok:true, website:   await scrapeWebsite() });
     if (action === 'facebook')  return res.json({ ok:true, facebook:  await scrapeFacebook() });
-    if (action === 'instagram') return res.json({ ok:true, instagram: await scrapeInstagram() });
+    if (action === 'instagram') return res.json({ ok:true, instagram: await scrapeInstagram(DS_IG, metaToken||null, metaPageId||null) });
     if (action === 'tiktok')    return res.json({ ok:true, tiktok:    await scrapeTikTok() });
     if (action === 'linkedin')  return res.json({ ok:true, linkedin:  await scrapeLinkedIn() });
     if (action === 'yelp')      return res.json({ ok:true, yelp:      await scrapeYelp() });
@@ -766,7 +767,7 @@ export default async function handler(req, res) {
       await Promise.all([
         scrapeWebsite().catch(e    => ({ error: `Website: ${e.message}` })),
         scrapeFacebook().catch(e   => ({ platform:'Facebook',  error: e.message })),
-        scrapeInstagram().catch(e  => ({ platform:'Instagram', error: e.message })),
+        scrapeInstagram(DS_IG, metaToken || null, metaPageId || null).catch(e  => ({ platform:'Instagram', error: e.message })),
         scrapeTikTok().catch(e     => ({ platform:'TikTok',    error: e.message })),
         scrapeLinkedIn().catch(e   => ({ platform:'LinkedIn',  error: e.message })),
         scrapeHealthgrades().catch(() => null),

@@ -698,7 +698,8 @@ const App = () => {
 
   // ── Destiny Springs: one-click auto-profile fetch ────────────────────────────
   const fetchDestinyProfile = async () => {
-    const gBizCreds = connections['Google Business'] || {};
+    const gBizCreds   = connections['Google Business']     || {};
+    const metaCreds   = connections['Meta Business Suite'] || {};
     const apiKey  = gBizCreds.apiKey  || '';
     const placeId = gBizCreds.placeId || '';
     setDestinyLoading(true);
@@ -708,8 +709,10 @@ const App = () => {
     localStorage.removeItem('dmd_destiny');
     try {
       const params = new URLSearchParams();
-      if (apiKey)  params.set('apiKey',  apiKey);
-      if (placeId) params.set('placeId', placeId);
+      if (apiKey)                params.set('apiKey',     apiKey);
+      if (placeId)               params.set('placeId',    placeId);
+      if (metaCreds.accessToken) params.set('metaToken',  metaCreds.accessToken);
+      if (metaCreds.pageId)      params.set('metaPageId', metaCreds.pageId);
       const qs  = params.toString() ? '?' + params.toString() : '';
       const res = await fetch('/api/destiny' + qs);
       const data = await res.json();
