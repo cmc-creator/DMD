@@ -979,6 +979,11 @@ const App = () => {
 
   const handleFileUpload = (file) => {
     if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'pdf') {
+      setImportNotice('\u274c PDFs can\u2019t be parsed — please export your SurveyMonkey results as a CSV file instead: in SurveyMonkey go to Analyze Results → Export → All Summary Data → CSV.');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target.result;
@@ -5774,8 +5779,8 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                   onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFileUpload(f); }}
                 >
                   <Upload size={36} className={`${muted} group-hover:text-teal-500 mx-auto mb-3 transition-colors`} />
-                  <p className={`text-sm font-black ${txt} mb-1`}>Drop your CSV, XLSX, or JSON file here</p>
-                  <p className={`text-xs ${subtl} mb-5`}>Supports Google Analytics exports, Meta Business Suite, Mailchimp CSV, and any standard format</p>
+                  <p className={`text-sm font-black ${txt} mb-1`}>Drop your CSV or JSON file here</p>
+                  <p className={`text-xs ${subtl} mb-5`}>Supports Google Analytics exports, Meta Business Suite, Google Ads CSV, and SurveyMonkey CSV exports — <span className="text-amber-500 font-bold">PDFs are not supported, export as CSV first</span></p>
                   <div className="flex gap-3 justify-center flex-wrap">
                     <input
                     type="file"
@@ -5791,7 +5796,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                     <button className={`px-6 py-2.5 ${card} ${muted} rounded-xl text-sm font-black border hover:text-teal-500 transition-all`}><Download size={13} className="inline mr-1.5" />Download Template</button>
                   </div>
                   <div className="flex gap-2 justify-center mt-5 flex-wrap">
-                    {['Google Analytics', 'Meta Business', 'Mailchimp', 'Google Ads', 'TikTok', 'SurveyMonkey', 'Generic CSV'].map(fmt => (
+                    {['Google Analytics', 'Meta Business', 'Google Ads', 'TikTok', 'SurveyMonkey CSV', 'Generic CSV'].map(fmt => (
                       <span key={fmt} className={`text-[13px] font-black px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 ${muted}`}>{fmt}</span>
                     ))}
                   </div>
