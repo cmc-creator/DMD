@@ -4614,7 +4614,6 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
 
         {/* ══════════════════ INTEL ══════════════════ */}
         {activeTab === 'intel' && (() => {
-          const _yelpLive = liveData['Yelp Reviews']     || {};
           const presetQueries = [
             'mental health Arizona',
             'Destiny Springs Healthcare',
@@ -4629,7 +4628,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                   { label: 'Tracked URLs',    value: String(savedUrls.length),              color: 'text-teal-500',    icon: Link2 },
                   { label: 'News Loaded',     value: String(newsItems.length),              color: 'text-sky-500',     icon: Newspaper },
                   { label: 'Saved Profiles',  value: String(facilityProfiles.length),       color: 'text-violet-500',  icon: Building2 },
-                  { label: 'Yelp Rating',     value: _yelpLive.rating    ? `${_yelpLive.rating} ★ (${_yelpLive.reviewCount || 0})` : '—', color: 'text-red-500', icon: Building2 },
+                  { label: 'Yelp Rating',     value: reviewPlatformData['yelp']?.rating ? `${reviewPlatformData['yelp'].rating} ★` : '—', color: 'text-red-500', icon: Building2 },
                 ].map(s => (
                   <div key={s.label} className={`${card} p-5 rounded-2xl text-center`}>
                     <s.icon size={22} className={`${s.color} mx-auto mb-2`} />
@@ -5099,78 +5098,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                 </div>
               )}
 
-              {/* YouTube + Yelp live data cards */}
-              {(_ytLive.channelName || _yelpLive.name) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
-                  {_ytLive.channelName && (
-                    <div className={`${card} p-5 rounded-2xl`}>
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/20"><Youtube size={18} className="text-rose-500" /></div>
-                        <div>
-                          <p className={`font-black text-sm ${txt}`}>{_ytLive.channelName}</p>
-                          <p className={`text-xs ${subtl}`}>YouTube Channel</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                        {[
-                          { label: 'Subscribers', value: Number(_ytLive.subscribers  || 0).toLocaleString() },
-                          { label: 'Total Views',  value: Number(_ytLive.totalViews   || 0).toLocaleString() },
-                          { label: 'Videos',       value: Number(_ytLive.videoCount   || 0).toLocaleString() },
-                        ].map(s => (
-                          <div key={s.label} className="text-center p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                            <p className={`text-base font-black ${txt}`}>{s.value}</p>
-                            <p className={`text-[11px] ${subtl}`}>{s.label}</p>
-                          </div>
-                        ))}
-                      </div>
-                      {_ytLive.recentVideos?.length > 0 && (
-                        <>
-                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Recent Videos</p>
-                          <div className="space-y-2">
-                            {_ytLive.recentVideos.slice(0,3).map((v, i) => (
-                              <div key={i} className={`flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50`}>
-                                {v.thumbnail && <img src={v.thumbnail} alt="" className="w-10 h-7 object-cover rounded-lg flex-shrink-0" />}
-                                <div className="min-w-0 flex-1">
-                                  <p className={`text-xs font-black ${txt} truncate`}>{v.title}</p>
-                                  <p className={`text-[11px] ${subtl}`}>{Number(v.views||0).toLocaleString()} views · {Number(v.likes||0).toLocaleString()} likes</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                  {_yelpLive.name && (
-                    <div className={`${card} p-5 rounded-2xl`}>
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-900/20"><Building2 size={18} className="text-red-500" /></div>
-                        <div>
-                          <p className={`font-black text-sm ${txt}`}>{_yelpLive.name}</p>
-                          <p className={`text-xs ${subtl}`}>{_yelpLive.categories}</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                          <p className="text-2xl font-black text-amber-500">{_yelpLive.rating}</p>
-                          <p className={`text-[11px] ${subtl}`}>Yelp Rating</p>
-                        </div>
-                        <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                          <p className={`text-2xl font-black ${txt}`}>{Number(_yelpLive.reviewCount||0).toLocaleString()}</p>
-                          <p className={`text-[11px] ${subtl}`}>Reviews</p>
-                        </div>
-                      </div>
-                      {_yelpLive.address && <p className={`text-xs ${subtl}`}>📍 {_yelpLive.address}</p>}
-                      {_yelpLive.phone   && <p className={`text-xs ${subtl} mt-1`}>📞 {_yelpLive.phone}</p>}
-                      {_yelpLive.url && (
-                        <a href={_yelpLive.url} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-1 text-xs text-red-500 hover:text-red-400 font-black">
-                          <ExternalLink size={11} /> View on Yelp
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+
             </>
           );
         })()}
