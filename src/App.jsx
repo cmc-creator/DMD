@@ -152,6 +152,15 @@ const App = () => {
   const [smartPasteResults, setSmartPasteResults] = useState(null);
   const [kpiGoals, setKpiGoals]               = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_kpi_goals') || '{}'); } catch { return {}; } });
   const [showReport, setShowReport]           = useState(false);
+  const [compOverrides, setCompOverrides]     = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_comp_overrides') || '{}'); } catch { return {}; } });
+  const [compEditId, setCompEditId]           = useState(null);
+  const setCompOverride = (id, field, val) => {
+    setCompOverrides(prev => {
+      const next = { ...prev, [id]: { ...(prev[id] || {}), [field]: val } };
+      localStorage.setItem('dmd_comp_overrides', JSON.stringify(next));
+      return next;
+    });
+  };
   const [reviewPlatformData, setReviewPlatformData] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}'); } catch { return {}; } });
   const [reviewPlatformForm, setReviewPlatformForm]   = useState({ editingPlatform: null, rating: '', count: '', url: '' });
   const [reviewFetchingPlatform, setReviewFetchingPlatform] = useState(null);
@@ -257,6 +266,7 @@ const App = () => {
         if (data.dmd_saved_urls)       { setSavedUrls(data.dmd_saved_urls);                 ls('dmd_saved_urls',        data.dmd_saved_urls); }
         if (data.dmd_facility_profiles){ setFacilityProfiles(data.dmd_facility_profiles);   ls('dmd_facility_profiles', data.dmd_facility_profiles); }
         if (data.dmd_content)          { setContentItems(data.dmd_content);                   ls('dmd_content',           data.dmd_content); }
+        if (data.dmd_comp_overrides)   { setCompOverrides(data.dmd_comp_overrides);           ls('dmd_comp_overrides',    data.dmd_comp_overrides); }
         cloudLoadedRef.current = true;
         setCloudSynced('ok');
         setTimeout(() => { skipNextPushRef.current = false; }, 600);
@@ -283,6 +293,7 @@ const App = () => {
         dmd_saved_urls:        savedUrls,
         dmd_facility_profiles: facilityProfiles,
         dmd_content:           contentItems,
+        dmd_comp_overrides:    compOverrides,
         _updatedAt:            new Date().toISOString(),
       };
       setCloudSynced('syncing');
@@ -292,7 +303,7 @@ const App = () => {
         .catch(() => setCloudSynced('error'));
     }, 3000);
     return () => clearTimeout(pushTimerRef.current);
-  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems, kpiGoals]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems, kpiGoals, compOverrides]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { setShowQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
 
@@ -1946,7 +1957,10 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
 
     // Google Rating vs benchmark + vs competitors
     const gr = numMetric(_avgRating) || numMetric(destinyData?.google?.rating);
-    const compRatings = (competitorData?.competitors || []).map(c => c.avgRating).filter(Boolean);
+    const compRatings = facilityProfiles.map(p => {
+      const ov = compOverrides[p.id] || {};
+      return ov.rating != null ? parseFloat(ov.rating) : (p.schemaRating ? parseFloat(p.schemaRating) : null);
+    }).filter(r => r && !isNaN(r));
     const avgCompRating = compRatings.length ? (compRatings.reduce((a,b)=>a+b,0)/compRatings.length).toFixed(1) : null;
     if (gr) {
       const vsBench = (gr - BHC_BENCHMARKS.googleRating.value).toFixed(1);
@@ -5361,16 +5375,18 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
             info:        { bg:'bg-slate-50 dark:bg-slate-800/50',     border:'border-slate-200 dark:border-slate-700',        icon:`${subtl}`,                               emoji:'💡' },
           };
 
-          // Competitive scorecard data
-          const compList = competitorData?.competitors || [];
+          // Competitive scorecard data — built from user's Facility Library
           const clientRating = curRating;
           const clientReviews = _totalReviewCount || 0;
-          const scoredComps = compList.map(c => ({
-            name: c.name, rating: c.avgRating, reviews: c.totalReviews || 0,
-            score: Math.round(((c.avgRating||0)/5)*60 + Math.min(40,(c.totalReviews||0)/500*40)),
-            isClient: false,
-          }));
-          if (clientRating) scoredComps.push({ name: 'Destiny Springs ★', rating: clientRating, reviews: clientReviews, score: Math.round((clientRating/5)*60 + Math.min(40,clientReviews/500*40)), isClient: true });
+          const scoredComps = facilityProfiles.map(p => {
+            const ov = compOverrides[p.id] || {};
+            const rating  = ov.rating  != null ? parseFloat(ov.rating)  : (p.schemaRating  ? parseFloat(p.schemaRating)  : null);
+            const reviews = ov.reviews != null ? parseInt(ov.reviews)   : (p.schemaReviewCount ? parseInt(p.schemaReviewCount) : 0);
+            return { id: p.id, name: p.label, rating, reviews: reviews || 0,
+              score: Math.round(((rating||0)/5)*60 + Math.min(40,(reviews||0)/500*40)),
+              hasData: rating != null, isClient: false };
+          });
+          if (clientRating) scoredComps.push({ id: 'client', name: 'Destiny Springs ★', rating: clientRating, reviews: clientReviews, score: Math.round((clientRating/5)*60 + Math.min(40,clientReviews/500*40)), hasData: true, isClient: true });
           scoredComps.sort((a,b)=>b.score-a.score);
 
           // Client report generator
@@ -5582,37 +5598,86 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
               </div>
 
               {/* ── Competitive Scorecard ── */}
-              {scoredComps.length > 0 && (
-                <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
-                  <div className="flex items-center gap-3 mb-6">
+              <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
+                <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                  <div className="flex items-center gap-3">
                     <Trophy size={18} className="text-amber-500" />
                     <div>
                       <h3 className={`text-base font-black ${txt}`}>Competitive Scorecard</h3>
-                      <p className={`text-xs ${subtl}`}>Ranking based on weighted score: 60% star rating + 40% review volume (vs {scoredComps.length} tracked providers)</p>
+                      <p className={`text-xs ${subtl}`}>Ranking built from your Facility Library — 60% star rating + 40% review volume</p>
                     </div>
                   </div>
-                  <div className="space-y-2">
+                  <button onClick={() => setActiveTab('intel')}
+                    className="text-[11px] font-black px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl flex items-center gap-1.5 shrink-0">
+                    <Plus size={11} /> Add Competitors
+                  </button>
+                </div>
+                {facilityProfiles.length === 0 ? (
+                  <div className="text-center py-10">
+                    <Building2 size={36} className={`${subtl} mx-auto mb-3`} />
+                    <p className={`text-sm font-black ${txt} mb-1`}>No competitors tracked yet</p>
+                    <p className={`text-xs ${muted} mb-4`}>Go to the Intel tab → Facility Library, scan your competitors' websites and save them. They'll appear here automatically.</p>
+                    <button onClick={() => setActiveTab('intel')} className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-black">Open Facility Library →</button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 mt-4">
                     {scoredComps.map((c, i) => (
-                      <div key={c.name} className={`flex items-center gap-4 p-3.5 rounded-2xl ${c.isClient ? 'bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/50' : 'bg-slate-50 dark:bg-slate-800/30'}`}>
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${i===0?'bg-amber-400 text-amber-900':i===1?'bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200':i===2?'bg-orange-300 text-orange-900':'bg-slate-100 dark:bg-slate-700 '+subtl}`}>{i+1}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-black ${txt} ${c.isClient?'text-teal-700 dark:text-teal-300':''}`}>{c.name}</p>
-                          <p className={`text-[11px] ${subtl}`}>{c.rating?c.rating.toFixed(1)+'★':'—'} · {c.reviews?c.reviews.toLocaleString()+' reviews':'—'}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className={`text-lg font-black ${c.isClient?'text-teal-600 dark:text-teal-400':txt}`}>{c.score}<span className={`text-xs font-bold ${subtl}`}>/100</span></div>
-                          <div className="h-1.5 w-20 bg-slate-200 dark:bg-slate-700 rounded-full mt-1 overflow-hidden">
-                            <div className={`h-full rounded-full ${c.isClient?'bg-teal-500':'bg-slate-400 dark:bg-slate-500'}`} style={{width:`${c.score}%`}} />
+                      <div key={c.id || c.name}>
+                        <div className={`flex items-center gap-3 p-3.5 rounded-2xl ${c.isClient ? 'bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/50' : 'bg-slate-50 dark:bg-slate-800/30'}`}>
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${i===0?'bg-amber-400 text-amber-900':i===1?'bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200':i===2?'bg-orange-300 text-orange-900':'bg-slate-100 dark:bg-slate-700 '+subtl}`}>{i+1}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-black truncate ${c.isClient?'text-teal-700 dark:text-teal-300':txt}`}>{c.name}</p>
+                            <p className={`text-[11px] ${subtl}`}>
+                              {c.hasData ? `${c.rating?.toFixed(1)}★ · ${c.reviews.toLocaleString()} reviews` : <span className="text-amber-500 font-bold">No data — click ✏️ to enter manually</span>}
+                            </p>
+                          </div>
+                          {!c.isClient && (
+                            <button onClick={() => setCompEditId(compEditId === c.id ? null : c.id)}
+                              title="Edit rating & reviews" className={`p-1.5 rounded-lg transition-colors shrink-0 ${compEditId===c.id ? 'text-teal-500 bg-teal-100 dark:bg-teal-900/30' : `${subtl} hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20`}`}>
+                              <Pencil size={13} />
+                            </button>
+                          )}
+                          <div className="text-right shrink-0">
+                            <div className={`text-lg font-black ${c.isClient?'text-teal-600 dark:text-teal-400':txt}`}>{c.score}<span className={`text-xs font-bold ${subtl}`}>/100</span></div>
+                            <div className="h-1.5 w-20 bg-slate-200 dark:bg-slate-700 rounded-full mt-1 overflow-hidden">
+                              <div className={`h-full rounded-full ${c.isClient?'bg-teal-500':c.hasData?'bg-slate-400 dark:bg-slate-500':'bg-slate-200 dark:bg-slate-700'}`} style={{width:`${c.score}%`}} />
+                            </div>
                           </div>
                         </div>
+                        {compEditId === c.id && (
+                          <div className={`mx-2 mb-2 p-4 rounded-2xl border ${brd} bg-slate-50 dark:bg-slate-800/50`}>
+                            <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3`}>Enter data for {c.name}</p>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className={`text-[11px] font-bold ${subtl} block mb-1`}>Google Rating (e.g. 4.2)</label>
+                                <input type="number" step="0.1" min="1" max="5"
+                                  defaultValue={(compOverrides[c.id]?.rating ?? '') || ''}
+                                  onChange={e => setCompOverride(c.id, 'rating', e.target.value)}
+                                  className={`w-full bg-white dark:bg-slate-700 ${txt} rounded-xl px-3 py-2 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                                  placeholder="e.g. 4.2" />
+                              </div>
+                              <div>
+                                <label className={`text-[11px] font-bold ${subtl} block mb-1`}>Total Reviews</label>
+                                <input type="number" min="0"
+                                  defaultValue={(compOverrides[c.id]?.reviews ?? '') || ''}
+                                  onChange={e => setCompOverride(c.id, 'reviews', e.target.value)}
+                                  className={`w-full bg-white dark:bg-slate-700 ${txt} rounded-xl px-3 py-2 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                                  placeholder="e.g. 124" />
+                              </div>
+                            </div>
+                            <p className={`text-[10px] ${subtl} mt-2`}>Data is saved instantly. Find these on Google Maps or the provider's Google Business profile.</p>
+                          </div>
+                        )}
                       </div>
                     ))}
+                    <p className={`text-[11px] ${subtl} pt-2`}>
+                      {scoredComps.filter(c=>!c.hasData && !c.isClient).length > 0
+                        ? `${scoredComps.filter(c=>!c.hasData && !c.isClient).length} competitor(s) missing rating data — click ✏️ on each row to enter manually, or re-scan their website from the Facility Library.`
+                        : `All ${facilityProfiles.length} tracked competitor${facilityProfiles.length!==1?'s':''} have data. Manage your list in Intel → Facility Library.`}
+                    </p>
                   </div>
-                  {scoredComps.length < 3 && (
-                    <p className={`text-xs ${subtl} mt-4`}>Run a competitor sync from the Intel tab to populate full rankings. Live data fetched from Google and Healthgrades.</p>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </>
           );
         })()}
