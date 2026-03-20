@@ -71,6 +71,20 @@ const sectionColorMap = {
 };
 const cc = (c, a) => `rgba(${c.r},${c.g},${c.b},${a})`;
 
+// ─── Industry Benchmarks (Behavioral Health / Healthcare, 2024) ──────────────
+const BHC_BENCHMARKS = {
+  bounceRate:   { value: 62,   unit: '%',   label: 'Bounce Rate',          better: 'lower',  source: 'HubSpot Healthcare 2024'          },
+  convRate:     { value: 3.2,  unit: '%',   label: 'Conversion Rate',       better: 'higher', source: 'WordStream Healthcare 2024'        },
+  emailOpen:    { value: 22,   unit: '%',   label: 'Email Open Rate',       better: 'higher', source: 'Mailchimp Benchmarks 2024'         },
+  emailClick:   { value: 3.1,  unit: '%',   label: 'Email Click Rate',      better: 'higher', source: 'Mailchimp Benchmarks 2024'         },
+  googleRating: { value: 4.1,  unit: '\u2605', label: 'Google Rating',    better: 'higher', source: 'BrightLocal Local Consumer 2024'   },
+  cpl:          { value: 135,  unit: '$',   label: 'Cost Per Lead',         better: 'lower',  source: 'WordStream Healthcare 2024'        },
+  fbEngagement: { value: 1.2,  unit: '%',   label: 'FB Engagement Rate',    better: 'higher', source: 'RivalIQ Social Report 2024'        },
+  orgTraffic:   { value: 38,   unit: '%',   label: 'Organic Traffic',       better: 'higher', source: 'Semrush Benchmark Report 2024'     },
+  sessions:     { value: 3200, unit: '',    label: 'Monthly Sessions',      better: 'higher', source: 'Contentsquare Healthcare 2024'     },
+  nps:          { value: 30,   unit: '',    label: 'NPS Score',             better: 'higher', source: 'Bain & Company Healthcare 2024'    },
+};
+
 const card  = 'glass-card';
 const txt   = 'text-slate-900 dark:text-slate-100';
 const txt2  = 'text-slate-600 dark:text-slate-300';
@@ -136,6 +150,8 @@ const App = () => {
   const [wixFormVals, setWixFormVals]           = useState({});
   const [smartPasteText, setSmartPasteText]     = useState('');
   const [smartPasteResults, setSmartPasteResults] = useState(null);
+  const [kpiGoals, setKpiGoals]               = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_kpi_goals') || '{}'); } catch { return {}; } });
+  const [showReport, setShowReport]           = useState(false);
   const [reviewPlatformData, setReviewPlatformData] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}'); } catch { return {}; } });
   const [reviewPlatformForm, setReviewPlatformForm]   = useState({ editingPlatform: null, rating: '', count: '', url: '' });
   const [reviewFetchingPlatform, setReviewFetchingPlatform] = useState(null);
@@ -230,6 +246,7 @@ const App = () => {
         const ls = (k, v) => localStorage.setItem(k, JSON.stringify(v));
         if (data.dmd_destiny)          { setDestinyData(data.dmd_destiny);                 ls('dmd_destiny',          data.dmd_destiny); }
         if (data.dmd_review_platforms) { setReviewPlatformData(data.dmd_review_platforms); ls('dmd_review_platforms',  data.dmd_review_platforms); }
+        if (data.dmd_kpi_goals)         { setKpiGoals(data.dmd_kpi_goals);                   ls('dmd_kpi_goals',         data.dmd_kpi_goals); }
         if (data.dmd_manual)           { setManualData(data.dmd_manual);                   ls('dmd_manual',            data.dmd_manual); }
         if (data.dmd_wix)              { setWixData(data.dmd_wix);                         ls('dmd_wix',               data.dmd_wix); }
         if (data.dmd_livedata)         { setLiveData(data.dmd_livedata);                   ls('dmd_livedata',          data.dmd_livedata); }
@@ -255,6 +272,7 @@ const App = () => {
       const payload = {
         dmd_destiny:           destinyData,
         dmd_review_platforms:  reviewPlatformData,
+        dmd_kpi_goals:         kpiGoals,
         dmd_manual:            manualData,
         dmd_wix:               wixData,
         dmd_livedata:          liveData,
@@ -274,7 +292,7 @@ const App = () => {
         .catch(() => setCloudSynced('error'));
     }, 3000);
     return () => clearTimeout(pushTimerRef.current);
-  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems, kpiGoals]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { setShowQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
 
@@ -1920,6 +1938,87 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
     { platform: 'TikTok',    color: '#00f2ea', reach: Number(_latestSocial['TikTok']?.reach    || _tikLive.recentViews || 0), engagement: 0, clicks: 0, followers: Number(_ttLive.followers || _tikLive.followers || _latestSocial['TikTok']?.followers || 0), posts: null, videos: Number(_ttLive.videos || _tikLive.videos || 0), totalLikes: Number(_ttLive.likes || _tikLive.totalLikes || 0) },
   ];
 
+  // ── Smart Insights Engine ─────────────────────────────────────────────────────
+  const smartInsights = (() => {
+    const out = [];
+    const nb = (v) => typeof v === 'number' && !isNaN(v) && v > 0;
+    const numMetric = (s) => { if (typeof s === 'number') return s; const n = parseFloat(String(s || '').replace(/[^0-9.]/g,'')); return isNaN(n) ? null : n; };
+
+    // Google Rating vs benchmark + vs competitors
+    const gr = numMetric(_avgRating) || numMetric(destinyData?.google?.rating);
+    const compRatings = (competitorData?.competitors || []).map(c => c.avgRating).filter(Boolean);
+    const avgCompRating = compRatings.length ? (compRatings.reduce((a,b)=>a+b,0)/compRatings.length).toFixed(1) : null;
+    if (gr) {
+      const vsBench = (gr - BHC_BENCHMARKS.googleRating.value).toFixed(1);
+      const type = gr >= BHC_BENCHMARKS.googleRating.value ? 'win' : 'warning';
+      out.push({ type, title: `Google Rating ${gr >= BHC_BENCHMARKS.googleRating.value ? 'Beats' : 'Below'} Industry Avg`, text: `${gr}\u2605 vs ${BHC_BENCHMARKS.googleRating.value}\u2605 industry avg (${parseFloat(vsBench) >= 0 ? '+' : ''}${vsBench}). ${gr >= 4.5 ? 'Focus on review volume to reinforce SEO authority.' : gr >= 4.0 ? 'Solid — prioritize getting to 4.5+ for premium trust signals.' : 'Below trust threshold — review recovery should be top priority.'}${avgCompRating ? ` Competitor avg: ${avgCompRating}\u2605.` : ''}`, metric: 'Google Rating', color: gr >= BHC_BENCHMARKS.googleRating.value ? 'emerald' : 'rose' });
+    }
+
+    // Sessions vs benchmark
+    const sess = Number(_wixLive.sessions || _gaLive.sessions || 0);
+    if (sess > 0) {
+      const b = BHC_BENCHMARKS.sessions.value;
+      const pct = Math.round((sess / b - 1) * 100);
+      out.push({ type: sess >= b ? 'win' : 'opportunity', title: `Website Traffic ${sess >= b ? 'Above' : 'Below'} Benchmark`, text: `${sess.toLocaleString()} sessions vs ${b.toLocaleString()} healthcare avg (${pct >= 0 ? '+' : ''}${pct}%). ${sess < b ? 'SEO content, backlinks, and social traffic drives growth. Check organic % breakdown.' : 'Strong traffic base — focus on conversion rate optimization.'}`, metric: 'Monthly Sessions', color: sess >= b ? 'teal' : 'amber' });
+    }
+
+    // Bounce rate vs benchmark
+    const br = Number(_wixLive.bounceRate || _gaLive.bounceRate || 0);
+    if (br > 0) {
+      const b = BHC_BENCHMARKS.bounceRate.value;
+      const good = br <= b;
+      out.push({ type: good ? 'win' : 'warning', title: `Bounce Rate ${good ? 'Better Than' : 'Above'} Industry`, text: `${br}% vs ${b}% healthcare benchmark. ${good ? `Landing pages are relevant and converting. ${b-br > 10 ? 'Exceptional performance — well below industry.' : ''}` : `High exit rate — review ad targeting, page speed, and messaging alignment.`}`, metric: 'Bounce Rate', color: good ? 'teal' : 'orange' });
+    }
+
+    // Email open rate vs benchmark
+    const eo = numMetric(metrics.emailOpenRate);
+    if (eo) {
+      const b = BHC_BENCHMARKS.emailOpen.value;
+      out.push({ type: eo >= b ? 'win' : 'opportunity', title: `Email Open Rate ${eo >= b ? 'Beats' : 'Trails'} Benchmark`, text: `${eo}% open rate vs ${b}% healthcare avg. ${eo >= b ? `Subject line strategy is working. ${eo > 30 ? 'Excellent engagement — list is highly qualified.' : ''}` : 'Test personalized subject lines, optimal send times (Tue/Thu 10am), and cleaner segmentation.'}`, metric: 'Email Open Rate', color: eo >= b ? 'emerald' : 'amber' });
+    }
+
+    // Cost Per Lead vs benchmark
+    const cpl = numMetric(metrics.costPerLead);
+    if (cpl && cpl > 0) {
+      const b = BHC_BENCHMARKS.cpl.value;
+      const good = cpl <= b;
+      out.push({ type: good ? 'win' : 'warning', title: `CPL ${good ? 'Under' : 'Above'} Healthcare Benchmark`, text: `$${cpl.toFixed(0)} per lead vs $${b} healthcare avg. ${good ? `Efficient acquisition. ${cpl < b * 0.7 ? 'Exceptional — well below typical healthcare CPL.' : 'Good efficiency across paid channels.'}` : `$${(cpl-b).toFixed(0)} above benchmark — review audience targeting, ad copy, and landing page CRO.`}`, metric: 'Cost Per Lead', color: good ? 'teal' : 'rose' });
+    }
+
+    // KPI goals progress
+    Object.entries(kpiGoals).forEach(([goalKey, goalVal]) => {
+      if (!goalVal) return;
+      const goalMap = { sessions: sess, leads: numMetric(metrics.totalLeads), cpl: cpl, googleRating: gr, emailOpen: eo, bounceRate: br };
+      const cur = goalMap[goalKey];
+      if (cur == null) return;
+      const isBetter = goalKey === 'bounceRate' || goalKey === 'cpl';
+      const pct = isBetter ? Math.round((goalVal / cur) * 100) : Math.round((cur / goalVal) * 100);
+      if (pct < 80) {
+        const label = { sessions: 'session', leads: 'lead', cpl: 'CPL', googleRating: 'rating', emailOpen: 'open rate', bounceRate: 'bounce rate' }[goalKey] || goalKey;
+        out.push({ type: 'goal', title: `${label.charAt(0).toUpperCase()+label.slice(1)} Goal: ${pct}% of Target`, text: `Currently at ${isBetter ? '$' : ''}${cur.toLocaleString()}${goalKey === 'bounceRate' || goalKey === 'emailOpen' ? '%' : ''} toward ${isBetter ? '$' : ''}${Number(goalVal).toLocaleString()} goal. ${pct < 50 ? 'Significant gap — revisit strategy and timeline.' : 'Making progress — stay on track.'}`, metric: label, color: pct >= 65 ? 'amber' : 'rose' });
+      } else if (pct >= 100) {
+        out.push({ type: 'win', title: `Goal Hit! ${goalKey.replace(/([A-Z])/g,' $1').trim()}`, text: `Target achieved at ${pct}% of goal. Time to raise the bar for next period.`, metric: goalKey, color: 'emerald' });
+      }
+    });
+
+    // Competitive positioning
+    if (compRatings.length > 0 && gr) {
+      const rank = [...compRatings, gr].sort((a,b)=>b-a).indexOf(gr) + 1;
+      const total = compRatings.length + 1;
+      if (rank === 1) out.push({ type: 'win', title: `#1 Rated of ${total} Local Competitors`, text: `Top-ranked in your competitive set with ${gr}\u2605. This is a primary marketing differentiator — use it in all ad copy and patient communications.`, metric: 'Competitive Rank', color: 'emerald' });
+      else out.push({ type: 'opportunity', title: `Ranked #${rank} of ${total} Competitors`, text: `Current avg rating ${gr}\u2605 vs top competitor at ${compRatings.sort((a,b)=>b-a)[0]}\u2605. Gap of ${(compRatings.sort((a,b)=>b-a)[0] - gr).toFixed(1)} points. Accelerate review collection to close the gap.`, metric: 'Competitive Rank', color: 'blue' });
+    }
+
+    // Data gaps
+    const missing = [];
+    if (!sess) missing.push('website traffic');
+    if (!eo)   missing.push('email engagement');
+    if (!cpl)  missing.push('ad spend / CPL');
+    if (missing.length) out.push({ type: 'info', title: 'Data Gaps Detected', text: `Missing: ${missing.join(', ')}. Connect integrations or use Smart Paste on the Data Import tab to fill gaps and unlock more insights.`, metric: 'Data Coverage', color: 'slate' });
+
+    return out.slice(0, 8);
+  })();
+
   // ── Weekly Engagement Trend ──────────────────────────────────────────────────
   const weeklyEngagement = [];
 
@@ -2206,6 +2305,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
     { id: 'ads',          label: 'Paid Ads',      icon: Megaphone   },
     { id: 'email',        label: 'Email',         icon: Mail        },
     { id: 'pipeline',     label: 'Pipeline',      icon: Users       },
+    { id: 'goals',        label: 'Goals & KPIs',  icon: Target      },
     { id: 'achievements', label: 'Achievements',  icon: Trophy      },
     { id: 'roi',          label: 'ROI',           icon: DollarSign  },
     { id: 'calendar',     label: 'Calendar',      icon: Calendar    },
@@ -2309,6 +2409,10 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
             <button onClick={() => setActiveTab('calendar')} className="topbar-date hover:opacity-80 transition-opacity cursor-pointer" title="Go to Content Calendar">
               <Calendar size={11} />
               <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+            </button>
+            <button onClick={() => setActiveTab('goals')} title="Goals & KPIs" className="topbar-date hover:opacity-80 transition-opacity cursor-pointer" style={{borderColor:'rgba(16,185,129,0.3)',background:'rgba(16,185,129,0.07)',color:'#10b981'}}>
+              <Target size={11} />
+              <span>Goals & KPIs</span>
             </button>
             {cloudSynced === 'loading'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Connecting</span></div>}
             {cloudSynced === 'ok'       && <div className="topbar-live"><div className="live-dot" /><span>Synced</span></div>}
@@ -2873,6 +2977,42 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
               <StatCard title="NPS Score"         value={metrics.nps}            trend={null}                icon={ThumbsUp}    color="bg-amber-600"   sub="Net Promoter Score"          onClick={() => setActiveTab('reviews')} />
             </div>
             </>
+            )}
+
+            {/* ── Smart Insights Panel (Overview) ── */}
+            {smartInsights.length > 0 && !overviewHidden.includes('insights') && (
+              <div className={`${card} p-6 md:p-7 rounded-[2rem] mb-8`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                      <CaptainKPI size={20} />
+                    </div>
+                    <div>
+                      <h3 className={`text-sm font-black ${txt}`}>Smart Insights</h3>
+                      <p className={`text-[11px] ${subtl}`}>Live analysis vs industry benchmarks</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setActiveTab('goals')} className="text-[11px] font-black text-teal-500 hover:underline">View all goals →</button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {smartInsights.slice(0,6).map((ins, i) => {
+                    const colors = {
+                      win:         { bg:'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/40', text:'text-emerald-700 dark:text-emerald-300', emoji:'✅' },
+                      warning:     { bg:'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800/40',             text:'text-rose-700 dark:text-rose-300',        emoji:'⚠️' },
+                      opportunity: { bg:'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/40',         text:'text-amber-700 dark:text-amber-300',      emoji:'📈' },
+                      goal:        { bg:'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/40',             text:'text-blue-700 dark:text-blue-300',        emoji:'🎯' },
+                      info:        { bg:'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700',            text:subtl,                                     emoji:'💡' },
+                    };
+                    const c = colors[ins.type] || colors.info;
+                    return (
+                      <div key={i} className={`p-3.5 rounded-xl border ${c.bg}`}>
+                        <p className={`text-[11px] font-black ${txt} mb-1 flex items-center gap-1.5`}><span className="text-sm">{c.emoji}</span>{ins.title}</p>
+                        <p className={`text-[11px] leading-relaxed ${c.text} opacity-90`}>{ins.text.length > 120 ? ins.text.slice(0,117)+'…' : ins.text}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {/* ── Brand Health Score ────────────────────────────────────── */}
@@ -5164,6 +5304,312 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                         </a>
                       )}
                     </div>
+                  )}
+                </div>
+              )}
+            </>
+          );
+        })()}
+
+        {/* ══════════════════ GOALS & KPIs ══════════════════ */}
+        {activeTab === 'goals' && (() => {
+          // Current numeric values for goal tracking
+          const numMetric = (s) => { if (typeof s === 'number') return s; const n = parseFloat(String(s || '').replace(/[^0-9.]/g, '')); return isNaN(n) || n === 0 ? null : n; };
+          const curSessions  = Number(_wixLive.sessions  || _gaLive.sessions  || 0) || null;
+          const curBounce    = Number(_wixLive.bounceRate || _gaLive.bounceRate || 0) || null;
+          const curLeads     = numMetric(metrics.totalLeads);
+          const curCPL       = numMetric(metrics.costPerLead);
+          const curRating    = numMetric(_avgRating || destinyData?.google?.rating);
+          const curEmailOpen = numMetric(metrics.emailOpenRate);
+          const curEmailClick = numMetric(metrics.emailClickRate);
+          const curFollowers = socialAnalytics.reduce((s,p)=>s+p.followers,0) || null;
+          const curConv      = numMetric(metrics.siteConversion);
+          const curNPS       = numMetric(metrics.nps);
+
+          const kpiDefs = [
+            { key:'sessions',  label:'Monthly Sessions',      icon:Layout,       color:'bg-teal-600',    unit:'',   better:'higher', cur:curSessions,  benchKey:'sessions',    fmt:(v)=>v?.toLocaleString()??'—',                tab:'seo'      },
+            { key:'bounceRate',label:'Bounce Rate',           icon:TrendingDown,  color:'bg-orange-500',  unit:'%',  better:'lower',  cur:curBounce,    benchKey:'bounceRate',  fmt:(v)=>v!=null?v+'%':'—',                       tab:'seo'      },
+            { key:'leads',     label:'Monthly Leads',         icon:Target,       color:'bg-rose-500',    unit:'',   better:'higher', cur:curLeads,     benchKey:null,          fmt:(v)=>v?.toLocaleString()??'—',                tab:'pipeline' },
+            { key:'cpl',       label:'Cost Per Lead',         icon:DollarSign,   color:'bg-indigo-600',  unit:'$',  better:'lower',  cur:curCPL,       benchKey:'cpl',         fmt:(v)=>v!=null?'$'+v.toFixed(0):'—',            tab:'ads'      },
+            { key:'rating',    label:'Google Rating',         icon:Star,         color:'bg-amber-500',   unit:'★',  better:'higher', cur:curRating,    benchKey:'googleRating', fmt:(v)=>v!=null?v.toFixed(1)+'★':'—',           tab:'reviews'  },
+            { key:'emailOpen', label:'Email Open Rate',       icon:Mail,         color:'bg-amber-600',   unit:'%',  better:'higher', cur:curEmailOpen, benchKey:'emailOpen',   fmt:(v)=>v!=null?v+'%':'—',                       tab:'email'    },
+            { key:'followers', label:'Social Followers',      icon:Users,        color:'bg-purple-600',  unit:'',   better:'higher', cur:curFollowers, benchKey:null,          fmt:(v)=>v?.toLocaleString()??'—',                tab:'social'   },
+            { key:'convRate',  label:'Site Conversion Rate',  icon:MousePointer, color:'bg-emerald-600', unit:'%',  better:'higher', cur:curConv,      benchKey:'convRate',    fmt:(v)=>v!=null?v+'%':'—',                       tab:'seo'      },
+            { key:'nps',       label:'NPS Score',             icon:ThumbsUp,     color:'bg-blue-600',    unit:'',   better:'higher', cur:curNPS,       benchKey:'nps',         fmt:(v)=>v?.toString()??'—',                      tab:'reviews'  },
+          ];
+
+          const getRAG = (kpi) => {
+            const goal = Number(kpiGoals[kpi.key]);
+            if (!goal || !kpi.cur) return null;
+            const pct = kpi.better === 'lower' ? (goal / kpi.cur) * 100 : (kpi.cur / goal) * 100;
+            return pct >= 90 ? 'green' : pct >= 65 ? 'amber' : 'red';
+          };
+          const getPct = (kpi) => {
+            const goal = Number(kpiGoals[kpi.key]);
+            if (!goal || !kpi.cur) return null;
+            return Math.min(150, Math.round(kpi.better === 'lower' ? (goal / kpi.cur) * 100 : (kpi.cur / goal) * 100));
+          };
+
+          const ragBg  = { green:'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400', amber:'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400', red:'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400' };
+          const ragBar = { green:'bg-emerald-500', amber:'bg-amber-500', red:'bg-rose-500' };
+
+          const insightColors = {
+            win:         { bg:'bg-emerald-50 dark:bg-emerald-900/20', border:'border-emerald-200 dark:border-emerald-800/50', icon:'text-emerald-600 dark:text-emerald-400', emoji:'✅' },
+            warning:     { bg:'bg-rose-50 dark:bg-rose-900/20',       border:'border-rose-200 dark:border-rose-800/50',       icon:'text-rose-600 dark:text-rose-400',        emoji:'⚠️'  },
+            opportunity: { bg:'bg-amber-50 dark:bg-amber-900/20',     border:'border-amber-200 dark:border-amber-800/50',     icon:'text-amber-600 dark:text-amber-400',      emoji:'📈' },
+            goal:        { bg:'bg-blue-50 dark:bg-blue-900/20',       border:'border-blue-200 dark:border-blue-800/50',       icon:'text-blue-600 dark:text-blue-400',        emoji:'🎯' },
+            info:        { bg:'bg-slate-50 dark:bg-slate-800/50',     border:'border-slate-200 dark:border-slate-700',        icon:`${subtl}`,                               emoji:'💡' },
+          };
+
+          // Competitive scorecard data
+          const compList = competitorData?.competitors || [];
+          const clientRating = curRating;
+          const clientReviews = _totalReviewCount || 0;
+          const scoredComps = compList.map(c => ({
+            name: c.name, rating: c.avgRating, reviews: c.totalReviews || 0,
+            score: Math.round(((c.avgRating||0)/5)*60 + Math.min(40,(c.totalReviews||0)/500*40)),
+            isClient: false,
+          }));
+          if (clientRating) scoredComps.push({ name: 'Destiny Springs ★', rating: clientRating, reviews: clientReviews, score: Math.round((clientRating/5)*60 + Math.min(40,clientReviews/500*40)), isClient: true });
+          scoredComps.sort((a,b)=>b.score-a.score);
+
+          // Client report generator
+          const generateReport = () => {
+            const w = window.open('', '_blank', 'width=1140,height=900');
+            const date = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            const insightRows = smartInsights.map(i => `
+              <div style="padding:14px 18px;border-radius:12px;background:${i.type==='win'?'#f0fdf4':i.type==='warning'?'#fff1f2':i.type==='opportunity'?'#fffbeb':i.type==='goal'?'#eff6ff':'#f8fafc'};border:1px solid ${i.type==='win'?'#bbf7d0':i.type==='warning'?'#fecdd3':i.type==='opportunity'?'#fde68a':i.type==='goal'?'#bfdbfe':'#e2e8f0'};margin-bottom:10px">
+                <div style="font-weight:800;font-size:14px;color:#0f172a;margin-bottom:4px">${i.title}</div>
+                <div style="font-size:13px;color:#475569">${i.text}</div>
+              </div>`).join('');
+            const kpiRows = kpiDefs.map(kpi => {
+              const goal = Number(kpiGoals[kpi.key]);
+              const pct  = getPct(kpi);
+              const rag  = getRAG(kpi);
+              const bench = kpi.benchKey ? BHC_BENCHMARKS[kpi.benchKey] : null;
+              const ragColor = rag==='green'?'#10b981':rag==='amber'?'#f59e0b':rag==='red'?'#ef4444':'#94a3b8';
+              return `<tr style="border-bottom:1px solid #f1f5f9">
+                <td style="padding:10px 16px;font-weight:600;font-size:13px">${kpi.label}</td>
+                <td style="padding:10px 16px;text-align:center;font-weight:700;font-size:13px">${kpi.fmt(kpi.cur)}</td>
+                <td style="padding:10px 16px;text-align:center;font-size:13px">${goal ? kpi.unit==='$' ? '$'+goal : goal+kpi.unit : '—'}</td>
+                <td style="padding:10px 16px;text-align:center;font-size:13px">${bench ? bench.value+bench.unit : '—'}</td>
+                <td style="padding:10px 16px;text-align:center"><span style="background:${ragColor}22;color:${ragColor};padding:3px 12px;border-radius:20px;font-weight:700;font-size:12px">${pct!=null?pct+'%':'—'}</span></td>
+              </tr>`;
+            }).join('');
+            const compRows = scoredComps.map((c,i)=>`<tr style="background:${c.isClient?'#f0fdfa':''}">
+              <td style="padding:10px 16px;font-weight:${c.isClient?800:500}">${i+1}. ${c.name}</td>
+              <td style="padding:10px 16px;text-align:center">${c.rating?c.rating.toFixed(1)+'★':'—'}</td>
+              <td style="padding:10px 16px;text-align:center">${c.reviews||'—'}</td>
+              <td style="padding:10px 16px;text-align:center;font-weight:700;color:${c.isClient?'#0d9488':'#475569'}">${c.score}/100</td>
+            </tr>`).join('');
+            w.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Marketing Report \u2014 ${date}</title>
+            <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;color:#0f172a}
+            .page{max-width:1060px;margin:0 auto;padding:48px 32px}
+            h1{font-size:30px;font-weight:900;color:#0f172a}h2{font-size:18px;font-weight:800;color:#0f172a;margin:28px 0 14px}
+            .header{background:linear-gradient(135deg,#0d9488,#0f766e);color:white;padding:36px 40px;border-radius:20px;margin-bottom:36px}
+            .header h1{color:white}.header p{color:rgba(255,255,255,0.8);margin-top:6px}
+            table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+            th{background:#f8fafc;padding:10px 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+            @media print{.no-print{display:none!important}.page{padding:24px}}</style>
+            </head><body><div class="page">
+            <div class="header"><h1>Digital Marketing Report</h1><p>Destiny Springs Healthcare \u00b7 ${date}</p></div>
+            <h2>Performance Insights</h2>${insightRows}
+            <h2>KPI Summary</h2>
+            <table><thead><tr><th>Metric</th><th style="text-align:center">Current</th><th style="text-align:center">Goal</th><th style="text-align:center">Industry Avg</th><th style="text-align:center">Progress</th></tr></thead><tbody>${kpiRows}</tbody></table>
+            ${scoredComps.length?`<h2>Competitive Scorecard</h2><table><thead><tr><th>Provider</th><th style="text-align:center">Rating</th><th style="text-align:center">Reviews</th><th style="text-align:center">Score</th></tr></thead><tbody>${compRows}</tbody></table>`:''}
+            <p style="margin-top:40px;font-size:11px;color:#94a3b8;text-align:center">Generated by Destiny Springs Marketing Dashboard \u00b7 ${new Date().toLocaleString()}</p>
+            </div><script>setTimeout(()=>window.print(),600)</script></body></html>`);
+            w.document.close();
+          };
+
+          return (
+            <>
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 mb-8 flex-wrap">
+                <div>
+                  <h2 className={`text-2xl font-black ${txt} mb-1`}>Goals & KPI Intelligence</h2>
+                  <p className={`text-sm ${subtl}`}>Set targets, track progress vs industry benchmarks, and generate client-ready reports</p>
+                </div>
+                <button onClick={generateReport} className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all shadow-sm shrink-0">
+                  <Printer size={14}/> Generate Client Report
+                </button>
+              </div>
+
+              {/* ── AI Smart Insights ── */}
+              {smartInsights.length > 0 && (
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                      <CaptainKPI size={22} />
+                    </div>
+                    <div>
+                      <h3 className={`text-base font-black ${txt}`}>Smart Insights</h3>
+                      <p className={`text-xs ${subtl}`}>Auto-generated from your live data vs industry benchmarks and goals</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {smartInsights.map((ins, i) => {
+                      const c = insightColors[ins.type] || insightColors.info;
+                      return (
+                        <div key={i} className={`p-4 rounded-2xl border ${c.bg} ${c.border}`}>
+                          <div className="flex items-start gap-2">
+                            <span className="text-base shrink-0 mt-0.5">{c.emoji}</span>
+                            <div>
+                              <p className={`text-[12px] font-black ${txt} mb-1`}>{ins.title}</p>
+                              <p className={`text-[12px] leading-relaxed ${subtl}`}>{ins.text}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── KPI Goal Tracker ── */}
+              <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                <div className="flex items-center gap-3 mb-6">
+                  <Target size={18} className="text-teal-500" />
+                  <div>
+                    <h3 className={`text-base font-black ${txt}`}>KPI Goal Tracker</h3>
+                    <p className={`text-xs ${subtl}`}>Set monthly targets — progress bars update automatically as data comes in</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {kpiDefs.map(kpi => {
+                    const goal = kpiGoals[kpi.key];
+                    const pct  = getPct(kpi);
+                    const rag  = getRAG(kpi);
+                    const bench = kpi.benchKey ? BHC_BENCHMARKS[kpi.benchKey] : null;
+                    const col   = colorMap[kpi.color] || colorMap['bg-teal-600'];
+                    const vsBench = (bench && kpi.cur != null) ? (kpi.better === 'lower' ? bench.value - kpi.cur : kpi.cur - bench.value) : null;
+                    return (
+                      <div key={kpi.key} className={`p-4 rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-800/30`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:`rgba(${col.r},${col.g},${col.b},0.12)`}}>
+                            <kpi.icon size={14} color={col.hex} />
+                          </div>
+                          <span className={`text-[11px] font-black ${muted} uppercase tracking-wider flex-1`}>{kpi.label}</span>
+                          {rag && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${ragBg[rag]}`}>{pct}%</span>}
+                        </div>
+                        {/* Current value */}
+                        <div className="flex items-baseline gap-2 mb-3">
+                          <span className={`text-2xl font-black ${txt}`}>{kpi.fmt(kpi.cur)}</span>
+                          {bench && vsBench != null && (
+                            <span className={`text-[11px] font-bold ${vsBench >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                              {vsBench >= 0 ? '▲' : '▼'} {Math.abs(vsBench).toFixed(vsBench % 1 !== 0 ? 1 : 0)}{bench.unit} vs industry
+                            </span>
+                          )}
+                        </div>
+                        {/* Progress bar */}
+                        {pct != null && (
+                          <div className="mb-3">
+                            <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all ${ragBar[rag||'green']}`} style={{width:`${Math.min(100,pct)}%`}} />
+                            </div>
+                          </div>
+                        )}
+                        {/* Goal input */}
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[10px] font-black ${subtl} uppercase tracking-wider shrink-0`}>Goal:</span>
+                          <input
+                            type="number"
+                            placeholder="Set target"
+                            value={goal || ''}
+                            onChange={e => {
+                              const v = e.target.value;
+                              const upd = { ...kpiGoals, [kpi.key]: v ? Number(v) : undefined };
+                              setKpiGoals(upd);
+                              localStorage.setItem('dmd_kpi_goals', JSON.stringify(upd));
+                            }}
+                            className={`flex-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 text-xs font-bold ${txt} focus:outline-none focus:border-teal-500 w-0`}
+                          />
+                          {kpi.cur != null && <button onClick={() => setActiveTab(kpi.tab)} className={`text-[10px] font-black text-teal-500 hover:underline shrink-0`}>View →</button>}
+                        </div>
+                        {bench && <p className={`text-[10px] ${subtl} mt-1.5`}>Industry avg: {bench.value}{bench.unit}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── Industry Benchmarks Table ── */}
+              <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                <div className="flex items-center gap-3 mb-6">
+                  <BarChart3 size={18} className="text-blue-500" />
+                  <div>
+                    <h3 className={`text-base font-black ${txt}`}>Industry Benchmarks — Behavioral Health 2024</h3>
+                    <p className={`text-xs ${subtl}`}>Your performance vs verified behavioral health / healthcare averages</p>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className={`border-b border-slate-100 dark:border-white/5`}>
+                        {['Metric', 'Your Value', 'Industry Avg', 'Delta', 'Status', 'Source'].map(h => (
+                          <th key={h} className={`py-2 px-3 text-left text-[10px] font-black ${subtl} uppercase tracking-wider`}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className={`divide-y ${divdr}`}>
+                      {Object.entries(BHC_BENCHMARKS).map(([key, bench]) => {
+                        const curMap = { bounceRate: curBounce, convRate: curConv, emailOpen: curEmailOpen, emailClick: curEmailClick, googleRating: curRating, cpl: curCPL, fbEngagement: null, orgTraffic: Number(_wixLive.organic||_gaLive.organic||0)||null, sessions: curSessions, nps: curNPS };
+                        const cur = curMap[key];
+                        const diff = cur != null ? (bench.better === 'lower' ? bench.value - cur : cur - bench.value) : null;
+                        const good = diff != null ? diff >= 0 : null;
+                        return (
+                          <tr key={key} className={rowCls}>
+                            <td className={`py-3 px-3 text-sm font-bold ${txt}`}>{bench.label}</td>
+                            <td className={`py-3 px-3 text-sm font-black ${txt}`}>{cur != null ? (key==='cpl'?'$'+cur.toFixed(0):cur+(bench.unit==='★'?'★':bench.unit)) : <span className={subtl}>—</span>}</td>
+                            <td className={`py-3 px-3 text-sm ${muted}`}>{bench.value}{bench.unit}</td>
+                            <td className={`py-3 px-3 text-sm font-bold ${good == null ? subtl : good ? 'text-emerald-500' : 'text-rose-500'}`}>
+                              {diff != null ? `${diff >= 0 ? '+' : ''}${Math.abs(diff).toFixed(diff % 1 !== 0 ? 1 : 0)}${bench.unit}` : '—'}
+                            </td>
+                            <td className="py-3 px-3">
+                              {good == null ? <span className={`text-[11px] ${subtl}`}>No data</span> : (
+                                <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${good ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'}`}>
+                                  {good ? '✓ Beating' : '↑ Below'}
+                                </span>
+                              )}
+                            </td>
+                            <td className={`py-3 px-3 text-[11px] ${subtl}`}>{bench.source}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* ── Competitive Scorecard ── */}
+              {scoredComps.length > 0 && (
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <Trophy size={18} className="text-amber-500" />
+                    <div>
+                      <h3 className={`text-base font-black ${txt}`}>Competitive Scorecard</h3>
+                      <p className={`text-xs ${subtl}`}>Ranking based on weighted score: 60% star rating + 40% review volume (vs {scoredComps.length} tracked providers)</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {scoredComps.map((c, i) => (
+                      <div key={c.name} className={`flex items-center gap-4 p-3.5 rounded-2xl ${c.isClient ? 'bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/50' : 'bg-slate-50 dark:bg-slate-800/30'}`}>
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${i===0?'bg-amber-400 text-amber-900':i===1?'bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200':i===2?'bg-orange-300 text-orange-900':'bg-slate-100 dark:bg-slate-700 '+subtl}`}>{i+1}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-black ${txt} ${c.isClient?'text-teal-700 dark:text-teal-300':''}`}>{c.name}</p>
+                          <p className={`text-[11px] ${subtl}`}>{c.rating?c.rating.toFixed(1)+'★':'—'} · {c.reviews?c.reviews.toLocaleString()+' reviews':'—'}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className={`text-lg font-black ${c.isClient?'text-teal-600 dark:text-teal-400':txt}`}>{c.score}<span className={`text-xs font-bold ${subtl}`}>/100</span></div>
+                          <div className="h-1.5 w-20 bg-slate-200 dark:bg-slate-700 rounded-full mt-1 overflow-hidden">
+                            <div className={`h-full rounded-full ${c.isClient?'bg-teal-500':'bg-slate-400 dark:bg-slate-500'}`} style={{width:`${c.score}%`}} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {scoredComps.length < 3 && (
+                    <p className={`text-xs ${subtl} mt-4`}>Run a competitor sync from the Intel tab to populate full rankings. Live data fetched from Google and Healthgrades.</p>
                   )}
                 </div>
               )}
