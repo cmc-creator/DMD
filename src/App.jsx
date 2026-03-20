@@ -154,12 +154,26 @@ const App = () => {
   const [showReport, setShowReport]           = useState(false);
   const [compOverrides, setCompOverrides]     = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_comp_overrides') || '{}'); } catch { return {}; } });
   const [compEditId, setCompEditId]           = useState(null);
+  const [newCompName, setNewCompName]         = useState('');
+  const [manualCompetitors, setManualCompetitors] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_manual_comps') || '[]'); } catch { return []; } });
   const setCompOverride = (id, field, val) => {
     setCompOverrides(prev => {
       const next = { ...prev, [id]: { ...(prev[id] || {}), [field]: val } };
       localStorage.setItem('dmd_comp_overrides', JSON.stringify(next));
       return next;
     });
+  };
+  const addManualCompetitor = (name) => {
+    if (!name.trim()) return;
+    const mc = { id: 'manual_' + Date.now(), name: name.trim() };
+    const updated = [...manualCompetitors, mc];
+    setManualCompetitors(updated);
+    localStorage.setItem('dmd_manual_comps', JSON.stringify(updated));
+  };
+  const removeManualCompetitor = (id) => {
+    const updated = manualCompetitors.filter(c => c.id !== id);
+    setManualCompetitors(updated);
+    localStorage.setItem('dmd_manual_comps', JSON.stringify(updated));
   };
   const [reviewPlatformData, setReviewPlatformData] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}'); } catch { return {}; } });
   const [reviewPlatformForm, setReviewPlatformForm]   = useState({ editingPlatform: null, rating: '', count: '', url: '' });
@@ -266,6 +280,7 @@ const App = () => {
         if (data.dmd_facility_profiles){ setFacilityProfiles(data.dmd_facility_profiles);   ls('dmd_facility_profiles', data.dmd_facility_profiles); }
         if (data.dmd_content)          { setContentItems(data.dmd_content);                   ls('dmd_content',           data.dmd_content); }
         if (data.dmd_comp_overrides)   { setCompOverrides(data.dmd_comp_overrides);           ls('dmd_comp_overrides',    data.dmd_comp_overrides); }
+        if (data.dmd_manual_comps)     { setManualCompetitors(data.dmd_manual_comps);           ls('dmd_manual_comps',      data.dmd_manual_comps); }
         cloudLoadedRef.current = true;
         setCloudSynced('ok');
         setTimeout(() => { skipNextPushRef.current = false; }, 600);
@@ -293,6 +308,7 @@ const App = () => {
         dmd_facility_profiles: facilityProfiles,
         dmd_content:           contentItems,
         dmd_comp_overrides:    compOverrides,
+        dmd_manual_comps:      manualCompetitors,
         _updatedAt:            new Date().toISOString(),
       };
       setCloudSynced('syncing');
@@ -302,7 +318,7 @@ const App = () => {
         .catch(() => setCloudSynced('error'));
     }, 3000);
     return () => clearTimeout(pushTimerRef.current);
-  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems, kpiGoals, compOverrides]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems, kpiGoals, compOverrides, manualCompetitors]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { setShowQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
 
@@ -403,10 +419,6 @@ const App = () => {
       { key: 'adAccountId', label: 'Ad Account ID', placeholder: 'act_123456789',                   hint: 'Ads Manager → Account Settings → prepend "act_" to your ID' },
     ],
     'TikTok for Business': [], // OAuth flow — no manual fields
-    'Yelp Reviews': [
-      { key: 'businessId', label: 'Yelp Business ID',  placeholder: 'destiny-springs-healthcare-surprise', hint: 'From the Yelp business URL: yelp.com/biz/YOUR-BUSINESS-ID' },
-      { key: 'apiKey',     label: 'Yelp API Key',      placeholder: 'your-yelp-api-key', type: 'password',   hint: 'Register at api.yelp.com → Create App → API Key (500 free calls/day)' },
-    ],
   };
 
   // ── Live data fetch helpers ───────────────────────────────────────────────────
@@ -545,17 +557,6 @@ const App = () => {
       const res  = await fetch(`https://graph.facebook.com/v18.0/${adAccountId}?fields=name,currency,account_status&access_token=${encodeURIComponent(accessToken)}`);
       const data = await res.json();
       if (data.error) return { success: false, error: data.error.message };
-      return { success: true, data };
-    } catch (e) { return { success: false, error: e.message }; }
-  };
-
-  const fetchYelpData = async (creds) => {
-    const { businessId, apiKey } = creds;
-    if (!businessId || !apiKey) return { success: false, error: 'Missing Business ID or API Key' };
-    try {
-      const res  = await fetch(`/api/yelp?action=data&businessId=${encodeURIComponent(businessId)}&apiKey=${encodeURIComponent(apiKey)}`);
-      const data = await res.json();
-      if (!data.ok) return { success: false, error: data.error || 'Yelp fetch failed' };
       return { success: true, data };
     } catch (e) { return { success: false, error: e.message }; }
   };
@@ -836,7 +837,6 @@ const App = () => {
       else if (name === 'Meta Ads Manager') result = await fetchMetaAdsData(creds);
       else if (name === 'Wix Analytics') result = await fetchWixData(creds);
       else if (name === 'TikTok for Business') result = await fetchTikTokData(creds);
-      else if (name === 'Yelp Reviews') result = await fetchYelpData(creds);
       else if (name === 'Google Analytics') result = await fetchGoogleAnalyticsData(creds);
       // Other platforms require a server-side proxy — mark synced but no live payload
       if (result.success) {
@@ -866,7 +866,6 @@ const App = () => {
     else if (name === 'Meta Ads Manager') testResult = await fetchMetaAdsData(formData);
     else if (name === 'Wix Analytics') testResult = await fetchWixData(formData);
     else if (name === 'TikTok for Business') testResult = await fetchTikTokData(formData);
-    else if (name === 'Yelp Reviews') testResult = await fetchYelpData(formData);
     else if (name === 'Google Analytics') testResult = await fetchGoogleAnalyticsData(formData);
     setConnectTesting(false);
     if (!testResult.success) { setConnectError(`Connection failed: ${testResult.error}`); return; }
@@ -1519,7 +1518,7 @@ const App = () => {
     const _tik   = liveData['TikTok for Business']  || {};
     const _ga    = liveData['Google Analytics']      || {};
     const _wix   = (wixData?.sessions) ? wixData : (liveData['Wix Analytics'] || {});
-    const _yelp  = liveData['Yelp Reviews']          || {};
+    const _yelp  = reviewPlatformData['yelp']          || {};
     const _gb    = liveData['Google Business']       || {};
 
     // Social metrics from manual data
@@ -1587,7 +1586,7 @@ TIKTOK:
 - Followers: ${_tik.followers || '—'} | Videos: ${_tik.videoCount || '—'} | Total views: ${_tik.totalViews || '—'}
 - Connected: ${connections['TikTok for Business']?.connected ? 'yes' : 'no'}
 
-YELP: ${_yelp.rating ? `${_yelp.rating}★ (${_yelp.reviewCount || '?'} reviews)` : 'not connected'}
+YELP: ${_yelp.rating ? `${_yelp.rating}\u2605 (${_yelp.count || '?'} reviews)` : 'not tracked — enter manually in Reviews tab'}
 GOOGLE BUSINESS: searches ${_gb.searches || '—'}, direction requests ${_gb.directionRequests || '—'}
 
 PAID ADS: ${adSpend.length} records, total $${totalSpend.toFixed(0)} spend, ${totalLeads} leads${totalLeads > 0 ? `, CPL $${(totalSpend/totalLeads).toFixed(0)}` : ''}
@@ -1654,11 +1653,6 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
         const c = connections['Google Business'] || {};
         if (c.apiKey)  params.set('apiKey',   c.apiKey);
         if (c.placeId) params.set('placeId',  c.placeId);
-      }
-      if (platformKey === 'yelp') {
-        const c = connections['Yelp Reviews'] || {};
-        if (c.apiKey)     params.set('apiKey',      c.apiKey);
-        if (c.businessId) params.set('businessId',  c.businessId);
       }
       if (platformKey === 'facebook') {
         const c = connections['Meta Business Suite'] || {};
@@ -2144,7 +2138,6 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
     { name: 'Google Ads',          sub: 'Paid Search Campaigns',   icon: Target,     color: 'text-indigo-500', metrics: ['Impressions', 'Clicks', 'CPC', 'Conversions']             },
     { name: 'Meta Ads Manager',    sub: 'FB & IG Paid Campaigns',  icon: Megaphone,  color: 'text-blue-400',   metrics: ['Ad Spend', 'Reach', 'CPM', 'ROAS']                        },
     { name: 'TikTok for Business', sub: 'Organic Posts & Content',  icon: PlayCircle, color: 'text-pink-400',   metrics: ['Video Views', 'Followers', 'Likes', 'Comments']           },
-    { name: 'Yelp Reviews',        sub: 'Business Ratings & Reviews', icon: Building2,color: 'text-red-500',    metrics: ['Rating', 'Review Count', 'Categories', 'Hours']              },
   ];
   const integrations = integrationsBase.map(i => ({
     ...i,
@@ -5236,7 +5229,16 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
             const reviews = ov.reviews != null ? parseInt(ov.reviews)   : (p.schemaReviewCount ? parseInt(p.schemaReviewCount) : 0);
             return { id: p.id, name: p.label, rating, reviews: reviews || 0,
               score: Math.round(((rating||0)/5)*60 + Math.min(40,(reviews||0)/500*40)),
-              hasData: rating != null, isClient: false };
+              hasData: rating != null, isClient: false, isManual: false };
+          });
+          manualCompetitors.forEach(mc => {
+            if (scoredComps.some(c => c.id === mc.id)) return;
+            const ov = compOverrides[mc.id] || {};
+            const rating  = ov.rating  != null ? parseFloat(ov.rating)  : null;
+            const reviews = ov.reviews != null ? parseInt(ov.reviews)   : 0;
+            scoredComps.push({ id: mc.id, name: mc.name, rating, reviews: reviews || 0,
+              score: Math.round(((rating||0)/5)*60 + Math.min(40,(reviews||0)/500*40)),
+              hasData: rating != null, isClient: false, isManual: true });
           });
           if (clientRating) scoredComps.push({ id: 'client', name: 'Destiny Springs ★', rating: clientRating, reviews: clientReviews, score: Math.round((clientRating/5)*60 + Math.min(40,clientReviews/500*40)), hasData: true, isClient: true });
           scoredComps.sort((a,b)=>b.score-a.score);
@@ -5456,20 +5458,33 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                     <Trophy size={18} className="text-amber-500" />
                     <div>
                       <h3 className={`text-base font-black ${txt}`}>Competitive Scorecard</h3>
-                      <p className={`text-xs ${subtl}`}>Ranking built from your Facility Library — 60% star rating + 40% review volume</p>
+                      <p className={`text-xs ${subtl}`}>Add competitors by name → enter rating & reviews via ✏️ — score = 60% rating + 40% review volume</p>
                     </div>
                   </div>
                   <button onClick={() => setActiveTab('intel')}
-                    className="text-[11px] font-black px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl flex items-center gap-1.5 shrink-0">
-                    <Plus size={11} /> Add Competitors
+                    className={`text-[11px] font-black px-3 py-1.5 rounded-xl flex items-center gap-1.5 shrink-0 border ${brd} ${subtl} hover:border-teal-500 hover:text-teal-500 transition-colors`}>
+                    <Building2 size={11} /> Facility Library
                   </button>
                 </div>
-                {facilityProfiles.length === 0 ? (
-                  <div className="text-center py-10">
+                {/* Quick-add competitor by name */}
+                <div className="flex gap-2 mt-3 mb-1">
+                  <input
+                    value={newCompName} onChange={e => setNewCompName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && newCompName.trim()) { addManualCompetitor(newCompName); setNewCompName(''); } }}
+                    placeholder="Add competitor name (e.g. The Meadows)…"
+                    className={`flex-1 bg-slate-100 dark:bg-slate-800 ${txt} rounded-xl px-3 py-2 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                  />
+                  <button
+                    onClick={() => { if (newCompName.trim()) { addManualCompetitor(newCompName); setNewCompName(''); } }}
+                    className="px-3 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shrink-0">
+                    <Plus size={11} /> Add
+                  </button>
+                </div>
+                {(facilityProfiles.length === 0 && manualCompetitors.length === 0) ? (
+                  <div className="text-center py-8">
                     <Building2 size={36} className={`${subtl} mx-auto mb-3`} />
                     <p className={`text-sm font-black ${txt} mb-1`}>No competitors tracked yet</p>
-                    <p className={`text-xs ${muted} mb-4`}>Go to the Intel tab → Facility Library, scan your competitors' websites and save them. They'll appear here automatically.</p>
-                    <button onClick={() => setActiveTab('intel')} className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-black">Open Facility Library →</button>
+                    <p className={`text-xs ${muted}`}>Type a competitor name above and click Add, or scan their website in the Intel → Facility Library tab.</p>
                   </div>
                 ) : (
                   <div className="space-y-2 mt-4">
@@ -5484,10 +5499,18 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                             </p>
                           </div>
                           {!c.isClient && (
-                            <button onClick={() => setCompEditId(compEditId === c.id ? null : c.id)}
-                              title="Edit rating & reviews" className={`p-1.5 rounded-lg transition-colors shrink-0 ${compEditId===c.id ? 'text-teal-500 bg-teal-100 dark:bg-teal-900/30' : `${subtl} hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20`}`}>
-                              <Pencil size={13} />
-                            </button>
+                            <>
+                              {c.isManual && (
+                                <button onClick={() => removeManualCompetitor(c.id)}
+                                  title="Remove competitor" className={`p-1.5 rounded-lg transition-colors shrink-0 ${subtl} hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20`}>
+                                  <X size={13} />
+                                </button>
+                              )}
+                              <button onClick={() => setCompEditId(compEditId === c.id ? null : c.id)}
+                                title="Edit rating & reviews" className={`p-1.5 rounded-lg transition-colors shrink-0 ${compEditId===c.id ? 'text-teal-500 bg-teal-100 dark:bg-teal-900/30' : `${subtl} hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20`}`}>
+                                <Pencil size={13} />
+                              </button>
+                            </>
                           )}
                           <div className="text-right shrink-0">
                             <div className={`text-lg font-black ${c.isClient?'text-teal-600 dark:text-teal-400':txt}`}>{c.score}<span className={`text-xs font-bold ${subtl}`}>/100</span></div>
@@ -5524,8 +5547,8 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                     ))}
                     <p className={`text-[11px] ${subtl} pt-2`}>
                       {scoredComps.filter(c=>!c.hasData && !c.isClient).length > 0
-                        ? `${scoredComps.filter(c=>!c.hasData && !c.isClient).length} competitor(s) missing rating data — click ✏️ on each row to enter manually, or re-scan their website from the Facility Library.`
-                        : `All ${facilityProfiles.length} tracked competitor${facilityProfiles.length!==1?'s':''} have data. Manage your list in Intel → Facility Library.`}
+                        ? `${scoredComps.filter(c=>!c.hasData && !c.isClient).length} competitor(s) missing rating data — click ✏️ to enter rating & reviews manually.`
+                        : `All ${scoredComps.filter(c=>!c.isClient).length} tracked competitor${scoredComps.filter(c=>!c.isClient).length!==1?'s':''} have data.`}
                     </p>
                   </div>
                 )}
