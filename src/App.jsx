@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
@@ -206,8 +206,7 @@ const App = () => {
   const [reviewDrafts, setReviewDrafts]             = useState({});
   const [reviewDraftLoading, setReviewDraftLoading] = useState({});
   const [autoPostLoading, setAutoPostLoading]       = useState({});
-  const [digestSending, setDigestSending]           = useState(false);
-  const [digestResult, setDigestResult]             = useState('');
+
   const [contentItems, setContentItems]             = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem('dmd_content') || 'null');
@@ -217,12 +216,12 @@ const App = () => {
       { title: 'Mental Health Awareness Post',       platform: 'Facebook, Instagram', date: '2026-03-03', type: 'Social', status: 'scheduled', notes: 'Focus on stigma reduction'          },
       { title: '5 Signs You Need Support (TikTok)',  platform: 'TikTok',              date: '2026-03-04', type: 'TikTok', status: 'filming',   notes: 'Short-form, 60s max'                },
       { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: '2026-03-05', type: 'Blog',   status: 'draft',     notes: '1,200 words – SEO optimized'        },
-      { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: '2026-03-06', type: 'Email',  status: 'scheduled', notes: 'All subscribers – 3pm send time'    },
+      { title: 'Weekly Email Newsletter',            platform: 'Email',               date: '2026-03-06', type: 'Email',  status: 'scheduled', notes: 'All subscribers – 3pm send time'    },
       { title: 'Success Story Spotlight',            platform: 'LinkedIn',            date: '2026-03-07', type: 'Social', status: 'idea',      notes: 'Patient testimonial (anonymized)'   },
       { title: 'Weekend Wellness Tip',               platform: 'Instagram',           date: '2026-03-08', type: 'Social', status: 'scheduled', notes: '5 breathing exercises for calm'     },
       { title: 'Staff Introduction Video',           platform: 'TikTok, Instagram',   date: '2026-03-10', type: 'TikTok', status: 'filming',   notes: 'Behind the scenes series'           },
       { title: 'SEO Blog: Finding a Therapist AZ',  platform: 'Website',             date: '2026-03-13', type: 'Blog',   status: 'idea',      notes: 'Target: therapist near me Arizona'  },
-      { title: 'Monthly Patient Outreach Email',     platform: 'Mailchimp',           date: '2026-03-14', type: 'Email',  status: 'scheduled', notes: 'Re-engagement campaign'             },
+      { title: 'Monthly Patient Outreach Email',     platform: 'Email',               date: '2026-03-14', type: 'Email',  status: 'scheduled', notes: 'Re-engagement campaign'             },
       { title: 'Recovery Awareness Post',            platform: 'Facebook, LinkedIn',  date: '2026-03-17', type: 'Social', status: 'scheduled', notes: 'Link to latest blog article'        },
       { title: 'TikTok Q&A: Common Questions',       platform: 'TikTok',              date: '2026-03-19', type: 'TikTok', status: 'idea',      notes: '3-part Q&A series'                 },
       { title: 'Ad Creative: New Patient Special',   platform: 'Meta Ads',            date: '2026-03-20', type: 'Social', status: 'draft',     notes: 'A/B test 2 creative variants'      },
@@ -339,12 +338,11 @@ const App = () => {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle Google / Mailchimp / Meta OAuth redirects
+  // Handle Google / Meta OAuth redirects
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const platforms = [
       { key: 'google_data',    names: ['Google Analytics', 'Google Business']     },
-      { key: 'mailchimp_data', names: ['Mailchimp']                               },
       { key: 'meta_data',      names: ['Meta Business Suite', 'Meta Ads Manager'] },
     ];
     let handled = false;
@@ -396,10 +394,6 @@ const App = () => {
       { key: 'direct',     label: 'Direct % (optional)',       placeholder: 'e.g. 25',    hint: 'Wix Analytics → Traffic Sources → percentage from Direct visits'                  },
       { key: 'referral',   label: 'Referral % (optional)',     placeholder: 'e.g. 10',    hint: 'Wix Analytics → Traffic Sources → percentage from Referral links'                 },
     ],
-    'Mailchimp': [
-      { key: 'apiKey',  label: 'API Key',     placeholder: 'xxxxxxxxxxxxxxxx-us1', type: 'password', hint: 'Mailchimp → Account → Extras → API Keys' },
-      { key: 'listId',  label: 'Audience ID', placeholder: 'xxxxxxxxxx',                             hint: 'Audience → Settings → Audience ID'        },
-    ],
     'Google Ads': [
       { key: 'customerId', label: 'Customer ID',     placeholder: 'xxx-xxx-xxxx',   hint: 'Top-right corner of Google Ads dashboard'                           },
       { key: 'devToken',   label: 'Developer Token', placeholder: 'Your dev token', hint: 'Tools → API Center → Developer Token', type: 'password'            },
@@ -409,25 +403,9 @@ const App = () => {
       { key: 'adAccountId', label: 'Ad Account ID', placeholder: 'act_123456789',                   hint: 'Ads Manager → Account Settings → prepend "act_" to your ID' },
     ],
     'TikTok for Business': [], // OAuth flow — no manual fields
-    'Sintra AI': [
-      { key: 'apiKey',      label: 'API Key',       placeholder: 'Your Sintra API key',  type: 'password', hint: 'Sintra Dashboard → Settings → API Keys'    },
-      { key: 'workspaceId', label: 'Workspace ID',  placeholder: 'ws_xxxxxxxxxx',                          hint: 'Sintra → Workspace → Settings → ID'         },
-    ],
-    'MarkyAI': [
-      { key: 'apiKey',  label: 'API Key',  placeholder: 'Your MarkyAI API key',  type: 'password', hint: 'MarkyAI → Account → API Access'         },
-      { key: 'brandId', label: 'Brand ID', placeholder: 'Your brand ID',                           hint: 'MarkyAI → Brand → Settings → Brand ID'  },
-    ],
-    'YouTube Analytics': [
-      { key: 'channelId', label: 'Channel ID',              placeholder: 'UCxxxxxxxxxxxxxxxxxxxxxxxx',    hint: 'YouTube Studio → Customization → Basic info → scroll to bottom for Channel ID' },
-      { key: 'apiKey',    label: 'YouTube Data API v3 Key', placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'console.cloud.google.com → Enable YouTube Data API v3 → Credentials → API Key' },
-    ],
     'Yelp Reviews': [
       { key: 'businessId', label: 'Yelp Business ID',  placeholder: 'destiny-springs-healthcare-surprise', hint: 'From the Yelp business URL: yelp.com/biz/YOUR-BUSINESS-ID' },
       { key: 'apiKey',     label: 'Yelp API Key',      placeholder: 'your-yelp-api-key', type: 'password',   hint: 'Register at api.yelp.com → Create App → API Key (500 free calls/day)' },
-    ],
-    'News API': [
-      { key: 'apiKey',       label: 'API Key',             placeholder: 'your-newsapi.org-key', type: 'password', hint: 'Register free at newsapi.org → Account → API Key (100 req/day free)' },
-      { key: 'defaultQuery', label: 'Default Search Query (optional)', placeholder: 'mental health Arizona',         hint: 'Keywords auto-loaded on the Intel tab. Leave blank for default.' },
     ],
   };
 
@@ -478,18 +456,6 @@ const App = () => {
         data.fbPosts = feedData.fbPosts;
         data.igPosts = feedData.igPosts;
       }
-      return { success: true, data };
-    } catch (e) { return { success: false, error: e.message }; }
-  };
-
-  const fetchMailchimpDirect = async (creds) => {
-    const { apiKey, listId } = creds;
-    if (!apiKey) return { success: false, error: 'Enter your Mailchimp API key in Integrations → Mailchimp → Connect' };
-    try {
-      const params = new URLSearchParams({ action: 'data', apiKey, ...(listId && { listId }) });
-      const res  = await fetch(`/api/mailchimp?${params}`);
-      const data = await res.json();
-      if (!data.ok) return { success: false, error: data.error || 'Mailchimp fetch failed' };
       return { success: true, data };
     } catch (e) { return { success: false, error: e.message }; }
   };
@@ -572,34 +538,6 @@ const App = () => {
     setAutoPostLoading(l => ({ ...l, [idx]: false }));
   };
 
-  // ── Send weekly digest via Mailchimp ─────────────────────────────────────
-  const sendWeeklyDigest = async () => {
-    const mc = connections['Mailchimp'];
-    if (!mc?.connected || !mc?.apiKey) {
-      alert('Connect Mailchimp with an API Key first (Settings → Integrations).');
-      return;
-    }
-    setDigestSending(true); setDigestResult('');
-    try {
-      const res = await fetch('/api/mailchimp?action=sendDigest', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiKey: mc.apiKey,
-          listId: mc.listId,
-          stats: {
-            openRate: _mailLive.openRate,
-            subscribers: _mailLive.subscribers,
-            clickRate: _mailLive.clickRate,
-            totalCampaigns: _mailLive.totalCampaigns,
-          },
-        }),
-      });
-      const d = await res.json();
-      setDigestResult(d.ok ? `✅ Digest campaign created! ${d.campaignId ? 'ID: ' + d.campaignId : ''}` : `❌ ${d.error || 'Failed to create digest'}`);
-    } catch (e) { setDigestResult(`❌ Error: ${e.message}`); }
-    setDigestSending(false);
-  };
-
   const fetchMetaAdsData = async (creds) => {
     const { accessToken, adAccountId } = creds || {};
     if (!accessToken || !adAccountId) return { success: false, error: 'Missing Access Token or Ad Account ID — check Integrations → Meta Ads Manager' };
@@ -607,17 +545,6 @@ const App = () => {
       const res  = await fetch(`https://graph.facebook.com/v18.0/${adAccountId}?fields=name,currency,account_status&access_token=${encodeURIComponent(accessToken)}`);
       const data = await res.json();
       if (data.error) return { success: false, error: data.error.message };
-      return { success: true, data };
-    } catch (e) { return { success: false, error: e.message }; }
-  };
-
-  const fetchYouTubeData = async (creds) => {
-    const { channelId, apiKey } = creds;
-    if (!channelId || !apiKey) return { success: false, error: 'Missing Channel ID or API Key' };
-    try {
-      const res  = await fetch(`/api/youtube?action=data&channelId=${encodeURIComponent(channelId)}&apiKey=${encodeURIComponent(apiKey)}`);
-      const data = await res.json();
-      if (!data.ok) return { success: false, error: data.error || 'YouTube fetch failed' };
       return { success: true, data };
     } catch (e) { return { success: false, error: e.message }; }
   };
@@ -909,9 +836,7 @@ const App = () => {
       else if (name === 'Meta Ads Manager') result = await fetchMetaAdsData(creds);
       else if (name === 'Wix Analytics') result = await fetchWixData(creds);
       else if (name === 'TikTok for Business') result = await fetchTikTokData(creds);
-      else if (name === 'YouTube Analytics') result = await fetchYouTubeData(creds);
       else if (name === 'Yelp Reviews') result = await fetchYelpData(creds);
-      else if (name === 'Mailchimp') result = await fetchMailchimpDirect(creds);
       else if (name === 'Google Analytics') result = await fetchGoogleAnalyticsData(creds);
       // Other platforms require a server-side proxy — mark synced but no live payload
       if (result.success) {
@@ -941,9 +866,7 @@ const App = () => {
     else if (name === 'Meta Ads Manager') testResult = await fetchMetaAdsData(formData);
     else if (name === 'Wix Analytics') testResult = await fetchWixData(formData);
     else if (name === 'TikTok for Business') testResult = await fetchTikTokData(formData);
-    else if (name === 'YouTube Analytics') testResult = await fetchYouTubeData(formData);
     else if (name === 'Yelp Reviews') testResult = await fetchYelpData(formData);
-    else if (name === 'Mailchimp') testResult = await fetchMailchimpDirect(formData);
     else if (name === 'Google Analytics') testResult = await fetchGoogleAnalyticsData(formData);
     setConnectTesting(false);
     if (!testResult.success) { setConnectError(`Connection failed: ${testResult.error}`); return; }
@@ -1246,7 +1169,6 @@ const App = () => {
       setImportNotice('✅ Social metrics saved!');
     } else if (target === 'email') {
       const entry = { campaign: 'Imported', subscribers: results.subscribers||0, openRate: results.openRate||0, clickRate: results.clickRate||0, _savedAt: new Date().toLocaleString() };
-      setLiveData(d => ({ ...d, Mailchimp: { ...d.Mailchimp, subscribers: results.subscribers||d.Mailchimp?.subscribers, openRate: results.openRate ? results.openRate+'%' : d.Mailchimp?.openRate, clickRate: results.clickRate ? results.clickRate+'%' : d.Mailchimp?.clickRate } }));
       setManualData(prev => { const upd = { ...prev, email_stats: [...(prev.email_stats||[]), entry] }; localStorage.setItem('dmd_manual', JSON.stringify(upd)); return upd; });
       setImportNotice('✅ Email stats saved!');
     } else if (target === 'ads') {
@@ -1595,10 +1517,8 @@ const App = () => {
     // Live integration snapshots (computed inline because they are defined after this fn in render order)
     const _meta  = liveData['Meta Business Suite']  || {};
     const _tik   = liveData['TikTok for Business']  || {};
-    const _mail  = liveData['Mailchimp']             || {};
     const _ga    = liveData['Google Analytics']      || {};
     const _wix   = (wixData?.sessions) ? wixData : (liveData['Wix Analytics'] || {});
-    const _yt    = liveData['YouTube Analytics']     || {};
     const _yelp  = liveData['Yelp Reviews']          || {};
     const _gb    = liveData['Google Business']       || {};
 
@@ -1667,13 +1587,6 @@ TIKTOK:
 - Followers: ${_tik.followers || '—'} | Videos: ${_tik.videoCount || '—'} | Total views: ${_tik.totalViews || '—'}
 - Connected: ${connections['TikTok for Business']?.connected ? 'yes' : 'no'}
 
-EMAIL (Mailchimp):
-- List: ${_mail.listName || '—'} | Subscribers: ${_mail.subscribers || '—'}
-- Open rate: ${_mail.openRate || '—'} | Click rate: ${_mail.clickRate || '—'}
-- Total campaigns: ${_mail.totalCampaigns || '—'}
-- Connected: ${connections['Mailchimp']?.connected ? 'yes' : 'no'}
-
-YOUTUBE: subscribers ${_yt.subscribers || '—'}, views ${_yt.totalViews || '—'}
 YELP: ${_yelp.rating ? `${_yelp.rating}★ (${_yelp.reviewCount || '?'} reviews)` : 'not connected'}
 GOOGLE BUSINESS: searches ${_gb.searches || '—'}, direction requests ${_gb.directionRequests || '—'}
 
@@ -1882,7 +1795,6 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   const _metaLive   = liveData['Meta Business Suite'] || {};
   const _wixLive    = (wixData && wixData.sessions) ? wixData : (liveData['Wix Analytics'] || {});
   const _tikLive    = liveData['TikTok for Business'] || {};
-  const _mailLive   = liveData['Mailchimp']           || {};
   const _gaLive     = liveData['Google Analytics']    || {};
   const _socialLive = liveData['_social']             || {};
   const _fbLive     = _socialLive.facebook            || {};
@@ -1923,8 +1835,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                       : _wixLive.sessions   ? Number(_wixLive.sessions).toLocaleString()  : '—',
     wixBounceRate:      _gaLive.bounceRate  ? _gaLive.bounceRate
                       : _wixLive.bounceRate ? _wixLive.bounceRate + '%'                   : '—',
-    emailOpenRate:      _mailLive.openRate  ? _mailLive.openRate
-                      : _emailStats.length  ? (_emailStats.reduce((s, e) => s + (e.sent ? Number(e.opened || 0) / Number(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : '—',
+    emailOpenRate:      _emailStats.length  ? (_emailStats.reduce((s, e) => s + (e.sent ? Number(e.opened || 0) / Number(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : '—',
     costPerLead:        (_totalSpend && _totalLeads) ? '$' + (_totalSpend / _totalLeads).toFixed(0) : '—',
     totalLeads:         _totalLeads || '—',
     siteConversion:     (() => {
@@ -2132,7 +2043,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
     { skill: 'SEO',          score: Math.min(100, seoKeywords.length * 20) },
     { skill: 'Social Media', score: Math.min(100, _socialMet.length * 15 + (socialAnalytics.some(p=>p.followers>0) ? 25 : 0)) },
     { skill: 'Content',      score: Math.min(100, _tiktokPosts.length * 10) },
-    { skill: 'Email Mktg',   score: Math.min(100, _emailStats.length * 20 + (_mailLive.subscribers ? 30 : 0)) },
+    { skill: 'Email Mktg',   score: Math.min(100, _emailStats.length * 20) },
     { skill: 'Paid Ads',     score: Math.min(100, _adSpend.length * 15) },
     { skill: 'Web Design',   score: destinyData?.website?.wordCount > 1000 ? 60 : destinyData?.website ? 30 : 0 },
     { skill: 'Analytics',    score: (_gaLive.sessions || _wixLive.sessions) ? 80 : 0 },
@@ -2230,15 +2141,10 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
     { name: 'Google Business',     sub: 'Reviews & Rating Feed',   icon: Star,       color: 'text-amber-500',  metrics: ['Rating', 'Reviews', 'Searches', 'Direction Requests']     },
     { name: 'Meta Business Suite', sub: 'Facebook & Instagram',    icon: Share2,     color: 'text-blue-500',   metrics: ['Page Fans', 'Reach', 'Engagement', 'Impressions']         },
     { name: 'Wix Analytics',       sub: 'Website Traffic & CVR',   icon: Globe,      color: 'text-teal-500',   metrics: ['Sessions', 'Bounce Rate', 'Top Pages', 'Conversions']     },
-    { name: 'Mailchimp',           sub: 'Email Campaigns',         icon: Mail,       color: 'text-yellow-500', metrics: ['Subscribers', 'Open Rate', 'Click Rate', 'Campaigns']     },
     { name: 'Google Ads',          sub: 'Paid Search Campaigns',   icon: Target,     color: 'text-indigo-500', metrics: ['Impressions', 'Clicks', 'CPC', 'Conversions']             },
     { name: 'Meta Ads Manager',    sub: 'FB & IG Paid Campaigns',  icon: Megaphone,  color: 'text-blue-400',   metrics: ['Ad Spend', 'Reach', 'CPM', 'ROAS']                        },
     { name: 'TikTok for Business', sub: 'Organic Posts & Content',  icon: PlayCircle, color: 'text-pink-400',   metrics: ['Video Views', 'Followers', 'Likes', 'Comments']           },
-    { name: 'Sintra AI',           sub: 'AI Marketing Automation', icon: Bot,        color: 'text-purple-500', metrics: ['Campaigns', 'Reports', 'Insights', 'Automations']         },
-    { name: 'MarkyAI',             sub: 'AI Content & Scheduling', icon: Zap,        color: 'text-pink-500',   metrics: ['Content Posts', 'Scheduling', 'Analytics', 'AI Writes']  },
-    { name: 'YouTube Analytics',   sub: 'Channel Stats & Videos',  icon: Youtube,    color: 'text-rose-500',   metrics: ['Subscribers', 'Total Views', 'Video Count', 'Recent Videos'] },
     { name: 'Yelp Reviews',        sub: 'Business Ratings & Reviews', icon: Building2,color: 'text-red-500',    metrics: ['Rating', 'Review Count', 'Categories', 'Hours']              },
-    { name: 'News API',            sub: 'Industry News Intelligence', icon: Newspaper, color: 'text-sky-500',    metrics: ['Headlines', 'Brand Mentions', 'Industry News', 'RSS Feeds']  },
   ];
   const integrations = integrationsBase.map(i => ({
     ...i,
@@ -3950,55 +3856,12 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
         {activeTab === 'email' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Avg Open Rate"  value={_mailLive.openRate  || metrics.emailOpenRate} trend={null} icon={Mail}         color="bg-teal-600"   sub={_mailLive.listName ? `${_mailLive.listName} · Mailchimp` : 'All Campaigns'} />
-              <StatCard title="Subscribers"    value={_mailLive.subscribers ? Number(_mailLive.subscribers).toLocaleString() : (emailCampaigns.reduce((s,c)=>s+c.sent,0)>0 ? emailCampaigns.reduce((s,c)=>s+c.sent,0).toLocaleString() : '---')} trend={null} icon={Users} color="bg-purple-600" sub={_mailLive.subscribers ? 'Mailchimp Audience' : 'Total Emails Sent'} />
-              <StatCard title="Avg Click Rate" value={_mailLive.clickRate  || (emailCampaigns.length>0 ? (emailCampaigns.reduce((s,c)=>s+c.clicked,0)/Math.max(1,emailCampaigns.reduce((s,c)=>s+c.sent,0))*100).toFixed(1)+'%' : '---')} trend={null} icon={MousePointer} color="bg-emerald-600" sub="Avg CTR" />
-              <StatCard title="Total Campaigns" value={_mailLive.totalCampaigns || emailCampaigns.reduce((s,c)=>s+(c.conversions||0),0)||'---'} trend={null} icon={CheckCircle} color="bg-amber-600" sub={_mailLive.totalCampaigns ? 'Sent via Mailchimp' : 'Email-Attributed'} />
+              <StatCard title="Avg Open Rate"  value={metrics.emailOpenRate} trend={null} icon={Mail}         color="bg-teal-600"   sub="All Campaigns" />
+              <StatCard title="Total Sent"      value={emailCampaigns.reduce((s,c)=>s+c.sent,0)>0 ? emailCampaigns.reduce((s,c)=>s+c.sent,0).toLocaleString() : '---'} trend={null} icon={Users} color="bg-purple-600" sub="Total Emails Sent" />
+              <StatCard title="Avg Click Rate"  value={emailCampaigns.length>0 ? (emailCampaigns.reduce((s,c)=>s+c.clicked,0)/Math.max(1,emailCampaigns.reduce((s,c)=>s+c.sent,0))*100).toFixed(1)+'%' : '---'} trend={null} icon={MousePointer} color="bg-emerald-600" sub="Avg CTR" />
+              <StatCard title="Total Campaigns" value={emailCampaigns.length||'---'} trend={null} icon={CheckCircle} color="bg-amber-600" sub="Logged Campaigns" />
             </div>
 
-            {/* \u2500\u2500 Live Mailchimp campaign list \u2500\u2500 */}
-            {_mailLive.recentCampaigns?.length > 0 && (
-              <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
-                <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-                  <SectionHeader icon={Mail} color="text-yellow-500" title="Recent Mailchimp Campaigns" subtitle={`${_mailLive.listName || 'Audience'} \u00b7 ${_mailLive.subscribers?.toLocaleString() || 0} subscribers`} />
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button onClick={() => syncIntegrationWithCreds('Mailchimp', connections['Mailchimp'])} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-white text-xs font-black transition-all">
-                      <RefreshCw size={11} className={syncStatus['Mailchimp']==='syncing'?'animate-spin':''} /> Refresh
-                    </button>
-                    <button onClick={sendWeeklyDigest} disabled={digestSending} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black transition-all disabled:opacity-40">
-                      {digestSending ? <RefreshCw size={11} className="animate-spin" /> : <Send size={11} />} {digestSending ? 'Creating\u2026' : 'Send Weekly Digest'}
-                    </button>
-                  </div>
-                </div>
-                {digestResult && (
-                  <div className={`mb-4 px-4 py-2.5 rounded-xl text-xs font-bold ${digestResult.startsWith('\u2705') ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'}`}>
-                    {digestResult}
-                  </div>
-                )}
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className={`text-[13px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
-                        {['Campaign','Sent','Open Rate','Click Rate','Date'].map(h => (
-                          <th key={h} className={`${h==='Campaign'?'text-left':'text-right'} pb-3 px-3`}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className={`divide-y ${divdr}`}>
-                      {_mailLive.recentCampaigns.map(c => (
-                        <tr key={c.id}>
-                          <td className={`py-3 pr-3 text-sm font-bold ${txt} max-w-[220px] truncate`} title={c.subject}>{c.title || c.subject}</td>
-                          <td className={`py-3 px-3 text-right text-sm font-bold ${txt2}`}>{c.emailsSent?.toLocaleString() || c.uniqueOpens?.toLocaleString() || '—'}</td>
-                          <td className="py-3 px-3 text-right"><span className="text-sm font-bold text-blue-500">{c.openRate}</span></td>
-                          <td className="py-3 px-3 text-right"><span className="text-sm font-bold text-purple-500">{c.clickRate}</span></td>
-                          <td className={`py-3 pl-3 text-right text-xs ${subtl}`}>{c.sentAt ? new Date(c.sentAt).toLocaleDateString() : '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Mail} color="text-teal-500" title="Email Campaign Performance" subtitle="Sends, Opens, Clicks & Conversions" />
               <div className="overflow-x-auto">
@@ -4753,8 +4616,6 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
 
         {/* ══════════════════ INTEL ══════════════════ */}
         {activeTab === 'intel' && (() => {
-          const newsApiCreds = connections['News API'] || {};
-          const _ytLive   = liveData['YouTube Analytics'] || {};
           const _yelpLive = liveData['Yelp Reviews']     || {};
           const presetQueries = [
             'mental health Arizona',
@@ -4769,7 +4630,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                 {[
                   { label: 'Tracked URLs',    value: String(savedUrls.length),              color: 'text-teal-500',    icon: Link2 },
                   { label: 'News Loaded',     value: String(newsItems.length),              color: 'text-sky-500',     icon: Newspaper },
-                  { label: 'YT Subscribers',  value: _ytLive.subscribers ? Number(_ytLive.subscribers).toLocaleString()  : '—', color: 'text-rose-500',    icon: Youtube },
+                  { label: 'Saved Profiles',  value: String(facilityProfiles.length),       color: 'text-violet-500',  icon: Building2 },
                   { label: 'Yelp Rating',     value: _yelpLive.rating    ? `${_yelpLive.rating} ★ (${_yelpLive.reviewCount || 0})` : '—', color: 'text-red-500', icon: Building2 },
                 ].map(s => (
                   <div key={s.label} className={`${card} p-5 rounded-2xl text-center`}>
@@ -4798,15 +4659,6 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
               {intelSubTab === 'news' && (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <SectionHeader icon={Newspaper} color="text-sky-500" title="Industry News Feed" subtitle="Real-time news pulled from newsapi.org" />
-                  {!newsApiCreds?.apiKey && (
-                    <div className="mb-5 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-start gap-3">
-                      <Bell size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-amber-700 dark:text-amber-300">
-                        Connect <strong>News API</strong> on the Integrations tab to auto-load your API key, or fetch using the field below.
-                        Free tier at <a href="https://newsapi.org" target="_blank" rel="noreferrer" className="underline">newsapi.org</a>.
-                      </p>
-                    </div>
-                  )}
                   {/* Query bar */}
                   <div className="flex flex-col sm:flex-row gap-3 mb-5">
                     <input
@@ -4814,10 +4666,10 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                       value={newsQuery}
                       onChange={e => setNewsQuery(e.target.value)}
                       placeholder="Search query e.g. mental health Arizona…"
-                      onKeyDown={e => { if (e.key === 'Enter') fetchNewsItems(newsQuery, newsApiCreds?.apiKey); }}
+                      onKeyDown={e => { if (e.key === 'Enter') fetchNewsItems(newsQuery); }}
                     />
                     <button
-                      onClick={() => fetchNewsItems(newsQuery, newsApiCreds?.apiKey)}
+                      onClick={() => fetchNewsItems(newsQuery)}
                       disabled={newsLoading}
                       className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-black flex items-center gap-2 disabled:opacity-50"
                     >
@@ -4828,7 +4680,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                   {/* Preset queries */}
                   <div className="flex flex-wrap gap-2 mb-6">
                     {presetQueries.map(q => (
-                      <button key={q} onClick={() => { setNewsQuery(q); fetchNewsItems(q, newsApiCreds?.apiKey); }}
+                      <button key={q} onClick={() => { setNewsQuery(q); fetchNewsItems(q); }}
                         className={`text-xs px-3 py-1 rounded-full border ${brd} ${muted} hover:border-teal-500 hover:text-teal-500 transition-colors`}>{q}</button>
                     ))}
                   </div>
