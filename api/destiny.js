@@ -201,16 +201,17 @@ async function scrapeFacebook(url = DS_FB) {
 }
 
 // ── 3. INSTAGRAM SCRAPER ──────────────────────────────────────────────────────
-async function scrapeInstagram(url = DS_IG) {
+async function scrapeInstagram(url = DS_IG, userToken = null, userPageId = null) {
   const username = url.match(/instagram\.com\/([^/?#\s]+)/i)?.[1] || 'destinyspringshealthcare';
 
-  // ── Strategy A: Graph API via the linked Facebook Page ──
+  // ── Strategy A: Graph API — prefer passed user token, fall back to app token ──
   const APP_ID     = process.env.META_APP_ID;
   const APP_SECRET = process.env.META_APP_SECRET;
-  if (APP_ID && APP_SECRET) {
+  const graphToken = userToken || (APP_ID && APP_SECRET ? `${APP_ID}|${APP_SECRET}` : null);
+  if (graphToken) {
     try {
-      const fbPageId = DS_FB.match(/[?&]id=(\d+)/)?.[1] || '61581511228047';
-      const appToken = `${APP_ID}|${APP_SECRET}`;
+      const fbPageId = userPageId || DS_FB.match(/[?&]id=(\d+)/)?.[1] || '61581511228047';
+      const appToken = graphToken;
       const igChkRes = await fetch(`https://graph.facebook.com/v18.0/${fbPageId}?fields=instagram_business_account&access_token=${appToken}`, { signal: AbortSignal.timeout(6000) });
       const igChk    = await igChkRes.json();
       if (igChk.instagram_business_account?.id) {
@@ -725,7 +726,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const apiKey    = process.env.GOOGLE_PLACES_KEY || req.query.apiKey || '';
-  const { action, placeId: qPid, debug } = req.query;
+  const { action, placeId: qPid, debug, metaToken, metaPageId } = req.query;
 
   try {
     // ── Env-var diagnostic (no key values exposed) ────────────────────────────
@@ -747,51 +748,13 @@ export default async function handler(req, res) {
     // Single-source debug endpoints
     if (action === 'website')   return res.json({ ok:true, website:   await scrapeWebsite() });
     if (action === 'facebook')  return res.json({ ok:true, facebook:  await scrapeFacebook() });
-    if (action === 'instagram') return res.json({ ok:true, instagram: await scrapeInstagram() });
+    if (action === 'instagram') return res.json({ ok:true, instagram: await scrapeInstagram(DS_IG, metaToken||null, metaPageId||null) });
     if (action === 'tiktok')    return res.json({ ok:true, tiktok:    await scrapeTikTok() });
     if (action === 'linkedin')  return res.json({ ok:true, linkedin:  await scrapeLinkedIn() });
     if (action === 'yelp')      return res.json({ ok:true, yelp:      await scrapeYelp() });
     if (action === 'glassdoor') return res.json({ ok:true, glassdoor: await scrapeGlassdoor() });
     if (action === 'hg')        return res.json({ ok:true, healthgrades: await scrapeHealthgrades() });
-    if (action === 'gsearch') {
-      // Debug mode: show status codes from each source
-      const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(DS_QUERY + ' reviews')}&setmkt=en-US&setlang=en`;
-      const ddgUrl  = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(DS_QUERY + ' reviews rating')}`;
-      const gUrl    = `https://www.google.com/search?q=${encodeURIComponent(DS_QUERY + ' reviews rating')}&num=3&hl=en`;
-      const [bRes, dRes, gRes] = await Promise.all([
-        fetchH(bingUrl, { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0', 'Referer': 'https://www.bing.com/' }, 8000).catch(e => ({ ok:false, status: 0, _err: e.message })),
-        fetchH(ddgUrl,  { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', 'Referer': 'https://duckduckgo.com/' }, 8000).catch(e => ({ ok:false, status: 0, _err: e.message })),
-        fetchH(gUrl,    { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36' }, 7000).catch(e => ({ ok:false, status: 0, _err: e.message })),
-      ]);
-      const bHtml = bRes.ok ? (await bRes.text().catch(()=>'')) : '';
-      const dHtml = dRes.ok ? (await dRes.text().catch(()=>'')) : '';
-      const gHtml = gRes.ok ? (await gRes.text().catch(()=>'')) : '';
-      // Find rating-relevant snippets — search specifically for rating number patterns
-      const ratingSnippet = (html, label) => {
-        // Search for patterns that look like star ratings near review counts
-        const patterns = [/\d\.\d[^\d]{1,30}\d{2,4}[^\d]{1,20}review/i, /ratingValue[":]{1,3}[\d.]+/i, /aggregateRating/i, /itemprop="rating/i, /\d{2,4}\s+(?:Google\s+)?reviews/i, /3\.1/, /168\s*review/];
-        for (const p of patterns) {
-          const i = html.search(p);
-          if (i >= 0) return `[${label} Found: ${p.source.slice(0,30)}] ` + html.slice(Math.max(0, i - 50), i + 400);
-        }
-        // Check if known rating digits appear at all
-        const has31 = html.includes('3.1');
-        const has168 = html.includes('168');
-        return `${label} NO_RATING_PATTERN (len=${html.length}, has3.1=${has31}, has168=${has168})`;
-      };
-      return res.json({
-        ok: true,
-        bingStatus: bRes.status, bingOk: bRes.ok, bingLen: bHtml.length,
-        bingRatingSnippet: ratingSnippet(bHtml, 'BING'),
-        ddgStatus:  dRes.status, ddgOk:  dRes.ok,
-        googleStatus: gRes.status, googleOk: gRes.ok, googleLen: gHtml.length,
-        googleRatingSnippet: ratingSnippet(gHtml, 'GOOGLE'),
-        bingRatingHit: _parseRatingFromHtml(bHtml, 'Bing'),
-        ddgRatingHit:  _parseRatingFromHtml(dHtml, 'DDG'),
-        googleRatingHit: _parseRatingFromHtml(gHtml, 'Google'),
-        googleSearch: await scrapeGoogleRating(),
-      });
-    }
+    if (action === 'gsearch')   return res.json({ ok:true, googleSearch: await scrapeGoogleRating() });
     if (action === 'findplace') {
       if (!apiKey) return res.status(400).json({ ok:false, error:'Requires GOOGLE_PLACES_KEY' });
       return res.json({ ok:true, ...(await findPlaceId(apiKey)) });
@@ -804,7 +767,7 @@ export default async function handler(req, res) {
       await Promise.all([
         scrapeWebsite().catch(e    => ({ error: `Website: ${e.message}` })),
         scrapeFacebook().catch(e   => ({ platform:'Facebook',  error: e.message })),
-        scrapeInstagram().catch(e  => ({ platform:'Instagram', error: e.message })),
+        scrapeInstagram(DS_IG, metaToken || null, metaPageId || null).catch(e  => ({ platform:'Instagram', error: e.message })),
         scrapeTikTok().catch(e     => ({ platform:'TikTok',    error: e.message })),
         scrapeLinkedIn().catch(e   => ({ platform:'LinkedIn',  error: e.message })),
         scrapeHealthgrades().catch(() => null),
