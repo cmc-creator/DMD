@@ -124,6 +124,8 @@ const App = () => {
   const [fileImportLog, setFileImportLog]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_import_log') || '[]'); } catch { return []; } });
   const [surveyParsed, setSurveyParsed]         = useState(null);  // parsed SM preview before confirm
   const surveyFileRef                            = useRef(null);
+  const fbFileRef                                = useRef(null);
+  const ga4FileRef                               = useRef(null);
   const [aiInsights, setAiInsights]             = useState('');
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [chatOpen, setChatOpen]                 = useState(false);
@@ -132,6 +134,8 @@ const App = () => {
   const [chatLoading, setChatLoading]           = useState(false);
   const [importNotice, setImportNotice]         = useState('');
   const [wixFormVals, setWixFormVals]           = useState({});
+  const [smartPasteText, setSmartPasteText]     = useState('');
+  const [smartPasteResults, setSmartPasteResults] = useState(null);
   const [reviewPlatformData, setReviewPlatformData] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}'); } catch { return {}; } });
   const [reviewPlatformForm, setReviewPlatformForm]   = useState({ editingPlatform: null, rating: '', count: '', url: '' });
   const [reviewFetchingPlatform, setReviewFetchingPlatform] = useState(null);
@@ -1105,6 +1109,186 @@ const App = () => {
       setImportNotice(`\u2705 Wix CSV parsed (${lines.length - 1} rows) \u2014 review values below and click Save Wix Data`);
     };
     reader.onerror = () => setImportNotice('Error reading Wix CSV.');
+    reader.readAsText(file);
+  };
+
+  // ── Smart Paste — extract metrics from any copied dashboard text ──────────────
+  const handleSmartPaste = (text) => {
+    if (!text.trim()) { setImportNotice('Paste some text first.'); return; }
+    const results = {};
+    const num = (s) => parseFloat((s || '').replace(/[,$%]/g, '')) || 0;
+    const find = (patterns) => { for (const p of patterns) { const m = text.match(p); if (m) return m[1]; } return null; };
+
+    const sess = find([/(\d[\d,]*)\s*(?:sessions|visitors|visits|pageviews|page views)/i, /sessions[:\s]+([\d,]+)/i]);
+    if (sess) results.sessions = parseInt(sess.replace(/,/g,''));
+
+    const bounce = find([/(\d+\.?\d*)\s*%\s*bounce/i, /bounce rate[:\s]+(\d+\.?\d*)%?/i, /bounced[:\s]+(\d+\.?\d*)%?/i]);
+    if (bounce) results.bounceRate = parseFloat(bounce);
+
+    const followers = find([/(\d[\d,]*)\s*followers/i, /followers[:\s]+([\d,]+)/i]);
+    if (followers) results.followers = parseInt(followers.replace(/,/g,''));
+
+    const likes = find([/(\d[\d,]*)\s*(?:page likes|fans)/i, /(?:page likes|fans)[:\s]+([\d,]+)/i]);
+    if (likes) results.likes = parseInt(likes.replace(/,/g,''));
+
+    const reach = find([/(\d[\d,]*)\s*(?:people reached|total reach|reach)/i, /reach[:\s]+([\d,]+)/i]);
+    if (reach) results.reach = parseInt(reach.replace(/,/g,''));
+
+    const impressions = find([/(\d[\d,]*)\s*impressions/i, /impressions[:\s]+([\d,]+)/i]);
+    if (impressions) results.impressions = parseInt(impressions.replace(/,/g,''));
+
+    const subs = find([/(\d[\d,]*)\s*(?:subscribers|contacts|audience)/i, /(?:subscribers|contacts)[:\s]+([\d,]+)/i]);
+    if (subs) results.subscribers = parseInt(subs.replace(/,/g,''));
+
+    const openRate = find([/(\d+\.?\d*)\s*%\s*open rate/i, /open rate[:\s]+(\d+\.?\d*)%?/i, /opened[:\s]+(\d+\.?\d*)%/i]);
+    if (openRate) results.openRate = parseFloat(openRate);
+
+    const clickRate = find([/(\d+\.?\d*)\s*%\s*click/i, /click(?:-through)? rate[:\s]+(\d+\.?\d*)%?/i, /clicked[:\s]+(\d+\.?\d*)%/i]);
+    if (clickRate) results.clickRate = parseFloat(clickRate);
+
+    const rating = find([/(\d+\.?\d*)\s*(?:\/5|out of 5|★|stars?)/i, /(?:rating|score)[:\s]+(\d+\.?\d*)/i]);
+    if (rating && parseFloat(rating) <= 5) results.rating = parseFloat(rating);
+
+    const revCount = find([/(\d[\d,]*)\s*(?:reviews|ratings)/i, /(?:reviews|ratings)[:\s]+([\d,]+)/i]);
+    if (revCount) results.reviewCount = parseInt(revCount.replace(/,/g,''));
+
+    const leads = find([/(\d[\d,]*)\s*(?:leads|new patients|inquiries|appointments|conversions)/i]);
+    if (leads) results.leads = parseInt(leads.replace(/,/g,''));
+
+    const spend = find([/\$\s*([\d,]+\.?\d*)\s*(?:spent|spend|total spend|budget)?/i, /(?:spend|spent|budget)[:\s]+\$?([\d,]+)/i]);
+    if (spend) results.spend = parseFloat(spend.replace(/,/g,''));
+
+    const views = find([/(\d[\d,]*)\s*(?:video views|total views|plays|views)/i, /views[:\s]+([\d,]+)/i]);
+    if (views) results.videoViews = parseInt(views.replace(/,/g,''));
+
+    const organic = find([/(\d+\.?\d*)\s*%\s*organic/i, /organic[:\s]+(\d+\.?\d*)%?/i]);
+    if (organic) results.organicPct = parseFloat(organic);
+
+    const posts = find([/(\d+)\s*posts? published/i, /published\s*(\d+)\s*posts?/i]);
+    if (posts) results.posts = parseInt(posts);
+
+    setSmartPasteResults(Object.keys(results).length ? results : {});
+    if (!Object.keys(results).length) setImportNotice('⚠️ No metrics detected. Try pasting text that includes units like "1,234 sessions", "45% open rate", "3.2k followers".');
+  };
+
+  const saveSmartPasteResults = (results, target) => {
+    if (!results || !Object.keys(results).length) return;
+    if (target === 'wix' && results.sessions) {
+      const d = { sessions: results.sessions, bounceRate: results.bounceRate||0, organic: results.organicPct||0, savedAt: new Date().toISOString() };
+      setWixData(d); localStorage.setItem('dmd_wix', JSON.stringify(d));
+      setImportNotice('✅ Sessions + traffic data saved to Wix Analytics!');
+    } else if (target === 'social') {
+      const entry = { platform: 'Facebook', month: new Date().toISOString().slice(0,7), reach: results.reach||0, impressions: results.impressions||0, followers: results.followers||0, likes: results.likes||0, posts: results.posts||0, _savedAt: new Date().toLocaleString() };
+      setManualData(prev => { const upd = { ...prev, social_metrics: [...(prev.social_metrics||[]), entry] }; localStorage.setItem('dmd_manual', JSON.stringify(upd)); return upd; });
+      if (results.followers) setLiveData(d => ({ ...d, 'Meta Business Suite': { ...d['Meta Business Suite'], fanCount: results.likes||results.followers, instagramFollowers: results.followers } }));
+      setImportNotice('✅ Social metrics saved!');
+    } else if (target === 'email') {
+      const entry = { campaign: 'Imported', subscribers: results.subscribers||0, openRate: results.openRate||0, clickRate: results.clickRate||0, _savedAt: new Date().toLocaleString() };
+      setLiveData(d => ({ ...d, Mailchimp: { ...d.Mailchimp, subscribers: results.subscribers||d.Mailchimp?.subscribers, openRate: results.openRate ? results.openRate+'%' : d.Mailchimp?.openRate, clickRate: results.clickRate ? results.clickRate+'%' : d.Mailchimp?.clickRate } }));
+      setManualData(prev => { const upd = { ...prev, email_stats: [...(prev.email_stats||[]), entry] }; localStorage.setItem('dmd_manual', JSON.stringify(upd)); return upd; });
+      setImportNotice('✅ Email stats saved!');
+    } else if (target === 'ads') {
+      const entry = { platform: 'Meta Ads', spend: results.spend||0, leads: results.leads||0, impressions: results.impressions||0, month: new Date().toISOString().slice(0,7), _savedAt: new Date().toLocaleString() };
+      setManualData(prev => { const upd = { ...prev, ad_spend: [...(prev.ad_spend||[]), entry] }; localStorage.setItem('dmd_manual', JSON.stringify(upd)); return upd; });
+      setImportNotice('✅ Ad performance data saved!');
+    } else if (target === 'reviews' && results.rating) {
+      const plat = { ...reviewPlatformData, google: { ...reviewPlatformData.google, rating: String(results.rating), count: String(results.reviewCount||''), source: 'manual' } };
+      setReviewPlatformData(plat); localStorage.setItem('dmd_review_platforms', JSON.stringify(plat));
+      setImportNotice('✅ Rating data saved to Google reviews!');
+    }
+    setSmartPasteResults(null); setSmartPasteText('');
+  };
+
+  // ── Facebook / Instagram Insights CSV import ──────────────────────────────
+  const handleFacebookCsvUpload = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ({ target: { result } }) => {
+      const lines = result.trim().split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { setImportNotice('CSV needs at least a header row and one data row.'); return; }
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,'').toLowerCase());
+      const isIG = headers.some(h => h.includes('instagram'));
+      const platform = isIG ? 'Instagram' : 'Facebook';
+      const colIdx = (kws) => headers.findIndex(h => kws.some(k => h.includes(k)));
+      const reachIdx   = colIdx(['reach','total reach','people reached']);
+      const impIdx     = colIdx(['impressions','total impressions']);
+      const engIdx     = colIdx(['engaged','engagement','interactions','post engagements']);
+      const followersIdx = colIdx(['followers','following']);
+      const likesIdx   = colIdx(['likes','fans','page likes','page total likes']);
+      const clicksIdx  = colIdx(['clicks','link clicks']);
+      let totalReach=0, totalImp=0, totalEng=0, totalClicks=0, maxFollowers=0, maxLikes=0, rows=0;
+      for (let i=1;i<lines.length;i++) {
+        const cols = lines[i].split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+        if (reachIdx>=0)     { const v=parseInt(cols[reachIdx]||'0'); if(!isNaN(v)) totalReach+=v; }
+        if (impIdx>=0)       { const v=parseInt(cols[impIdx]||'0');   if(!isNaN(v)) totalImp+=v;   }
+        if (engIdx>=0)       { const v=parseInt(cols[engIdx]||'0');   if(!isNaN(v)) totalEng+=v;   }
+        if (clicksIdx>=0)    { const v=parseInt(cols[clicksIdx]||'0');if(!isNaN(v)) totalClicks+=v;}
+        if (followersIdx>=0) { const v=parseInt(cols[followersIdx]||'0'); if(!isNaN(v)&&v>maxFollowers) maxFollowers=v; }
+        if (likesIdx>=0)     { const v=parseInt(cols[likesIdx]||'0'); if(!isNaN(v)&&v>maxLikes) maxLikes=v; }
+        rows++;
+      }
+      const entry = { platform, month: new Date().toISOString().slice(0,7), reach: totalReach, impressions: totalImp, engagement: totalEng, clicks: totalClicks, followers: maxFollowers||null, likes: maxLikes||null, _savedAt: new Date().toLocaleString() };
+      setManualData(prev => { const upd={...prev,social_metrics:[...(prev.social_metrics||[]),entry]}; localStorage.setItem('dmd_manual',JSON.stringify(upd)); return upd; });
+      if (!isIG && (maxLikes||maxFollowers)) setLiveData(d=>({...d,'Meta Business Suite':{...d['Meta Business Suite'],fanCount:maxLikes||maxFollowers,reach:totalReach}}));
+      if (isIG && maxFollowers) setLiveData(d=>({...d,'Meta Business Suite':{...d['Meta Business Suite'],instagramFollowers:maxFollowers,reach:totalReach}}));
+      setImportNotice(`✅ ${platform} Insights imported — ${rows} rows · reach ${totalReach.toLocaleString()} · impressions ${totalImp.toLocaleString()}${maxFollowers?` · ${maxFollowers.toLocaleString()} followers`:''}`);
+      setFileImportLog(prev => { const upd=[{name:file.name,date:new Date().toLocaleString(),rows,type:`${platform} Insights`},...prev].slice(0,100); localStorage.setItem('dmd_import_log',JSON.stringify(upd)); return upd; });
+    };
+    reader.onerror = () => setImportNotice('Error reading file.');
+    reader.readAsText(file);
+  };
+
+  // ── Google Analytics 4 CSV export import ────────────────────────────────
+  const handleGA4CsvUpload = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ({ target: { result } }) => {
+      const allLines = result.split(/\r?\n/);
+      const dataLines = allLines.filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('"#'));
+      if (dataLines.length < 2) { setImportNotice('No data rows found in GA4 export. Make sure to export as CSV from a GA4 report.'); return; }
+      const headers = dataLines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+      const colIdx = (kws) => headers.findIndex(h=>kws.some(k=>h.includes(k)));
+      const sessIdx     = colIdx(['sessions']);
+      const usersIdx    = colIdx(['active users','total users']);
+      const newUsersIdx = colIdx(['new users']);
+      const bounceIdx   = colIdx(['bounce rate','bounce_rate']);
+      const durIdx      = colIdx(['avg session duration','session duration','engagement time per session']);
+      const convIdx     = colIdx(['conversions','key events']);
+      const channelIdx  = colIdx(['session default channel','default channel','channel group','medium']);
+      let totSess=0, totUsers=0, totNew=0, totConv=0;
+      const bounceVals=[], durVals=[];
+      const ch={organic:0,social:0,direct:0,referral:0,paid:0};
+      for (let i=1;i<dataLines.length;i++) {
+        const cols=dataLines[i].split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+        const sess=parseFloat(cols[sessIdx]||'0')||0;
+        if(sessIdx>=0) totSess+=sess;
+        if(usersIdx>=0) totUsers+=parseFloat(cols[usersIdx]||'0')||0;
+        if(newUsersIdx>=0) totNew+=parseFloat(cols[newUsersIdx]||'0')||0;
+        if(bounceIdx>=0){const b=parseFloat((cols[bounceIdx]||'').replace('%',''));if(!isNaN(b)&&b>0)bounceVals.push(b);}
+        if(durIdx>=0){const d=parseFloat(cols[durIdx]||'0');if(d>0)durVals.push(d);}
+        if(convIdx>=0) totConv+=parseFloat(cols[convIdx]||'0')||0;
+        if(channelIdx>=0&&sess>0){
+          const c=(cols[channelIdx]||'').toLowerCase();
+          if(c.includes('organic')||c.includes('search'))ch.organic+=sess;
+          else if(c.includes('social'))ch.social+=sess;
+          else if(c.includes('direct'))ch.direct+=sess;
+          else if(c.includes('referral'))ch.referral+=sess;
+          else if(c.includes('paid')||c.includes('cpc')||c.includes('ads'))ch.paid+=sess;
+        }
+      }
+      const avgBounce=bounceVals.length?(bounceVals.reduce((a,b)=>a+b,0)/bounceVals.length).toFixed(1):0;
+      const hasCh=Object.values(ch).some(v=>v>0);
+      const gaData={sessions:totSess,users:totUsers,newUsers:totNew,bounceRate:parseFloat(avgBounce)||0,conversions:totConv,organic:hasCh&&totSess?Math.round(ch.organic/totSess*100):0,social:hasCh&&totSess?Math.round(ch.social/totSess*100):0,direct:hasCh&&totSess?Math.round(ch.direct/totSess*100):0,referral:hasCh&&totSess?Math.round(ch.referral/totSess*100):0,savedAt:new Date().toISOString()};
+      setLiveData(d=>{const upd={...d,'Google Analytics':{...(d['Google Analytics']||{}),...gaData}};localStorage.setItem('dmd_livedata',JSON.stringify(upd));return upd;});
+      if(totSess>0){const w={sessions:totSess,bounceRate:parseFloat(avgBounce)||0,organic:gaData.organic,social:gaData.social,direct:gaData.direct,referral:gaData.referral,savedAt:new Date().toISOString()};setWixData(w);localStorage.setItem('dmd_wix',JSON.stringify(w));}
+      const parts=[`${Math.round(totSess).toLocaleString()} sessions`];
+      if(totUsers) parts.push(`${Math.round(totUsers).toLocaleString()} users`);
+      if(avgBounce) parts.push(`${avgBounce}% bounce`);
+      if(totConv) parts.push(`${Math.round(totConv)} conversions`);
+      setImportNotice(`✅ GA4 data imported — ${parts.join(' · ')}`);
+      setFileImportLog(prev=>{const upd=[{name:file.name,date:new Date().toLocaleString(),rows:dataLines.length-1,type:'Google Analytics 4'},...prev].slice(0,100);localStorage.setItem('dmd_import_log',JSON.stringify(upd));return upd;});
+    };
+    reader.onerror = () => setImportNotice('Error reading file.');
     reader.readAsText(file);
   };
 
@@ -5079,6 +5263,9 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
               <div className="flex gap-2 mb-6 flex-wrap">
                 {[
                   ['upload',   <><Upload size={12} className="inline mr-1" />File Upload</>],
+                  ['smart',    <><Zap size={12} className="inline mr-1" />Smart Paste</>],
+                  ['facebook', <><Share2 size={12} className="inline mr-1" />FB/IG Insights</>],
+                  ['ga4',      <><BarChart3 size={12} className="inline mr-1" />GA4 Export</>],
                   ['paste',    <><FileText size={12} className="inline mr-1" />Paste CSV</>],
                   ['manual',   <><Pencil size={12} className="inline mr-1" />Manual Entry</>],
                   ['survey',   <><ThumbsUp size={12} className="inline mr-1" />SurveyMonkey</>],
@@ -5471,6 +5658,120 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                     className="mt-5 flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all">
                     <Plus size={13} /> Save Entry
                   </button>
+                </div>
+              )}
+
+              {importMode === 'smart' && (
+                <div>
+                  <div className="mb-5 p-4 rounded-2xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/50">
+                    <p className="text-sm font-black text-teal-700 dark:text-teal-400 mb-2 flex items-center gap-2"><Zap size={14}/> Copy from ANY dashboard — no export needed</p>
+                    <p className="text-xs text-teal-600 dark:text-teal-500">Open GA4, Facebook Business Suite, Mailchimp, or any other tool. Select and copy the text you see on screen (Ctrl+A, Ctrl+C on the summary page), then paste it below. We'll automatically pull out every number and label it.</p>
+                  </div>
+                  <div className="mb-4">
+                    <label className={`block text-[11px] font-black ${muted} uppercase tracking-wider mb-1.5`}>Paste anything here — text, numbers, tables, whatever you copied</label>
+                    <textarea
+                      value={smartPasteText}
+                      onChange={e => { setSmartPasteText(e.target.value); setSmartPasteResults(null); }}
+                      className={`w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-48 resize-none focus:outline-none focus:border-teal-500 font-mono`}
+                      placeholder={`Examples of things you can paste:\n\n• "12,450 sessions this month, 38% bounce rate, 4.2% conversion"\n• "Page Likes: 1,842  |  Reach: 28,500  |  Impressions: 94,200"\n• "Open Rate: 24.7%  Click Rate: 3.1%  Subscribers: 2,840"\n• "Rating: 4.6 out of 5  •  312 reviews"\n• "$3,200 spent  •  87 leads  •  $36.78 per lead"`}
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleSmartPaste(smartPasteText)}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-black hover:bg-teal-500 transition-all mb-6"
+                  >
+                    <Zap size={13}/> Extract Metrics
+                  </button>
+
+                  {smartPasteResults && (
+                    <div>
+                      {Object.keys(smartPasteResults).length === 0 ? (
+                        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-sm text-amber-700 dark:text-amber-400">
+                          No metrics detected. Try pasting more text with explicit numbers and units (e.g. "1,234 sessions", "45% open rate", "4.7 stars").
+                        </div>
+                      ) : (
+                        <div>
+                          <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-3`}>✅ Detected {Object.keys(smartPasteResults).length} metric{Object.keys(smartPasteResults).length!==1?'s':''} — choose where to save:</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
+                            {Object.entries(smartPasteResults).map(([k,v]) => (
+                              <div key={k} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                <p className={`text-[10px] font-black ${muted} uppercase tracking-wider mb-0.5`}>{k.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase())}</p>
+                                <p className={`text-lg font-black ${txt}`}>{typeof v==='number'?v.toLocaleString():v}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {smartPasteResults.sessions && <button onClick={()=>saveSmartPasteResults(smartPasteResults,'wix')} className="px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-black hover:bg-teal-500">Save as Website Traffic</button>}
+                            {(smartPasteResults.reach||smartPasteResults.followers||smartPasteResults.impressions) && <button onClick={()=>saveSmartPasteResults(smartPasteResults,'social')} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-500">Save as Social Metrics</button>}
+                            {(smartPasteResults.openRate||smartPasteResults.subscribers) && <button onClick={()=>saveSmartPasteResults(smartPasteResults,'email')} className="px-4 py-2 bg-yellow-600 text-white rounded-xl text-xs font-black hover:bg-yellow-500">Save as Email Stats</button>}
+                            {(smartPasteResults.spend||smartPasteResults.leads) && <button onClick={()=>saveSmartPasteResults(smartPasteResults,'ads')} className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-black hover:bg-rose-500">Save as Ad Spend</button>}
+                            {smartPasteResults.rating && <button onClick={()=>saveSmartPasteResults(smartPasteResults,'reviews')} className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-500">Save as Review Rating</button>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {importMode === 'facebook' && (
+                <div>
+                  <div className="mb-5 p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50">
+                    <p className="text-sm font-black text-blue-700 dark:text-blue-300 mb-3 flex items-center gap-2"><Share2 size={14}/> How to export from Facebook/Instagram Insights</p>
+                    <ol className="space-y-2 text-xs text-blue-600 dark:text-blue-400">
+                      <li className="flex items-start gap-2"><span className="font-black shrink-0 bg-blue-200 dark:bg-blue-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">1</span>Go to <strong>business.facebook.com</strong> → your Page → <strong>Insights</strong></li>
+                      <li className="flex items-start gap-2"><span className="font-black shrink-0 bg-blue-200 dark:bg-blue-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">2</span>Click <strong>Export Data</strong> (top right) → select date range → <strong>Page Level Data</strong></li>
+                      <li className="flex items-start gap-2"><span className="font-black shrink-0 bg-blue-200 dark:bg-blue-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">3</span>Format: <strong>CSV</strong> → click <strong>Export</strong></li>
+                      <li className="flex items-start gap-2"><span className="font-black shrink-0 bg-blue-200 dark:bg-blue-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">4</span>Drop the downloaded file below — we auto-detect reach, impressions, followers, engagement</li>
+                    </ol>
+                    <p className="text-[11px] text-blue-500 dark:text-blue-500 mt-2">Also works with Instagram Professional Account exports from the same Business Manager.</p>
+                  </div>
+                  <div
+                    className="border-2 border-dashed border-blue-300 dark:border-blue-700/50 rounded-2xl p-10 text-center hover:border-blue-500 transition-colors cursor-pointer mb-4 group"
+                    onClick={() => fbFileRef.current?.click()}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => { e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) handleFacebookCsvUpload(f); }}
+                  >
+                    <input type="file" ref={fbFileRef} accept=".csv,.txt" className="hidden" onChange={e=>{if(e.target.files[0])handleFacebookCsvUpload(e.target.files[0]);e.target.value='';}} />
+                    <Share2 size={30} className={`${subtl} group-hover:text-blue-500 mx-auto mb-2 transition-colors`} />
+                    <p className={`text-sm font-black ${txt} mb-1`}>Drop your Facebook/Instagram Insights CSV</p>
+                    <p className={`text-xs ${subtl} mb-4`}>Page Insights export from Meta Business Suite → Insights → Export Data</p>
+                    <button className="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-black hover:bg-blue-500 transition-all" onClick={e=>{e.stopPropagation();fbFileRef.current?.click();}}>Browse File</button>
+                  </div>
+                  <div className={`p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-xs ${subtl}`}>
+                    <p className="font-black mb-1">Columns auto-detected:</p>
+                    <p>Reach, Impressions, Page Likes/Fans, Followers, Post Engagements, Link Clicks — any combination that appears in your export.</p>
+                  </div>
+                </div>
+              )}
+
+              {importMode === 'ga4' && (
+                <div>
+                  <div className="mb-5 p-4 rounded-2xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50">
+                    <p className="text-sm font-black text-orange-700 dark:text-orange-300 mb-3 flex items-center gap-2"><BarChart3 size={14}/> How to export from Google Analytics 4</p>
+                    <ol className="space-y-2 text-xs text-orange-600 dark:text-orange-400">
+                      <li className="flex items-start gap-2"><span className="font-black shrink-0 bg-orange-200 dark:bg-orange-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">1</span>Go to <strong>analytics.google.com</strong> → your property → <strong>Reports</strong></li>
+                      <li className="flex items-start gap-2"><span className="font-black shrink-0 bg-orange-200 dark:bg-orange-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">2</span>Open any report (e.g. <strong>Traffic Acquisition</strong> or <strong>Overview</strong>) → set your date range</li>
+                      <li className="flex items-start gap-2"><span className="font-black shrink-0 bg-orange-200 dark:bg-orange-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">3</span>Click the <strong>Download</strong> icon (top right of report) → <strong>Download CSV</strong></li>
+                      <li className="flex items-start gap-2"><span className="font-black shrink-0 bg-orange-200 dark:bg-orange-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">4</span>Drop the file below — sessions, bounce rate, users, conversions, and traffic sources auto-parse</li>
+                    </ol>
+                  </div>
+                  <div
+                    className="border-2 border-dashed border-orange-300 dark:border-orange-700/50 rounded-2xl p-10 text-center hover:border-orange-500 transition-colors cursor-pointer mb-4 group"
+                    onClick={() => ga4FileRef.current?.click()}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => { e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) handleGA4CsvUpload(f); }}
+                  >
+                    <input type="file" ref={ga4FileRef} accept=".csv,.txt" className="hidden" onChange={e=>{if(e.target.files[0])handleGA4CsvUpload(e.target.files[0]);e.target.value='';}} />
+                    <BarChart3 size={30} className={`${subtl} group-hover:text-orange-500 mx-auto mb-2 transition-colors`} />
+                    <p className={`text-sm font-black ${txt} mb-1`}>Drop your GA4 CSV export here</p>
+                    <p className={`text-xs ${subtl} mb-4`}>Traffic Acquisition, Overview, or any GA4 report exported as CSV</p>
+                    <button className="px-5 py-2 bg-orange-600 text-white rounded-xl text-sm font-black hover:bg-orange-500 transition-all" onClick={e=>{e.stopPropagation();ga4FileRef.current?.click();}}>Browse File</button>
+                  </div>
+                  <div className={`p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-xs ${subtl}`}>
+                    <p className="font-black mb-1">What gets imported:</p>
+                    <p>Sessions, Users, New Users, Bounce Rate, Avg Session Duration, Conversions — plus traffic sources breakdown (Organic, Social, Direct, Referral) if your export includes a Channel column. Data goes directly into the Overview and SEO tabs.</p>
+                  </div>
                 </div>
               )}
 
