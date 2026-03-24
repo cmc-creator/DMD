@@ -208,52 +208,58 @@ async function scrapeIndeed(opts = {}) {
   throw iErr;
 }
 
-// ── 5. HEALTHGRADES ───────────────────────────────────────────────────────────
+// ── 5. HEALTHGRADES ──────────────────────────────────────────────────────────
 async function scrapeHealthgrades(opts = {}) {
-  const searchUrl = `https://www.healthgrades.com/search?what=${encodeURIComponent('Destiny Springs Healthcare')}&where=${encodeURIComponent('Scottsdale, AZ')}`;
-  const r1 = await fetchH(searchUrl, {}, 9000);
-  if (!r1.ok) {
-    const hErr = new Error(`Healthgrades search failed (HTTP ${r1.status}) — enter your rating manually`);
-    hErr.reviewUrl = searchUrl;
-    throw hErr;
+  // Allow direct profile URL via env var (set DS_HEALTHGRADES_URL in Vercel)
+  const directUrl = process.env.DS_HEALTHGRADES_URL;
+
+  const urlsToTry = directUrl ? [directUrl] : [
+    // Try multiple URL patterns for a behavioral health facility
+    `https://www.healthgrades.com/group-directory/az-arizona/scottsdale/destiny-springs-healthcare`,
+    `https://www.healthgrades.com/group-directory/az-arizona/surprise/destiny-springs-healthcare`,
+    `https://www.healthgrades.com/search-results?what=${encodeURIComponent('Destiny Springs Healthcare')}&city=${encodeURIComponent('Scottsdale')}&state=AZ`,
+    `https://www.healthgrades.com/search?what=${encodeURIComponent('Destiny Springs Healthcare')}&where=${encodeURIComponent('Scottsdale, AZ')}`,
+  ];
+
+  for (const url of urlsToTry) {
+    try {
+      const r1 = await fetchH(url, {}, 9000);
+      if (!r1.ok) continue;
+      const html1 = await r1.text();
+
+      // If this is a search results page, follow the first facility link
+      const linkM = html1.match(/href="(\/group-directory\/[^"?#]+)/i)
+                 || html1.match(/href="(\/hospital-directory\/[^"?#]+)/i)
+                 || html1.match(/href="(\/facility-directory\/[^"?#]+)/i)
+                 || html1.match(/href="(\/physician\/[^"?#]+)/i);
+
+      const profileUrl = linkM ? 'https://www.healthgrades.com' + linkM[1] : url;
+      const htmlToCheck = linkM
+        ? await (async () => {
+            const r2 = await fetchH(profileUrl, {}, 9000);
+            if (!r2.ok) return null;
+            return r2.text();
+          })()
+        : html1;
+      if (!htmlToCheck) continue;
+
+      const ld = findAggRating(getJsonLd(htmlToCheck));
+      if (ld) return { ...ld, source: 'Healthgrades', url: profileUrl };
+
+      const rM = htmlToCheck.match(/"ratingValue"\s*:\s*"?([\d.]+)/i)
+               || htmlToCheck.match(/aria-label="Rating:\s*([\d.]+)/i)
+               || htmlToCheck.match(/"overallRating"\s*:\s*([\d.]+)/i);
+      const cM = htmlToCheck.match(/"reviewCount"\s*:\s*"?(\d+)/i)
+               || htmlToCheck.match(/([\d,]+)\s+(?:reviews?|ratings?)/i);
+      if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Healthgrades', url: profileUrl };
+    } catch {} // try next URL
   }
-  const html1 = await r1.text();
 
-  const linkM = html1.match(/href="(\/group-directory\/[^"?#]+)/i)
-             || html1.match(/href="(\/physician\/[^"?#]+)/i)
-             || html1.match(/href="(\/hospital-directory\/[^"?#]+)/i)
-             || html1.match(/href="(\/mental-health-directory\/[^"?#]+)/i)
-             || html1.match(/href="(\/facility-directory\/[^"?#]+)/i);
-  if (!linkM) {
-    const hErr = new Error('Healthgrades: profile not found in search — enter your rating manually');
-    hErr.reviewUrl = searchUrl;
-    throw hErr;
-  }
-
-  const profileUrl = 'https://www.healthgrades.com' + linkM[1];
-  const r2 = await fetchH(profileUrl, {}, 9000);
-  if (!r2.ok) {
-    const hErr = new Error(`Healthgrades profile failed (HTTP ${r2.status}) — enter your rating manually`);
-    hErr.reviewUrl = profileUrl;
-    throw hErr;
-  }
-  const html2 = await r2.text();
-
-  const ld = findAggRating(getJsonLd(html2));
-  if (ld) return { ...ld, source: 'Healthgrades', url: profileUrl };
-
-  const rM = html2.match(/"ratingValue"\s*:\s*"?([\d.]+)/i)
-           || html2.match(/aria-label="Rating:\s*([\d.]+)/i);
-  const cM = html2.match(/"reviewCount"\s*:\s*"?(\d+)/i)
-           || html2.match(/([\d,]+)\s+(?:reviews?|ratings?)/i);
-  if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? num(cM[1]) : null, source: 'Healthgrades', url: profileUrl };
-
-  const hErr = new Error('Healthgrades: rating not found in profile — enter your rating manually');
-  hErr.reviewUrl = profileUrl;
+  const hErr = new Error('Healthgrades: profile not found — set DS_HEALTHGRADES_URL in Vercel env vars or enter your rating manually');
+  hErr.reviewUrl = 'https://www.healthgrades.com/search?what=Destiny+Springs+Healthcare';
   throw hErr;
 }
-
-// ── 6. ZOCDOC ─────────────────────────────────────────────────────────────────
+── 6. ZOCDOC ─────────────────────────────────────────────────────────────────
 async function scrapeZocdoc(opts = {}) {
   const directUrl = process.env.DS_ZOCDOC_URL;
   const searchUrl = `https://www.zocdoc.com/search?address=Scottsdale%2C+AZ&reason_visit=84&insurance_carrier=-1&search_query=${encodeURIComponent('Destiny Springs')}`;
