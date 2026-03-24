@@ -784,40 +784,7 @@ const App = () => {
         localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
         return updated;
       });
-      // ── Auto-inject Destiny Springs into facilityProfiles (always index 0) ─
-      if (data.website) {
-        setFacilityProfiles(prev => {
-          const ws = data.website;
-          const dsEntry = {
-            id:            'destiny-springs-auto',
-            label:         'Destiny Springs Healthcare',
-            url:           ws.url || 'https://destinyspringshealthcare.com',
-            title:         ws.title         || 'Destiny Springs Healthcare',
-            description:   ws.description   || '',
-            keywords:      ws.keywords      || '',
-            h1:            ws.h1            || '',
-            h2s:           ws.h2s           || [],
-            h3s:           ws.h3s           || [],
-            wordCount:     ws.wordCount     || 0,
-            linkCount:     ws.linkCount     || 0,
-            phones:        ws.phones        || [],
-            emails:        ws.emails        || [],
-            servicesFound: ws.services      || [],
-            socials:       ws.socials       || {},
-            techStack:     ws.techStack     || [],
-            schemaRating:      ws.schemaRating      || null,
-            schemaReviewCount: ws.schemaReviewCount || null,
-            isDestinySpringsSelf: true,
-            savedAt: new Date().toLocaleString(),
-          };
-          // Keep DS at index 0; preserve all other scanned profiles
-          const rest = prev.filter(p => p.id !== 'destiny-springs-auto' && p.url !== dsEntry.url);
-          const updated = [dsEntry, ...rest];
-          localStorage.setItem('dmd_facility_profiles', JSON.stringify(updated));
-          return updated;
-        });
-      }
-      // ── Feed Google Business liveData (uses best available rating source) ───
+// ── Feed Google Business liveData (uses best available rating source) ───
       const liveRating = data.google?.rating || best?.rating || null;
       if (liveRating || data.google) {
         setLiveData(d => ({ ...d, 'Google Business': {
