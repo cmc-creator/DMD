@@ -2047,14 +2047,58 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   ];
 
   // ── Client ROI data ─────────────────────────────────────────────────────────
-  const roiSpend = [];
+  const _roiSettings    = manualData.roi_settings || {};
+  const _avgLeadValue   = Number(_roiSettings.avg_lead_value  || 0);
+  const _agencyRetainer = Number(_roiSettings.agency_retainer || 0);
+
+  // Build 6-month chart data: fold in ad_spend entries (by period/month) + metricsHistory
+  const _roiHistMap = {};
+  _adSpend.forEach(e => {
+    const key = (e.period || e.month || '').slice(0, 7);
+    if (!key) return;
+    if (!_roiHistMap[key]) _roiHistMap[key] = { month: key, spend: 0, revenue: 0, leads: 0 };
+    _roiHistMap[key].spend += Number(e.spend || 0);
+    _roiHistMap[key].leads += Number(e.leads || 0);
+  });
+  [...metricsHistory].forEach(h => {
+    const key = (h.date || '').slice(0, 7);
+    if (!key) return;
+    if (!_roiHistMap[key]) _roiHistMap[key] = { month: key, spend: 0, revenue: 0, leads: 0 };
+    if (Number(h.totalLeads) > _roiHistMap[key].leads) _roiHistMap[key].leads = Number(h.totalLeads);
+  });
+  const roiSpend = Object.values(_roiHistMap)
+    .sort((a, b) => a.month.localeCompare(b.month)).slice(-6)
+    .map(m => ({
+      month:   new Date(m.month + '-15').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      spend:   m.spend,
+      revenue: _avgLeadValue > 0 ? m.leads * _avgLeadValue : 0,
+    }));
+
+  // Per-channel CPL / ROI helpers
+  const _calcCpl = (spend, leads) => leads > 0 ? (spend > 0 ? '$' + (spend / leads).toFixed(0) : '$0') : '—';
+  const _calcRoi = (leads, spend) =>
+    _avgLeadValue > 0 && leads > 0
+      ? spend > 0 ? ((leads * _avgLeadValue / spend) * 100).toFixed(0) + '%' : '∞'
+      : '—';
+
+  const _gaLeads    = _adSpend.filter(e => e.platform === 'Google Ads').reduce((s, e) => s + Number(e.leads || 0), 0);
+  const _gaSpend    = _adSpend.filter(e => e.platform === 'Google Ads').reduce((s, e) => s + Number(e.spend || 0), 0);
+  const _metaLeads  = _adSpend.filter(e => e.platform === 'Meta Ads').reduce((s, e) => s + Number(e.leads || 0), 0);
+  const _metaSpend  = _adSpend.filter(e => e.platform === 'Meta Ads').reduce((s, e) => s + Number(e.spend || 0), 0);
+  const _seoLeads   = _seoData.reduce((s, e) => s + Number(e.clicks || 0), 0);
+  const _emailLeads = _emailStats.reduce((s, e) => s + Number(e.conversions || 0), 0);
 
   const roiChannels = [
-    { channel: 'Organic SEO',  leads: _seoData.reduce((s,e)=>s+Number(e.clicks||0),0),                                                           cpl: '—', roi: '—', color: '#0d9488' },
-    { channel: 'Social Media', leads: _socialMet.reduce((s,e)=>s+Number(e.clicks||0),0),                                                         cpl: '—', roi: '—', color: '#8b5cf6' },
-    { channel: 'Google Ads',   leads: _adSpend.filter(e=>e.platform==='Google Ads').reduce((s,e)=>s+Number(e.leads||0),0),                        cpl: '—', roi: '—', color: '#3b82f6' },
-    { channel: 'Email',        leads: _emailStats.reduce((s,e)=>s+Number(e.conversions||0),0),                                                    cpl: '—', roi: '—', color: '#10b981' },
+    { channel: 'Organic SEO', leads: _seoLeads,   channelSpend: 0,          cpl: _calcCpl(0,          _seoLeads),   roi: _calcRoi(_seoLeads,   0),          color: '#0d9488' },
+    { channel: 'Google Ads',  leads: _gaLeads,    channelSpend: _gaSpend,   cpl: _calcCpl(_gaSpend,   _gaLeads),    roi: _calcRoi(_gaLeads,    _gaSpend),    color: '#3b82f6' },
+    { channel: 'Meta Ads',    leads: _metaLeads,  channelSpend: _metaSpend, cpl: _calcCpl(_metaSpend, _metaLeads),  roi: _calcRoi(_metaLeads,  _metaSpend),  color: '#8b5cf6' },
+    { channel: 'Email',       leads: _emailLeads, channelSpend: 0,          cpl: _calcCpl(0,          _emailLeads), roi: _calcRoi(_emailLeads, 0),           color: '#10b981' },
   ];
+
+  // Top-level ROI summary
+  const _revenuePotential = _totalLeads > 0 && _avgLeadValue > 0 ? _totalLeads * _avgLeadValue : 0;
+  const _blendedRoi       = _totalSpend > 0 && _revenuePotential > 0 ? ((_revenuePotential / _totalSpend) * 100).toFixed(0) + '%' : '—';
+  const _agencySavings    = _agencyRetainer > 0 && _totalSpend > 0 ? '$' + (_agencyRetainer - _totalSpend).toLocaleString() : '—';
 
   // ── Content Calendar data ────────────────────────────────────────────────────
   const calendarTypes = ['All', 'Blog', 'Social', 'TikTok', 'Email'];
@@ -4309,11 +4353,45 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
         {/* ══════════════════ CLIENT ROI ══════════════════ */}
         {activeTab === 'roi' && (
           <>
+            {/* ROI settings bar */}
+            <div className={`${card} p-5 rounded-[2rem] mb-6 flex flex-wrap items-center gap-6`}>
+              <span className={`text-sm font-black ${muted} uppercase tracking-wider`}>ROI Settings</span>
+              <label className="flex items-center gap-2">
+                <span className={`text-xs font-bold ${subtl}`}>Avg Patient Value ($)</span>
+                <input
+                  type="number" min="0"
+                  value={_roiSettings.avg_lead_value || ''}
+                  placeholder="e.g. 2000"
+                  onChange={e => setManualData(prev => {
+                    const u = { ...prev, roi_settings: { ...(prev.roi_settings || {}), avg_lead_value: e.target.value } };
+                    localStorage.setItem('dmd_manual', JSON.stringify(u));
+                    return u;
+                  })}
+                  className={`w-32 px-3 py-1.5 rounded-xl border text-sm font-bold focus:outline-none focus:border-teal-500 ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                />
+              </label>
+              <label className="flex items-center gap-2">
+                <span className={`text-xs font-bold ${subtl}`}>Agency Retainer Comparison ($)</span>
+                <input
+                  type="number" min="0"
+                  value={_roiSettings.agency_retainer || ''}
+                  placeholder="e.g. 5000"
+                  onChange={e => setManualData(prev => {
+                    const u = { ...prev, roi_settings: { ...(prev.roi_settings || {}), agency_retainer: e.target.value } };
+                    localStorage.setItem('dmd_manual', JSON.stringify(u));
+                    return u;
+                  })}
+                  className={`w-32 px-3 py-1.5 rounded-xl border text-sm font-bold focus:outline-none focus:border-teal-500 ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                />
+              </label>
+              {!_avgLeadValue && <span className={`text-xs ${subtl} italic`}>Enter avg patient value to unlock ROI calculations</span>}
+            </div>
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Est. Revenue Potential" value="—"      trend={null}         icon={DollarSign} color="bg-teal-600"   sub="Based on avg value / lead"     />
-              <StatCard title="Total Mktg Spend"       value="—"      trend={null}          icon={Target}     color="bg-indigo-600" sub="Monthly All Channels"        />
-              <StatCard title="Blended ROI"            value="—"      trend={null}          icon={TrendingUp} color="bg-emerald-600" sub="Revenue / Spend Ratio"       />
-              <StatCard title="Agency Cost Savings"    value="—"      trend={null}          icon={ShieldCheck} color="bg-amber-600"  sub="vs. Full Agency Retainer"    />
+              <StatCard title="Est. Revenue Potential" value={_revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : '—'} trend={null} icon={DollarSign} color="bg-teal-600"    sub="Based on avg value / lead"  />
+              <StatCard title="Total Mktg Spend"       value={_totalSpend > 0 ? '$' + _totalSpend.toLocaleString() : '—'}            trend={null} icon={Target}     color="bg-indigo-600"  sub="All paid channels"          />
+              <StatCard title="Blended ROI"            value={_blendedRoi}                                                            trend={null} icon={TrendingUp} color="bg-emerald-600" sub="Revenue / Spend Ratio"      />
+              <StatCard title="Agency Cost Savings"    value={_agencySavings}                                                         trend={null} icon={ShieldCheck} color="bg-amber-600"  sub="vs. Full Agency Retainer"   />
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
@@ -4368,9 +4446,9 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[
-                { label: 'Total Leads x Avg Lead Value',        value: '—',    icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
-                { label: 'Total Marketing Investment',      value: '—',    icon: Target,     color: 'text-indigo-500',  sub: 'Blended spend across all channels'   },
-                { label: 'Return on Investment',            value: '—',    icon: TrendingUp, color: 'text-emerald-500', sub: 'Revenue potential / marketing spend'  },
+                { label: 'Total Leads × Avg Patient Value', value: _revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : '—', icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
+                { label: 'Total Marketing Investment',      value: _totalSpend > 0 ? '$' + _totalSpend.toLocaleString() : '—',             icon: Target,     color: 'text-indigo-500',  sub: 'Blended spend across all channels'   },
+                { label: 'Return on Investment',            value: _blendedRoi,                                                             icon: TrendingUp, color: 'text-emerald-500', sub: 'Revenue potential / marketing spend'  },
               ].map(s => (
                 <div key={s.label} className={`${card} p-6 rounded-2xl text-center`}>
                   <s.icon size={28} className={`${s.color} mx-auto mb-3`} />
