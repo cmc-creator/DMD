@@ -1935,7 +1935,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   // ── Social Analytics ─────────────────────────────────────────────────────────
   const socialAnalytics = [
     { platform: 'Facebook',  color: '#1877F2', reach: Number(_latestSocial['Facebook']?.reach  || _metaLive.reach   || 0), engagement: Number(_latestSocial['Facebook']?.engagement  || 0), clicks: Number(_latestSocial['Facebook']?.clicks  || 0), followers: Number(_fbLive.followers || _latestSocial['Facebook']?.followers  || _metaLive.fanCount || 0), posts: null,  videos: null, totalLikes: Number(_fbLive.likes     || 0) },
-    { platform: 'Instagram', color: '#E4405F', reach: Number(_latestSocial['Instagram']?.reach || 0),                      engagement: Number(_latestSocial['Instagram']?.engagement || 0), clicks: Number(_latestSocial['Instagram']?.clicks || 0), followers: Number(_igLive.followers || _metaLive.instagramFollowers || _latestSocial['Instagram']?.followers || 0), posts: Number(_igLive.posts || _metaLive.instagramPosts || 0), videos: null, totalLikes: null },
+    { platform: 'Instagram', color: '#E4405F', reach: Number(_latestSocial['Instagram']?.reach || 0),                      engagement: Number(_latestSocial['Instagram']?.engagement || 0), clicks: Number(_latestSocial['Instagram']?.clicks || 0), followers: Number(_igLive.followers || _metaLive.igFollowers || _latestSocial['Instagram']?.followers || 0), posts: Number(_igLive.posts || _metaLive.igMediaCount || 0), videos: null, totalLikes: null },
     { platform: 'LinkedIn',  color: '#0A66C2', reach: Number(_latestSocial['LinkedIn']?.reach  || 0),                      engagement: Number(_latestSocial['LinkedIn']?.engagement  || 0), clicks: Number(_latestSocial['LinkedIn']?.clicks  || 0), followers: Number(_liLive.followers || _latestSocial['LinkedIn']?.followers  || 0), posts: null, videos: null, totalLikes: null },
     { platform: 'TikTok',    color: '#00f2ea', reach: Number(_latestSocial['TikTok']?.reach    || _tikLive.recentViews || 0), engagement: 0, clicks: 0, followers: Number(_ttLive.followers || _tikLive.followers || _latestSocial['TikTok']?.followers || 0), posts: null, videos: Number(_ttLive.videos || _tikLive.videos || 0), totalLikes: Number(_ttLive.likes || _tikLive.totalLikes || 0) },
   ];
@@ -3621,7 +3621,8 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Facebook */}
                 {(() => {
-                  const fb = (destinyData?.facebook && !destinyData.facebook.error) ? destinyData.facebook : _fbLive;
+                  const _metaFbFallback = (_metaLive.fanCount || _metaLive.followers) ? { followers: _metaLive.followers || _metaLive.fanCount, name: _metaLive.pageName } : null;
+                  const fb = (destinyData?.facebook && !destinyData.facebook.error) ? destinyData.facebook : ((_fbLive.followers != null || _fbLive.likes != null || _fbLive.name) ? _fbLive : (_metaFbFallback || _fbLive));
                   const hasFb = fb.followers != null || fb.likes != null || !!fb.name;
                   const mainCount = fb.followers ?? fb.likes;
                   const mainLabel = fb.followers != null ? 'Followers' : 'Page Likes';
@@ -3665,7 +3666,8 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                 })()}
                 {/* Instagram */}
                 {(() => {
-                  const ig = (destinyData?.instagram && !destinyData.instagram.error) ? destinyData.instagram : _igLive;
+                  const _metaIgFallback = _metaLive.igFollowers ? { followers: _metaLive.igFollowers, posts: _metaLive.igMediaCount, username: _metaLive.igUsername } : null;
+                  const ig = (destinyData?.instagram && !destinyData.instagram.error) ? destinyData.instagram : ((_igLive.followers != null) ? _igLive : (_metaIgFallback || _igLive));
                   const hasIg = ig.followers != null;
                   return (
                     <div className={`p-5 rounded-2xl ${hasIg ? 'bg-pink-50 dark:bg-pink-900/10 border border-pink-200 dark:border-pink-800' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
