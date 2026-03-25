@@ -1,5 +1,5 @@
 // /api/chat.js ΓÇö Google Gemini proxy for Captain KPI chatbot + AI data analysis
-// Supports text AND vision (image) inputs via Gemini 2.0 Flash multimodal.
+// Supports text AND vision (image) inputs via Gemini 2.5 Flash multimodal.
 // Requires GEMINI_API_KEY env var in Vercel project settings.
 // Get a free key at: aistudio.google.com ΓåÆ Get API Key
 
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       configured: !!key,
       key_length: (key || '').length,
       key_prefix: key ? key.slice(0, 6) + '...' : 'NOT SET',
-      model: 'gemini-2.0-flash (with fallbacks)',
+      model: 'gemini-2.5-flash (with fallbacks)',
     });
   }
 
@@ -60,9 +60,8 @@ export default async function handler(req, res) {
 
   // Try models in order — fall back on quota/rate errors
   const MODELS = [
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash-latest',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
   ];
 
   const payload = JSON.stringify({
