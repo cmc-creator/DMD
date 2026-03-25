@@ -229,9 +229,10 @@ const App = () => {
     localStorage.setItem('dmd_content', JSON.stringify(contentItems));
   }, [contentItems]);
 
-  // ── Cloud sync: pull shared data from Vercel KV on mount ────────────────────
-  useEffect(() => {
-    fetch('/api/data')
+  // ── Cloud sync: pull shared data from Vercel KV ──────────────────────────────
+  const pullFromCloud = () => {
+    setCloudSynced('loading');
+    return fetch('/api/data')
       .then(r => r.ok ? r.json() : Promise.reject('http-' + r.status))
       .then(({ data, error }) => {
         if (error || !data) { cloudLoadedRef.current = true; setCloudSynced('offline'); return; }
@@ -257,7 +258,9 @@ const App = () => {
         setTimeout(() => { skipNextPushRef.current = false; }, 600);
       })
       .catch(() => { cloudLoadedRef.current = true; setCloudSynced('offline'); });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  };
+
+  useEffect(() => { pullFromCloud(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cloud sync: auto-push whenever data changes (debounced 3 s) ─────────────
   useEffect(() => {
@@ -2328,7 +2331,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
               <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
             </button>
             {cloudSynced === 'loading'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Connecting</span></div>}
-            {cloudSynced === 'ok'       && <div className="topbar-live"><div className="live-dot" /><span>Synced</span></div>}
+            {cloudSynced === 'ok'       && <button onClick={pullFromCloud} className="topbar-live cursor-pointer hover:opacity-80 transition-opacity" title="Pull latest data from database"><div className="live-dot" /><span>Synced — click to pull</span></button>}
             {cloudSynced === 'syncing'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Saving…</span></div>}
             {(cloudSynced === 'error' || cloudSynced === 'offline') && (
               <button
@@ -5157,6 +5160,10 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                   {/* FACILITY LIBRARY VIEW */}
                   {scraperSubView === 'library' && (
                     <>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className={`text-xs ${muted}`}>{facilityProfiles.length} saved {facilityProfiles.length === 1 ? 'facility' : 'facilities'}</p>
+                        <button onClick={pullFromCloud} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition-colors" title="Pull latest library data from database"><RefreshCw size={11} />Pull from DB</button>
+                      </div>
                       {facilityProfiles.length === 0 ? (
                         <div className="text-center py-16">
                           <Layers size={40} className={`${subtl} mx-auto mb-3`} />
