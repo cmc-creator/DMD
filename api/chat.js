@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       configured: !!key,
       key_length: (key || '').length,
       key_prefix: key ? key.slice(0, 6) + '...' : 'NOT SET',
-      model: 'gemini-2.0-flash-001',
+      model: 'gemini-2.0-flash-001 (with fallbacks to 1.5-flash)',
     });
   }
 
@@ -58,29 +58,48 @@ export default async function handler(req, res) {
     };
   });
 
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${key}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: system }] },
-          contents,
-          generationConfig: { maxOutputTokens: maxTokens || 800, temperature: 0.7 },
-        }),
+  // Try models in order — fall back on quota/rate errors
+  const MODELS = [
+    'gemini-2.0-flash-001',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-flash-8b-latest',
+  ];
+
+  const payload = JSON.stringify({
+    system_instruction: { parts: [{ text: system }] },
+    contents,
+    generationConfig: { maxOutputTokens: maxTokens || 800, temperature: 0.7 },
+  });
+
+  let lastError = 'Gemini API error';
+  for (const model of MODELS) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload }
+      );
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        const msg = err?.error?.message || '';
+        // Quota/rate errors — try next model
+        if (response.status === 429 || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+          lastError = `Quota exceeded on ${model} — trying fallback`;
+          continue;
+        }
+        return res.status(502).json({ error: msg || 'Gemini API error', model });
       }
-    );
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      return res.status(502).json({ error: err?.error?.message || 'Gemini API error' });
+      const data  = await response.json();
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
+      return res.status(200).json({ reply, model });
+    } catch (e) {
+      lastError = e.message;
+      continue;
     }
-
-    const data  = await response.json();
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
-    return res.status(200).json({ reply });
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
   }
+
+  return res.status(429).json({
+    error: 'All Gemini models are over quota. Go to aistudio.google.com and generate a fresh API key, then update GEMINI_API_KEY in Vercel Settings → Environment Variables.',
+  });
 }
