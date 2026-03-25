@@ -332,6 +332,7 @@ const App = () => {
       { key: 'google_data',    names: ['Google Analytics', 'Google Business']     },
       { key: 'mailchimp_data', names: ['Mailchimp']                               },
       { key: 'meta_data',      names: ['Meta Business Suite', 'Meta Ads Manager'] },
+          { key: 'surveymonkey_data', names: ['SurveyMonkey']                               },
     ];
     let handled = false;
     platforms.forEach(({ key, names }) => {
@@ -1883,6 +1884,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   const _fbLive     = _socialLive.facebook            || {};
   const _igLive     = _socialLive.instagram           || {};
   const _ttLive     = _socialLive.tiktok              || {};
+  const _smLive     = liveData['SurveyMonkey']        || {};
   const _liLive     = _socialLive.linkedin            || {};
   const _platformEntries = Object.values(reviewPlatformData).filter(p => p.count && Number(p.count) > 0);
   const _totalReviewCount = _platformEntries.length
@@ -2185,6 +2187,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
     { name: 'Google Ads',          sub: 'Paid Search Campaigns',   icon: Target,     color: 'text-indigo-500', metrics: ['Impressions', 'Clicks', 'CPC', 'Conversions']             },
     { name: 'Meta Ads Manager',    sub: 'FB & IG Paid Campaigns',  icon: Megaphone,  color: 'text-blue-400',   metrics: ['Ad Spend', 'Reach', 'CPM', 'ROAS']                        },
     { name: 'TikTok for Business', sub: 'Organic Posts & Content',  icon: PlayCircle, color: 'text-pink-400',   metrics: ['Video Views', 'Followers', 'Likes', 'Comments']           },
+    { name: 'SurveyMonkey',        sub: 'Patient Satisfaction Surveys', icon: ThumbsUp, color: 'text-amber-500', metrics: ['Total Surveys', 'Total Responses', 'Active Survey', 'Completion Rate'] },
     { name: 'Sintra AI',           sub: 'AI Marketing Automation', icon: Bot,        color: 'text-purple-500', metrics: ['Campaigns', 'Reports', 'Insights', 'Automations']         },
     { name: 'MarkyAI',             sub: 'AI Content & Scheduling', icon: Zap,        color: 'text-pink-500',   metrics: ['Content Posts', 'Scheduling', 'Analytics', 'AI Writes']  },
     { name: 'YouTube Analytics',   sub: 'Channel Stats & Videos',  icon: Youtube,    color: 'text-rose-500',   metrics: ['Subscribers', 'Total Views', 'Video Count', 'Recent Videos'] },
@@ -6419,6 +6422,70 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
               </div>
             </div>
 
+            {/* ── Survey Results — Live OAuth data ─────────────────────────────── */}
+            {(_smLive.totalSurveys != null || _smLive.totalResponses != null) && (
+              <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
+                <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
+                  <SectionHeader icon={ThumbsUp} color="text-amber-500" title="Survey Results (Live)" subtitle={`Connected as ${_smLive.username || _smLive.email || 'SurveyMonkey'} · ${_smLive.connectedAt ? new Date(_smLive.connectedAt).toLocaleDateString() : ''}`} />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                  <div className={`p-4 rounded-2xl border ${brd} text-center`}>
+                    <p className={`text-3xl font-black ${txt}`}>{_smLive.totalSurveys ?? '—'}</p>
+                    <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-1`}>Total Surveys</p>
+                  </div>
+                  <div className={`p-4 rounded-2xl border ${brd} text-center`}>
+                    <p className={`text-3xl font-black text-teal-600 dark:text-teal-400`}>{_smLive.totalResponses != null ? _smLive.totalResponses.toLocaleString() : '—'}</p>
+                    <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-1`}>Total Responses</p>
+                  </div>
+                  {_smLive.activeSurveyTitle && (
+                    <div className={`p-4 rounded-2xl border ${brd} text-center col-span-2 md:col-span-1`}>
+                      <p className={`text-2xl font-black text-amber-500`}>{_smLive.activeSurveyResponses ?? 0}</p>
+                      <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-1`}>Responses</p>
+                      <p className={`text-xs ${subtl} mt-1 truncate`}>{_smLive.activeSurveyTitle}</p>
+                    </div>
+                  )}
+                </div>
+                {(_smLive.recentSurveys || []).length > 0 && (
+                  <div className="space-y-2">
+                    <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-2`}>Recent Surveys</p>
+                    {(_smLive.recentSurveys || []).slice(0, 5).map((s, i) => (
+                      <div key={s.id || i} className={`flex items-center justify-between p-3 rounded-xl border ${brd}`}>
+                        <span className={`text-sm ${txt} truncate flex-1 mr-3`}>{s.title}</span>
+                        <span className={`text-xs font-black ${subtl} whitespace-nowrap`}>{(s.responses ?? 0).toLocaleString()} resp.</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(_smLive.rollups || []).length > 0 && (
+                  <div className="mt-4 space-y-4">
+                    <p className={`text-[11px] font-black ${muted} uppercase tracking-wider`}>Question Rollups</p>
+                    {(_smLive.rollups || []).slice(0, 3).map((q, qi) => (
+                      <div key={qi} className={`p-4 rounded-2xl border ${brd}`}>
+                        <p className={`text-sm font-black ${txt} mb-3`}>{q.question}</p>
+                        <div className="space-y-2">
+                          {(q.answers || []).slice(0, 5).map((a, ai) => {
+                            const total = (q.answers || []).reduce((s, x) => s + (x.count || 0), 0);
+                            const pct = total > 0 ? Math.round((a.count / total) * 100) : 0;
+                            return (
+                              <div key={ai}>
+                                <div className="flex justify-between mb-0.5">
+                                  <span className={`text-xs ${subtl} truncate flex-1 mr-2`}>{a.text}</span>
+                                  <span className={`text-xs font-black ${txt}`}>{pct}%</span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
+                                  <div className="h-1.5 rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ── Survey Results history ──────────────────────────────────────────── */}
             {(manualData.survey_results || []).length > 0 && (
               <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
@@ -6985,6 +7052,27 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                     className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
                   >Cancel</button>
                 </div>
+              ) : connectModal === 'SurveyMonkey' ? (
+                <div className="mb-4">
+                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
+                    Click below to sign in with SurveyMonkey. You will be redirected and back automatically — connects your surveys and response data.
+                  </p>
+                  <a
+                    href="/api/surveymonkey?action=login"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-black text-white transition-colors"
+                    style={{ background: '#00BF6F' }}
+                  >
+                    <ThumbsUp size={16} />
+                    Sign in with SurveyMonkey
+                  </a>
+                  <p className={`text-[11px] mt-3 text-center ${subtl}`}>
+                    Requires surveys_read and responses_read permissions
+                  </p>
+                  <button
+                    onClick={() => { setConnectModal(null); setConnectError(null); }}
+                    className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
+                  >Cancel</button>
+                </div>
               ) : connectModal === 'TikTok for Business' ? (
                 <div className="mb-4">
                   <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
@@ -7032,13 +7120,13 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                 }`}>{connectError}</div>
               )}
               {/* Note for non-Meta, non-Wix, non-TikTok platforms */}
-              {!['Meta Business Suite','Meta Ads Manager','Wix Analytics','TikTok for Business','Google Analytics','Mailchimp'].includes(connectModal) && (
+              {!['Meta Business Suite','Meta Ads Manager','Wix Analytics','TikTok for Business','Google Analytics','Mailchimp','SurveyMonkey'].includes(connectModal) && (
                 <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-[12px] text-blue-600 dark:text-blue-400">
                   Credentials are saved locally. Live data sync for this platform requires the backend API proxy to be configured by your developer.
                 </div>
               )}
               {/* Actions — hidden for TikTok and Meta Business Suite (OAuth handles them) */}
-              {!['TikTok for Business', 'Meta Business Suite', 'Google Analytics', 'Mailchimp'].includes(connectModal) && (
+              {!['TikTok for Business', 'Meta Business Suite', 'Google Analytics', 'Mailchimp', 'SurveyMonkey'].includes(connectModal) && (
               <div className="flex gap-3 mt-2">
                 <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
                 <button
