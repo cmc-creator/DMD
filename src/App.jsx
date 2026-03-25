@@ -6924,6 +6924,67 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                     className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
                   >Cancel</button>
                 </div>
+              ) : connectModal === 'Google Analytics' ? (
+                <div className="mb-4">
+                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
+                    Click below to sign in with Google. You will be redirected to Google and back automatically - grants access to Google Analytics data.
+                  </p>
+                  <a
+                    href="/api/google?action=login"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-black text-white transition-colors"
+                    style={{ background: '#4285F4' }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    Sign in with Google
+                  </a>
+                  <button
+                    onClick={() => { setConnectModal(null); setConnectError(null); }}
+                    className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
+                  >Cancel</button>
+                </div>
+              ) : connectModal === 'Mailchimp' ? (
+                <div className="mb-4">
+                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
+                    Click below to log in with Mailchimp. You will be redirected to Mailchimp and back automatically.
+                  </p>
+                  <a
+                    href="/api/mailchimp?action=login"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-black text-white transition-colors"
+                    style={{ background: '#FFE01B', color: '#000' }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21.7 14.56c-.06-.27-.27-.48-.54-.54l-1.56-.36c.03-.18.06-.36.06-.54 0-1.56-1.26-2.82-2.82-2.82-.18 0-.36.03-.54.06l-.36-1.56c-.06-.27-.27-.48-.54-.54-.27-.06-.54.06-.69.29l-.9 1.38c-.45-.12-.93-.18-1.41-.18-3.09 0-5.61 2.52-5.61 5.61s2.52 5.61 5.61 5.61 5.61-2.52 5.61-5.61c0-.48-.06-.96-.18-1.41l1.38-.9c.23-.15.35-.42.29-.69zM14.97 19.5c-2.22 0-4.02-1.8-4.02-4.02s1.8-4.02 4.02-4.02 4.02 1.8 4.02 4.02-1.8 4.02-4.02 4.02z"/></svg>
+                    Connect Mailchimp
+                  </a>
+                  <details className="mt-4">
+                    <summary className={`text-[11px] cursor-pointer ${subtl} hover:text-teal-400`}>Or enter API key manually</summary>
+                    <div className="mt-3 space-y-3">
+                      {fields.map(field => (
+                        <div key={field.key}>
+                          <label className={`block text-[12px] font-black ${txt2} uppercase tracking-wider mb-1.5`}>{field.label}</label>
+                          <input
+                            type={field.type || 'text'}
+                            placeholder={field.placeholder}
+                            value={connectFormData[field.key] || ''}
+                            onChange={e => setConnectFormData(d => ({ ...d, [field.key]: e.target.value }))}
+                            className={`w-full px-3 py-2.5 rounded-xl text-sm ${txt} bg-slate-50 dark:bg-slate-800 border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500`}
+                          />
+                          {field.hint && <p className={`text-[11px] mt-1 ${subtl}`}>{field.hint}</p>}
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => saveConnection(connectModal, connectFormData)}
+                        disabled={connectTesting}
+                        className="w-full py-2.5 rounded-xl text-sm font-black bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2"
+                      >
+                        {connectTesting ? <><RefreshCw size={14} className="animate-spin" /> Testing...</> : <><Plug size={14} /> Save &amp; Connect</>}
+                      </button>
+                    </div>
+                  </details>
+                  <button
+                    onClick={() => { setConnectModal(null); setConnectError(null); }}
+                    className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
+                  >Cancel</button>
+                </div>
               ) : connectModal === 'TikTok for Business' ? (
                 <div className="mb-4">
                   <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
@@ -6971,13 +7032,13 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                 }`}>{connectError}</div>
               )}
               {/* Note for non-Meta, non-Wix, non-TikTok platforms */}
-              {!['Meta Business Suite','Meta Ads Manager','Wix Analytics','TikTok for Business'].includes(connectModal) && (
+              {!['Meta Business Suite','Meta Ads Manager','Wix Analytics','TikTok for Business','Google Analytics','Mailchimp'].includes(connectModal) && (
                 <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-[12px] text-blue-600 dark:text-blue-400">
                   Credentials are saved locally. Live data sync for this platform requires the backend API proxy to be configured by your developer.
                 </div>
               )}
               {/* Actions — hidden for TikTok and Meta Business Suite (OAuth handles them) */}
-              {!['TikTok for Business', 'Meta Business Suite'].includes(connectModal) && (
+              {!['TikTok for Business', 'Meta Business Suite', 'Google Analytics', 'Mailchimp'].includes(connectModal) && (
               <div className="flex gap-3 mt-2">
                 <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
                 <button

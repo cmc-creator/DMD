@@ -1,4 +1,4 @@
-// api/vision.js GÇö AI-powered screenshot data extractor
+// api/vision.js GÃ‡Ã¶ AI-powered screenshot data extractor
 // Accepts an image (base64) and uses Gemini 2.5 Flash Vision to extract
 // structured marketing metrics from any screenshot.
 //
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
 
   const systemPrompt = `You are a precise marketing data extractor for a healthcare marketing dashboard.
 Your job is to look at screenshots from any digital marketing platform and extract structured data.
-Always respond with valid JSON only GÇö no markdown, no explanation, just the JSON object.`;
+Always respond with valid JSON only GÃ‡Ã¶ no markdown, no explanation, just the JSON object.`;
 
   const userPrompt = `${context ? `Context: ${context}\n\n` : ''}Analyze this screenshot and extract ALL visible marketing metrics.
 
