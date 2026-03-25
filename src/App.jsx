@@ -232,6 +232,7 @@ const App = () => {
   const wixFileRef                               = useRef(null);
   const cloudLoadedRef                           = useRef(false);
   const skipNextPushRef                          = useRef(false);
+  const urlParamsHandledRef                      = useRef(false);
   const pushTimerRef                             = useRef(null);
   const chatEndRef                               = useRef(null);
   const [cloudSynced, setCloudSynced]            = useState('loading'); // 'loading'|'ok'|'syncing'|'error'|'offline'
@@ -368,11 +369,11 @@ const App = () => {
         if (data.dmd_review_platforms) { setReviewPlatformData(data.dmd_review_platforms); ls('dmd_review_platforms',  data.dmd_review_platforms); }
         if (data.dmd_manual)           { setManualData(data.dmd_manual);                   ls('dmd_manual',            data.dmd_manual); }
         if (data.dmd_wix)              { setWixData(data.dmd_wix);                         ls('dmd_wix',               data.dmd_wix); }
-        if (data.dmd_livedata)         { setLiveData(data.dmd_livedata);                   ls('dmd_livedata',          data.dmd_livedata); }
+        if (data.dmd_livedata)         { if (!urlParamsHandledRef.current) { setLiveData(data.dmd_livedata); ls('dmd_livedata', data.dmd_livedata); } }
         if (data.dmd_competitors)      { setCompetitorData(data.dmd_competitors);           ls('dmd_competitors',       data.dmd_competitors); }
         if (data.dmd_overview_hidden)  { setOverviewHidden(data.dmd_overview_hidden);       ls('dmd_overview_hidden',   data.dmd_overview_hidden); }
         if (data.dmd_review_overrides) { setReviewOverrides(data.dmd_review_overrides);     ls('dmd_review_overrides',  data.dmd_review_overrides); }
-        if (data.dmd_connections)      { setConnections(data.dmd_connections);              ls('dmd_connections',        data.dmd_connections); }
+        if (data.dmd_connections)      { if (!urlParamsHandledRef.current) { setConnections(data.dmd_connections); ls('dmd_connections', data.dmd_connections); } }
         if (data.dmd_saved_urls)       { setSavedUrls(data.dmd_saved_urls);                 ls('dmd_saved_urls',        data.dmd_saved_urls); }
         if (data.dmd_facility_profiles){ setFacilityProfiles(data.dmd_facility_profiles);   ls('dmd_facility_profiles', data.dmd_facility_profiles); }
         if (data.dmd_content)          { setContentItems(data.dmd_content);                   ls('dmd_content',           data.dmd_content); }
@@ -460,6 +461,7 @@ const App = () => {
           { key: 'surveymonkey_data', names: ['SurveyMonkey']                               },
     ];
     let handled = false;
+    let oauthError = null;
     platforms.forEach(({ key, names }) => {
       const raw = params.get(key);
       if (raw) {
@@ -467,6 +469,7 @@ const App = () => {
           const b64      = raw.replace(/-/g, '+').replace(/_/g, '/');
           const data     = JSON.parse(atob(b64));
           const syncTime = new Date().toLocaleString();
+          urlParamsHandledRef.current = true;
           names.forEach(name => {
             setConnections(c => {
               const updated = { ...c, [name]: { ...data, connected: true, lastSync: syncTime } };
@@ -477,12 +480,25 @@ const App = () => {
             setSyncStatus(s => ({ ...s, [name]: 'ok' }));
           });
           setActiveTab('integrations');
-        } catch {}
+        } catch (e) {
+          oauthError = 'Failed to decode OAuth response: ' + e.message;
+        }
         handled = true;
       }
       const errKey = key.replace('_data', '_error');
-      if (params.get(errKey)) { setActiveTab('integrations'); handled = true; }
+      const errVal = params.get(errKey);
+      if (errVal) {
+        oauthError = decodeURIComponent(errVal).replace(/\+/g, ' ');
+        setActiveTab('integrations');
+        handled = true;
+      }
     });
+    if (oauthError) {
+      setConnectError('OAuth error: ' + oauthError);
+      setConnectModal(null);
+      // Show a visible alert — store in a toast-style state
+      setTimeout(() => alert('Connection failed: ' + oauthError), 500);
+    }
     if (handled) window.history.replaceState({}, '', window.location.pathname);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
