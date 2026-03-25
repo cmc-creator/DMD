@@ -6933,8 +6933,8 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                   Credentials are saved locally. Live data sync for this platform requires the backend API proxy to be configured by your developer.
                 </div>
               )}
-              {/* Actions — hidden for TikTok (OAuth handles it) */}
-              {connectModal !== 'TikTok for Business' && (
+              {/* Actions — hidden for TikTok and Meta Business Suite (OAuth handles them) */}
+              {!['TikTok for Business', 'Meta Business Suite'].includes(connectModal) && (
               <div className="flex gap-3 mt-2">
                 <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
                 <button
