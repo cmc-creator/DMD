@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       configured: !!key,
       key_length: (key || '').length,
       key_prefix: key ? key.slice(0, 6) + '...' : 'NOT SET',
-      model: 'gemini-2.0-flash-001 (with fallbacks to 1.5-flash)',
+      model: 'gemini-2.0-flash (with fallbacks)',
     });
   }
 
@@ -60,9 +60,9 @@ export default async function handler(req, res) {
 
   // Try models in order — fall back on quota/rate errors
   const MODELS = [
-    'gemini-2.0-flash-001',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
     'gemini-1.5-flash-latest',
-    'gemini-1.5-flash-8b-latest',
   ];
 
   const payload = JSON.stringify({
