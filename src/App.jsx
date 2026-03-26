@@ -516,7 +516,9 @@ const App = () => {
       { key: 'accessToken', label: 'Page Access Token', placeholder: 'EAAxxxxxxxx…', type: 'password', hint: 'developers.facebook.com → Graph API Explorer → Generate Token' },
       { key: 'pageId',      label: 'Facebook Page ID',  placeholder: '123456789012345',                hint: 'Facebook Page → About → Page ID'                                },
     ],
-    'Wix Analytics': [], // OAuth flow — no manual fields
+    'Wix Analytics': [
+      { key: 'apiKey', label: 'Wix API Key', placeholder: 'IST2.xxxxxxxx...', type: 'password', hint: 'manage.wix.com → select your site → Settings → Advanced → API Keys → Generate Key (enable Analytics permission)' },
+    ],
     'Mailchimp': [
       { key: 'apiKey',  label: 'API Key',     placeholder: 'xxxxxxxxxxxxxxxx-us1', type: 'password', hint: 'Mailchimp → Account → Extras → API Keys' },
       { key: 'listId',  label: 'Audience ID', placeholder: 'xxxxxxxxxx',                             hint: 'Audience → Settings → Audience ID'        },
@@ -557,15 +559,15 @@ const App = () => {
 
   // ── Live data fetch helpers ───────────────────────────────────────────────────
   const fetchWixData = async (creds) => {
-    const refresh_token = creds.refresh_token || creds.refreshToken;
-    if (!refresh_token) return { success: false, error: 'Not connected — use the Wix OAuth login button' };
+    const apiKey = creds.apiKey || creds.api_key;
+    if (!apiKey) return { success: false, error: 'No API key — enter your Wix API key in the connect form' };
     try {
-      const res  = await fetch(`/api/wix?action=refresh&refresh_token=${encodeURIComponent(refresh_token)}`);
+      const res  = await fetch(`/api/wix?action=sync&token=${encodeURIComponent(apiKey)}`);
       const data = await res.json();
-      if (!data.ok) return { success: false, error: data.error || 'Wix refresh failed' };
-      // Also mirror into wixData for legacy consumers
+      if (!data.ok) return { success: false, error: data.error || 'Wix sync failed' };
+      // Mirror into wixData state for legacy consumers
       if (data.sessions != null) {
-        const wd = { sessions: data.sessions, bounceRate: data.bounceRate, organic: data.organic, social: data.social, direct: data.direct, referral: data.referral, savedAt: new Date().toISOString() };
+        const wd = { sessions: data.sessions, bounceRate: data.bounceRate, organic: data.organic, social: data.social, direct: data.direct, referral: data.referral, pageViews: data.pageViews, visitors: data.visitors, savedAt: new Date().toISOString() };
         setWixData(wd);
         localStorage.setItem('dmd_wix', JSON.stringify(wd));
       }
@@ -7301,26 +7303,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                   </div>
                 </div>
               ) : connectModal === 'Wix Analytics' ? (
-                <div className="mb-4">
-                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
-                    Click below to log in with your Wix account. You’ll be redirected to Wix and back automatically — connects live sessions, bounce rate, and traffic sources.
-                  </p>
-                  <a
-                    href="/api/wix?action=login"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-black text-white transition-colors"
-                    style={{ background: '#116DFF' }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 2c5.514 0 10 4.486 10 10s-4.486 10-10 10S2 17.514 2 12 6.486 2 12 2zm-1 5v2H9v2h2v6h2v-6h2V9h-2V7h-2z"/></svg>
-                    Connect with Wix
-                  </a>
-                  <p className={`text-[11px] mt-3 text-center ${subtl}`}>
-                    Requires a Wix OAuth App — see Vercel env vars: WIX_CLIENT_ID, WIX_CLIENT_SECRET
-                  </p>
-                  <button
-                    onClick={() => { setConnectModal(null); setConnectError(null); }}
-                    className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
-                  >Cancel</button>
-                </div>
+                null
               ) : connectModal === 'TikTok for Business' ? (
                 <div className="mb-4">
                   <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
@@ -7374,7 +7357,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                 </div>
               )}
               {/* Actions — hidden for TikTok and Meta Business Suite (OAuth handles them) */}
-              {!['TikTok for Business', 'Meta Business Suite', 'Google Analytics', 'Mailchimp', 'SurveyMonkey', 'Wix Analytics'].includes(connectModal) && (
+              {!['TikTok for Business', 'Meta Business Suite', 'Google Analytics', 'Mailchimp', 'SurveyMonkey'].includes(connectModal) && (
               <div className="flex gap-3 mt-2">
                 <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
                 <button

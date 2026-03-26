@@ -1,6 +1,107 @@
-// Vercel serverless — Wix OAuth2 for Analytics
+// Vercel serverless — Wix Analytics via API Key
 // ─────────────────────────────────────────────────────────────────────────────
-// Wix OAuth App Client ID is embedded as a default — no env var required.
+// GET /api/wix?action=sync&token=<api_key>   — fetch analytics with an API key
+//
+// How to get an API key:
+//   manage.wix.com → select your site → Settings → Advanced → API Keys
+//   Click “+ Generate Key” → give it a name → enable “All site permissions” (or Analytics)
+//   Copy the key (starts with IST2. or similar)
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin',  '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const { action, token } = req.query;
+
+  if (action !== 'sync' || !token) {
+    return res.status(400).json({ ok: false, error: 'Use ?action=sync&token=<your_wix_api_key>' });
+  }
+
+  const headers = {
+    Authorization: token,
+    'Content-Type': 'application/json',
+  };
+
+  const payload = { apiKey: token.slice(0, 8) + '...', connectedAt: new Date().toISOString() };
+
+  // Site info
+  try {
+    const siteRes  = await fetch('https://www.wixapis.com/site-list/v2/sites/query', {
+      method: 'POST', headers,
+      body: JSON.stringify({ query: { paging: { limit: 1 } } }),
+    });
+    const siteData = await siteRes.json();
+    const site     = siteData.sites?.[0];
+    if (site) {
+      payload.siteName = site.displayName || site.name || '';
+      payload.siteId   = site.id || '';
+    }
+  } catch {}
+
+  // Analytics — last 30 days
+  try {
+    const now      = new Date();
+    const from     = new Date(now); from.setDate(from.getDate() - 30);
+    const toStr    = now.toISOString().split('T')[0];
+    const fromStr  = from.toISOString().split('T')[0];
+
+    const analyticsRes = await fetch('https://www.wixapis.com/analytics/v2/reports', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        namespace: 'web_analytics',
+        metrics: [
+          { expression: 'SESSIONS'           },
+          { expression: 'BOUNCE_RATE'        },
+          { expression: 'PAGE_VIEWS'         },
+          { expression: 'UNIQUE_VISITORS'    },
+          { expression: 'AVG_VISIT_DURATION' },
+        ],
+        dimensionFilters: [],
+        dateRange: { from: fromStr, to: toStr },
+      }),
+    });
+    const analyticsData = await analyticsRes.json();
+    const totals = analyticsData?.totals;
+    if (totals) {
+      payload.sessions    = Math.round(totals.SESSIONS    || 0);
+      payload.pageViews   = Math.round(totals.PAGE_VIEWS  || 0);
+      payload.visitors    = Math.round(totals.UNIQUE_VISITORS || 0);
+      payload.bounceRate  = totals.BOUNCE_RATE        ? (Number(totals.BOUNCE_RATE)        * 100).toFixed(1) : null;
+      payload.avgDuration = totals.AVG_VISIT_DURATION ? Math.round(Number(totals.AVG_VISIT_DURATION)) + 's' : null;
+    }
+
+    // Traffic sources
+    const sourcesRes = await fetch('https://www.wixapis.com/analytics/v2/reports', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        namespace:  'web_analytics',
+        metrics:    [{ expression: 'SESSIONS' }],
+        dimensions: [{ expression: 'TRAFFIC_SOURCE' }],
+        dateRange:  { from: fromStr, to: toStr },
+      }),
+    });
+    const sourcesData = await sourcesRes.json();
+    const rows = sourcesData?.rows || [];
+    if (rows.length > 0) {
+      const total = rows.reduce((s, r) => s + Number(r.metrics?.[0] || 0), 0);
+      const pct   = (name) => {
+        const row = rows.find(r => (r.dimensions?.[0] || '').toLowerCase().includes(name));
+        return row && total > 0 ? Math.round((Number(row.metrics?.[0] || 0) / total) * 100) : 0;
+      };
+      payload.organic  = pct('organic') || pct('search');
+      payload.social   = pct('social');
+      payload.direct   = pct('direct');
+      payload.referral = pct('referral');
+    }
+  } catch (e) {
+    payload.analyticsError = e.message;
+  }
+
+  return res.json({ ok: true, ...payload });
+}
+
 // Optional env vars (Vercel → Project → Settings → Env Vars):
 //   WIX_CLIENT_ID     = override the default client ID
 //   WIX_CLIENT_SECRET = only needed if your Wix OAuth App is "confidential"
