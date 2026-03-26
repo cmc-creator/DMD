@@ -6594,13 +6594,18 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
               </div>
             </div>
 
-            {/* ── Survey Results — Live OAuth data ─────────────────────────────── */}
-            {(_smLive.totalSurveys != null || _smLive.totalResponses != null) && (
+            {/* ── Survey Results — Live data ─────────────────────────────── */}
+            {(connections['SurveyMonkey']?.connected || _smLive.totalSurveys != null || _smLive.totalResponses != null) && (
               <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
                 <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
                   <SectionHeader icon={ThumbsUp} color="text-amber-500" title="Survey Results (Live)" subtitle={`Connected as ${_smLive.username || _smLive.email || 'SurveyMonkey'} · ${_smLive.connectedAt ? new Date(_smLive.connectedAt).toLocaleDateString() : ''}`} />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                  {_smLive.totalSurveys == null && _smLive.totalResponses == null ? (
+                    <div className={`col-span-3 p-4 rounded-2xl border ${brd} text-center`}>
+                      <p className={`text-sm ${subtl}`}>No survey data yet — click <span className="font-black text-teal-400">Sync Now</span> on the SurveyMonkey integration above, or use the <span className="font-black text-amber-400">CSV Import</span> tab to upload a SurveyMonkey export.</p>
+                    </div>
+                  ) : (<>
                   <div className={`p-4 rounded-2xl border ${brd} text-center`}>
                     <p className={`text-3xl font-black ${txt}`}>{_smLive.totalSurveys ?? '—'}</p>
                     <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-1`}>Total Surveys</p>
@@ -6616,6 +6621,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                       <p className={`text-xs ${subtl} mt-1 truncate`}>{_smLive.activeSurveyTitle}</p>
                     </div>
                   )}
+                  </>)}
                 </div>
                 {(_smLive.recentSurveys || []).length > 0 && (
                   <div className="space-y-2">
