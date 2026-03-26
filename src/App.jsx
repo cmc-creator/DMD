@@ -7303,7 +7303,38 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                   </div>
                 </div>
               ) : connectModal === 'Wix Analytics' ? (
-                null
+                <div className="mb-4">
+                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
+                    Paste your Wix API key below. Get it at{' '}
+                    <span className="font-black text-teal-400">manage.wix.com</span> → select your site → Settings → Advanced → API Keys → Generate Key (enable Analytics permission).
+                  </p>
+                  {fields.map(field => (
+                    <div key={field.key} className="mb-3">
+                      <label className={`block text-[12px] font-black ${txt2} uppercase tracking-wider mb-1.5`}>{field.label}</label>
+                      <input
+                        type={field.type || 'text'}
+                        placeholder={field.placeholder}
+                        value={connectFormData[field.key] || ''}
+                        onChange={e => setConnectFormData(d => ({ ...d, [field.key]: e.target.value }))}
+                        className={`w-full px-3 py-2.5 rounded-xl text-sm ${txt} bg-slate-50 dark:bg-slate-800 border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500`}
+                      />
+                      {field.hint && <p className={`text-[11px] mt-1 ${subtl}`}>{field.hint}</p>}
+                    </div>
+                  ))}
+                  {connectError && (
+                    <div className="mb-3 p-3 rounded-xl text-sm bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">{connectError}</div>
+                  )}
+                  <div className="flex gap-3 mt-2">
+                    <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
+                    <button
+                      onClick={() => saveConnection(connectModal, connectFormData)}
+                      disabled={connectTesting}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-black bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2"
+                    >
+                      {connectTesting ? <><RefreshCw size={14} className="animate-spin" /> Testing...</> : <><Plug size={14} /> Save &amp; Connect</>}
+                    </button>
+                  </div>
+                </div>
               ) : connectModal === 'TikTok for Business' ? (
                 <div className="mb-4">
                   <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
