@@ -93,29 +93,50 @@ function findAggRating(items) {
   return null;
 }
 
-// ── Scrape Google Search knowledge panel for a competitor ────────────────────
+// ── Google Places API — the reliable way to get ratings ─────────────────────
+// Google blocks server-side scraping from Vercel IPs (returns CAPTCHA pages).
+// The Places Text Search API is the proper solution — returns rating +
+// user_ratings_total for any business name + location query.
+//
+// Required: set GOOGLE_PLACES_API_KEY in Vercel → Project → Settings → Env Vars
+// How to get one:
+//   console.cloud.google.com → Enable "Places API" → Credentials → Create API Key
 async function scrapeGoogleRating(query) {
+  const key = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
+
+  // ── Method 1: Google Places Text Search (requires API key, most reliable) ──
+  if (key) {
+    try {
+      const url  = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${encodeURIComponent(key)}`;
+      const r    = await fetch(url, { signal: AbortSignal.timeout(7000) });
+      const data = await r.json();
+      const place = data.results?.[0];
+      if (place?.rating) {
+        return {
+          rating:      place.rating,
+          reviewCount: place.user_ratings_total || null,
+          source:      'Google',
+          placeId:     place.place_id,
+        };
+      }
+    } catch {}
+  }
+
+  // ── Method 2: Scrape Google Search (fallback — often blocked by Vercel IPs) ─
   try {
     const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=3&hl=en`;
     const r   = await fetchH(url, {}, 7000);
     if (!r.ok) return null;
     const html = await r.text();
 
-    // Try ARIA label pattern first (most reliable)
     const aria = html.match(/aria-label=["'][Rr]ated?\s*([\d.]+)[^"']*\(([\d,]+)\s*review/i);
     if (aria) return { rating: parseFloat(aria[1]), reviewCount: parseInt(aria[2].replace(/,/g, '')), source: 'Google' };
 
-    // JSON-LD in search results
     const ld = findAggRating(getJsonLd(html));
     if (ld) return { ...ld, source: 'Google' };
 
-    // Inline text pattern
     const inline = html.match(/([\d.]{3})\s*(?:★|\()\s*(?:[^)]{0,40})?\(?([\d,]+)\s*(?:Google\s+)?reviews?/i);
     if (inline) return { rating: parseFloat(inline[1]), reviewCount: parseInt(inline[2].replace(/,/g, '')), source: 'Google' };
-
-    // Rating only (no count)
-    const rOnly = html.match(/class="[^"]*Aq14fc[^"]*"[^>]*>([\d.]+)<\/span>/);
-    if (rOnly) return { rating: parseFloat(rOnly[1]), reviewCount: null, source: 'Google' };
 
     return null;
   } catch { return null; }
@@ -128,9 +149,14 @@ async function scrapeHealthgrades(hgQuery) {
     const r1 = await fetchH(searchUrl, {}, 7000);
     if (!r1.ok) return null;
     const html1 = await r1.text();
-    const linkM = html1.match(/href="(\/group-directory\/[^"?]+)/i) || html1.match(/href="(\/hospital\/[^"?]+)/i);
+    // Try multiple link patterns Healthgrades uses
+    const linkM = html1.match(/href="(\/group-directory\/[^"?#]+)/i)
+                || html1.match(/href="(\/hospital\/[^"?#]+)/i)
+                || html1.match(/href="(\/facility\/[^"?#]+)/i)
+                || html1.match(/href="(\/provider\/[^"?#]+)/i)
+                || html1.match(/"url"\s*:\s*"(https?:\/\/www\.healthgrades\.com\/[^"]+\/[^"?#]{10,})"/i);
     if (!linkM) return null;
-    const profileUrl = 'https://www.healthgrades.com' + linkM[1];
+    const profileUrl = linkM[1].startsWith('http') ? linkM[1] : 'https://www.healthgrades.com' + linkM[1];
     const r2 = await fetchH(profileUrl, {}, 7000);
     if (!r2.ok) return null;
     const html2 = await r2.text();
