@@ -622,7 +622,8 @@ const App = () => {
   };
 
   const fetchGoogleAnalyticsData = async (creds) => {
-    const { refresh_token, propertyId } = creds;
+    const refresh_token = creds.refresh_token || creds.refreshToken;
+    const { propertyId } = creds;
     if (!refresh_token) return { success: false, error: 'Not connected — click the Google OAuth login button to authorize' };
     try {
       const params = new URLSearchParams({ action: 'refresh', refresh_token, ...(propertyId && { propertyId }) });
