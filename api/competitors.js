@@ -202,17 +202,16 @@ async function scrapeWebsite(url) {
 
 // ── Scrape a single competitor (runs 3 sub-scrapers in parallel) ──────────────
 async function scrapeCompetitor(competitor) {
-  const [google, healthgrades, website] = await Promise.all([
+  const [google, cms, website] = await Promise.all([
     scrapeGoogleRating(competitor.query).catch(() => null),
     fetchCMSRating(competitor.name).catch(() => null),
-    scrapeHealthgrades(competitor.hgQuery).catch(() => null),
     scrapeWebsite(competitor.web).catch(() => null),
   ]);
 
   // Score: weighted average of available ratings
   const ratings = [
     google?.rating       ? { r: google.rating,       w: 3 } : null,
-    healthgrades?.rating ? { r: healthgrades.rating, w: 2 } : null,
+    cms?.rating          ? { r: cms.rating,          w: 2 } : null,
     website?.schemaRating?.rating ? { r: website.schemaRating.rating, w: 1 } : null,
   ].filter(Boolean);
 
@@ -220,14 +219,14 @@ async function scrapeCompetitor(competitor) {
     ? ratings.reduce((s, x) => s + x.r * x.w, 0) / ratings.reduce((s, x) => s + x.w, 0)
     : null;
 
-  const totalReviews = (google?.reviewCount || 0) + (healthgrades?.reviewCount || 0);
+  const totalReviews = (google?.reviewCount || 0) + (cms?.reviewCount || 0);
 
   return {
     id:           competitor.id,
     name:         competitor.name,
     web:          competitor.web,
     google,
-    healthgrades,
+    cms,
     website: website ? {
       title:         website.title,
       description:   website.description,
