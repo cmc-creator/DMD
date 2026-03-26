@@ -2065,7 +2065,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   // Patch placeholder metrics with computed values
   Object.assign(metrics, {
     googleScore:        _avgRating ? _avgRating + ' ★' : '—',
-    nps:                _latestSurvey?.npsScore != null ? String(_latestSurvey.npsScore) : '—',
+    nps:                _latestSurvey?.npsScore != null ? String(_latestSurvey.npsScore) : (_smLive?.npsScore != null ? String(_smLive.npsScore) : '—'),
     videoViews:         _tikLive.recentViews  ? Number(_tikLive.recentViews).toLocaleString()  : '—',
     tiktokVelocity:     (_tiktokPosts.length  || _tikLive.recentPosts) ? String(_tiktokPosts.length || _tikLive.recentPosts) : '—',
     socialPostsMonthly: _socialMet.reduce((s, e) => s + (Number(e.posts) || 0), 0) || '—',
@@ -2158,11 +2158,12 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   }));
   const _totalImpressions = _adSpend.reduce((s,e)=>s+Number(e.impressions||0),0);
 
-  // ── NPS Breakdown — pulls from latest imported survey if available ───────────
-  const npsData = _latestSurvey?.npsBreakdown ? [
-    { name: 'Promoters',  value: _latestSurvey.npsBreakdown.promoters,  color: '#10b981' },
-    { name: 'Passives',   value: _latestSurvey.npsBreakdown.passives,   color: '#f59e0b' },
-    { name: 'Detractors', value: _latestSurvey.npsBreakdown.detractors, color: '#ef4444' },
+  // ── NPS Breakdown — pulls from latest imported survey or SurveyMonkey live data ─
+  const _npsSource = _latestSurvey?.npsBreakdown ? _latestSurvey : (_smLive?.npsBreakdown ? _smLive : null);
+  const npsData = _npsSource?.npsBreakdown ? [
+    { name: 'Promoters',  value: _npsSource.npsBreakdown.promoters,  color: '#10b981' },
+    { name: 'Passives',   value: _npsSource.npsBreakdown.passives,   color: '#f59e0b' },
+    { name: 'Detractors', value: _npsSource.npsBreakdown.detractors, color: '#ef4444' },
   ] : [
     { name: 'Promoters',  value: 0, color: '#10b981' },
     { name: 'Passives',   value: 0, color: '#f59e0b' },

@@ -69,9 +69,10 @@ async function fetchSurveyMonkeyData(token) {
     // Get latest responses from newest survey with responses
     const activeSurvey = surveys.find(s => s.response_count > 0);
     if (activeSurvey) {
-      result.activeSurveyTitle = activeSurvey.title;
+      result.activeSurveyTitle     = activeSurvey.title;
       result.activeSurveyResponses = activeSurvey.response_count;
 
+      // Get rollup summaries
       try {
         const summaryRes  = await fetch(`https://api.surveymonkey.com/v3/surveys/${activeSurvey.id}/rollups`, { headers });
         const summaryData = await summaryRes.json();
@@ -84,6 +85,30 @@ async function fetchSurveyMonkeyData(token) {
               count: a.count || 0,
             })),
           }));
+
+          // Detect NPS question: rating/matrix type with 0-10 or 1-10 scale
+          const npsQuestion = summaryData.data.find(q =>
+            /recommend|nps|likely/i.test(q.heading || '') ||
+            (q.family === 'rating' && (q.answers || []).some(a => parseInt(a.row || a.text) >= 9))
+          );
+          if (npsQuestion) {
+            const answers = npsQuestion.answers || [];
+            let promoters = 0, passives = 0, detractors = 0;
+            answers.forEach(a => {
+              const score = parseInt(a.row || a.text || '');
+              const count = a.count || 0;
+              if (!isNaN(score)) {
+                if (score >= 9)      promoters  += count;
+                else if (score >= 7) passives   += count;
+                else                 detractors += count;
+              }
+            });
+            const total = promoters + passives + detractors;
+            if (total > 0) {
+              result.npsBreakdown = { promoters, passives, detractors };
+              result.npsScore     = Math.round(((promoters - detractors) / total) * 100);
+            }
+          }
         }
       } catch {}
     }
