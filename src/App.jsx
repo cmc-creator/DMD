@@ -456,10 +456,11 @@ const App = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const platforms = [
-      { key: 'google_data',    names: ['Google Analytics', 'Google Business']     },
-      { key: 'mailchimp_data', names: ['Mailchimp']                               },
-      { key: 'meta_data',      names: ['Meta Business Suite', 'Meta Ads Manager'] },
-          { key: 'surveymonkey_data', names: ['SurveyMonkey']                               },
+      { key: 'google_data',       names: ['Google Analytics', 'Google Business']     },
+      { key: 'mailchimp_data',    names: ['Mailchimp']                               },
+      { key: 'meta_data',         names: ['Meta Business Suite', 'Meta Ads Manager'] },
+      { key: 'surveymonkey_data', names: ['SurveyMonkey']                               },
+      { key: 'wix_data',          names: ['Wix Analytics']                             },
     ];
     let handled = false;
     let oauthError = null;
@@ -515,14 +516,7 @@ const App = () => {
       { key: 'accessToken', label: 'Page Access Token', placeholder: 'EAAxxxxxxxx…', type: 'password', hint: 'developers.facebook.com → Graph API Explorer → Generate Token' },
       { key: 'pageId',      label: 'Facebook Page ID',  placeholder: '123456789012345',                hint: 'Facebook Page → About → Page ID'                                },
     ],
-    'Wix Analytics': [
-      { key: 'sessions',   label: 'Monthly Sessions',          placeholder: 'e.g. 1250',  hint: 'Wix Dashboard → Analytics → Reports → Traffic Overview → Sessions this month'   },
-      { key: 'bounceRate', label: 'Bounce Rate % (optional)',  placeholder: 'e.g. 42',    hint: 'Wix Analytics → Overview → Bounce Rate — enter the number only, no % sign'       },
-      { key: 'organic',    label: 'Organic Search % (optional)', placeholder: 'e.g. 45', hint: 'Wix Analytics → Traffic Sources → percentage from Organic Search'                 },
-      { key: 'social',     label: 'Social Media % (optional)', placeholder: 'e.g. 20',   hint: 'Wix Analytics → Traffic Sources → percentage from Social Media'                   },
-      { key: 'direct',     label: 'Direct % (optional)',       placeholder: 'e.g. 25',    hint: 'Wix Analytics → Traffic Sources → percentage from Direct visits'                  },
-      { key: 'referral',   label: 'Referral % (optional)',     placeholder: 'e.g. 10',    hint: 'Wix Analytics → Traffic Sources → percentage from Referral links'                 },
-    ],
+    'Wix Analytics': [], // OAuth flow — no manual fields
     'Mailchimp': [
       { key: 'apiKey',  label: 'API Key',     placeholder: 'xxxxxxxxxxxxxxxx-us1', type: 'password', hint: 'Mailchimp → Account → Extras → API Keys' },
       { key: 'listId',  label: 'Audience ID', placeholder: 'xxxxxxxxxx',                             hint: 'Audience → Settings → Audience ID'        },
@@ -563,20 +557,20 @@ const App = () => {
 
   // ── Live data fetch helpers ───────────────────────────────────────────────────
   const fetchWixData = async (creds) => {
-    const { sessions } = creds;
-    if (!sessions) return { success: false, error: 'Please enter Monthly Sessions (required)' };
-    const data = {
-      sessions:   Number(sessions)        || 0,
-      bounceRate: Number(creds.bounceRate) || 0,
-      organic:    Number(creds.organic)    || 0,
-      social:     Number(creds.social)     || 0,
-      direct:     Number(creds.direct)     || 0,
-      referral:   Number(creds.referral)   || 0,
-      savedAt:    new Date().toISOString(),
-    };
-    setWixData(data);
-    localStorage.setItem('dmd_wix', JSON.stringify(data));
-    return { success: true, data };
+    const refresh_token = creds.refresh_token || creds.refreshToken;
+    if (!refresh_token) return { success: false, error: 'Not connected — use the Wix OAuth login button' };
+    try {
+      const res  = await fetch(`/api/wix?action=refresh&refresh_token=${encodeURIComponent(refresh_token)}`);
+      const data = await res.json();
+      if (!data.ok) return { success: false, error: data.error || 'Wix refresh failed' };
+      // Also mirror into wixData for legacy consumers
+      if (data.sessions != null) {
+        const wd = { sessions: data.sessions, bounceRate: data.bounceRate, organic: data.organic, social: data.social, direct: data.direct, referral: data.referral, savedAt: new Date().toISOString() };
+        setWixData(wd);
+        localStorage.setItem('dmd_wix', JSON.stringify(wd));
+      }
+      return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
   };
 
   const fetchTikTokData = async (creds) => {
@@ -1059,6 +1053,7 @@ const App = () => {
       if (name === 'Meta Business Suite') result = await fetchMetaPageData(creds);
       else if (name === 'Meta Ads Manager') result = await fetchMetaAdsData(creds);
       else if (name === 'Wix Analytics') result = await fetchWixData(creds);
+      else if (name === 'Google Business') result = await fetchGoogleBusinessData(creds);
       else if (name === 'TikTok for Business') result = await fetchTikTokData(creds);
       else if (name === 'YouTube Analytics') result = await fetchYouTubeData(creds);
       else if (name === 'Yelp Reviews') result = await fetchYelpData(creds);
@@ -7287,6 +7282,27 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                     </button>
                   </div>
                 </div>
+              ) : connectModal === 'Wix Analytics' ? (
+                <div className="mb-4">
+                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
+                    Click below to log in with your Wix account. You’ll be redirected to Wix and back automatically — connects live sessions, bounce rate, and traffic sources.
+                  </p>
+                  <a
+                    href="/api/wix?action=login"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-black text-white transition-colors"
+                    style={{ background: '#116DFF' }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 2c5.514 0 10 4.486 10 10s-4.486 10-10 10S2 17.514 2 12 6.486 2 12 2zm-1 5v2H9v2h2v6h2v-6h2V9h-2V7h-2z"/></svg>
+                    Connect with Wix
+                  </a>
+                  <p className={`text-[11px] mt-3 text-center ${subtl}`}>
+                    Requires a Wix OAuth App — see Vercel env vars: WIX_CLIENT_ID, WIX_CLIENT_SECRET
+                  </p>
+                  <button
+                    onClick={() => { setConnectModal(null); setConnectError(null); }}
+                    className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
+                  >Cancel</button>
+                </div>
               ) : connectModal === 'TikTok for Business' ? (
                 <div className="mb-4">
                   <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
@@ -7340,7 +7356,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                 </div>
               )}
               {/* Actions — hidden for TikTok and Meta Business Suite (OAuth handles them) */}
-              {!['TikTok for Business', 'Meta Business Suite', 'Google Analytics', 'Mailchimp', 'SurveyMonkey'].includes(connectModal) && (
+              {!['TikTok for Business', 'Meta Business Suite', 'Google Analytics', 'Mailchimp', 'SurveyMonkey', 'Wix Analytics'].includes(connectModal) && (
               <div className="flex gap-3 mt-2">
                 <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
                 <button
