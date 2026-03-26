@@ -2194,13 +2194,22 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   const pipeline = [];
 
   // ── My Achievements data ────────────────────────────────────────────────────
+  // Social posts: sum manual entries + IG post count from Meta live data
+  const _igPostCount   = _metaLive.igMediaCount ? Number(_metaLive.igMediaCount) : 0;
+  const _manualPostSum = _socialMet.reduce((s, e) => s + (Number(e.posts) || 0), 0);
+  const _totalSocialPosts = Math.max(_igPostCount, _manualPostSum);
+  // TikTok video count from live data or manual entries
+  const _tiktokVideoCount = Number(_tikLive.videos || 0) || _tiktokPosts.length;
+  // Blog count from manual entries tagged as blog type
+  const _blogCount = (manualData.blog_posts || []).length || (manualData.seo_rankings || []).filter(r => r.type === 'blog').length;
+
   const myStats = [
-    { label: 'Blogs Written',    value: 0,                                                        icon: FileText,  color: 'text-purple-500', target: 0 },
-    { label: 'TikToks Produced', value: _tiktokPosts.length,                                      icon: PlayCircle,color: 'text-pink-500',   target: 0 },
-    { label: 'Social Posts',     value: _socialMet.reduce((s,e)=>s+(Number(e.posts)||0),0),       icon: Share2,    color: 'text-blue-500',   target: 0 },
-    { label: 'Email Campaigns',  value: _emailStats.length,                                       icon: Mail,      color: 'text-teal-500',   target: 0 },
-    { label: 'Website Updates',  value: 0,                                                        icon: Globe,     color: 'text-emerald-500',target: 0 },
-    { label: 'Reviews Managed',  value: _reviews.length,                                          icon: Star,      color: 'text-amber-500',  target: 0 },
+    { label: 'Blogs Written',    value: _blogCount,           icon: FileText,  color: 'text-purple-500', target: 12  },
+    { label: 'TikToks Produced', value: _tiktokVideoCount,    icon: PlayCircle,color: 'text-pink-500',   target: 50  },
+    { label: 'Social Posts',     value: _totalSocialPosts,    icon: Share2,    color: 'text-blue-500',   target: 200 },
+    { label: 'Email Campaigns',  value: _emailStats.length,   icon: Mail,      color: 'text-teal-500',   target: 12  },
+    { label: 'Website Updates',  value: 0,                    icon: Globe,     color: 'text-emerald-500',target: 20  },
+    { label: 'Reviews Managed',  value: _reviews.length,      icon: Star,      color: 'text-amber-500',  target: 50  },
   ];
 
   const _ratingNum = _avgRating ? Number(_avgRating) : null;
@@ -3884,7 +3893,12 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                       ) : (
                         <div className="text-center py-4">
                           <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching…' : 'No live data yet'}</p>
-                          {!destinyLoading && <p className={`text-[11px] ${subtl}`}>Click Sync Now to pull Instagram data</p>}
+                          {!destinyLoading && (
+                            <div>
+                              <p className={`text-[11px] ${subtl} mb-1`}>Click Sync Now to pull Instagram data</p>
+                              <a href="https://www.instagram.com/destinyspringshealthcare/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400"><ExternalLink size={9}/> Open on Instagram</a>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -3934,6 +3948,45 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                             <div>
                               <p className={`text-[11px] ${subtl} mb-1`}>Click Sync Now to pull TikTok data</p>
                               <a href="https://www.tiktok.com/@destinyspringshealthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-slate-700 dark:text-slate-300 hover:opacity-70"><ExternalLink size={9}/> Open on TikTok</a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                {/* LinkedIn */}
+                {(() => {
+                  const li = _socialLive?.linkedin || {};
+                  const hasLi = li.followers != null || li.connections != null;
+                  return (
+                    <div className={`p-5 rounded-2xl ${hasLi ? 'bg-blue-50 dark:bg-blue-900/10 border border-blue-300 dark:border-blue-700' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-7 h-7 rounded-xl bg-[#0A66C2] flex items-center justify-center flex-shrink-0"><span className="text-white text-[9px] font-black">in</span></div>
+                        <span className={`text-sm font-black ${hasLi ? 'text-blue-700 dark:text-blue-300' : subtl}`}>LinkedIn</span>
+                        {hasLi && <span className="ml-auto text-[10px] font-black px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400">Live</span>}
+                      </div>
+                      {hasLi ? (
+                        <div className="space-y-2">
+                          {li.name && <p className={`text-xs font-bold ${txt2} leading-tight`}>{li.name}</p>}
+                          <div>
+                            <p className={`text-3xl font-black text-blue-600 dark:text-blue-400`}>{Number(li.followers ?? li.connections).toLocaleString()}</p>
+                            <p className={`text-xs ${subtl} mt-0.5`}>{li.followers != null ? 'Followers' : 'Connections'}</p>
+                          </div>
+                          {li.posts != null && (
+                            <div className={`flex items-center justify-between text-xs ${subtl} pt-2 border-t ${brd}`}>
+                              <span>Posts</span><span className={`font-black ${txt}`}>{li.posts}</span>
+                            </div>
+                          )}
+                          <a href="https://www.linkedin.com/company/destiny-springs-healthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-blue-600 hover:text-blue-500 mt-1"><ExternalLink size={9}/> View Page</a>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching…' : 'No live data yet'}</p>
+                          {!destinyLoading && (
+                            <div>
+                              <p className={`text-[11px] ${subtl} mb-1`}>LinkedIn data not yet available</p>
+                              <a href="https://www.linkedin.com/company/destiny-springs-healthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-blue-600 hover:text-blue-500"><ExternalLink size={9}/> Open on LinkedIn</a>
                             </div>
                           )}
                         </div>
@@ -4486,7 +4539,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                     <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2">
                       <div className="h-full bg-teal-500 rounded-full" style={{ width: `${pct}%` }}></div>
                     </div>
-                    <div className={`text-[12px] ${subtl} mt-1`}>{pct}% of target ({s.target})</div>
+                    <div className={`text-[12px] ${subtl} mt-1`}>{s.target > 0 ? `${pct}% of target (${s.target})` : `${s.value} total`}</div>
                   </div>
                 );
               })}
