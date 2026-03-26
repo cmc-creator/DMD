@@ -1035,7 +1035,17 @@ const App = () => {
   const fetchCompetitors = async () => {
     setCompetitorLoading(true);
     try {
-      const res  = await fetch('/api/competitors');
+      let res;
+      if (facilityProfiles.length > 0) {
+        // Use the user's saved competitor library instead of the hardcoded list
+        res = await fetch('/api/competitors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ competitors: facilityProfiles }),
+        });
+      } else {
+        res = await fetch('/api/competitors');
+      }
       const data = await res.json();
       if (data.ok) {
         setCompetitorData(data);

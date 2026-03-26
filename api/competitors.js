@@ -214,24 +214,43 @@ async function scrapeCompetitor(competitor) {
 // ── MAIN HANDLER ──────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const { id, debug } = req.query;
 
+  // If POST with a custom competitors array, use those instead of the hardcoded list
+  let customList = null;
+  if (req.method === 'POST') {
+    try {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      if (Array.isArray(body?.competitors) && body.competitors.length > 0) {
+        customList = body.competitors.map(c => ({
+          id:      c.id || c.url?.replace(/https?:\/\//,'').replace(/[^a-z0-9]/gi,'-').toLowerCase() || String(Math.random()),
+          name:    c.label || c.name || 'Unknown',
+          web:     c.url  || c.web  || '',
+          query:   c.query   || `${c.label || c.name} behavioral health reviews`,
+          hgQuery: c.hgQuery || (c.label || c.name),
+        }));
+      }
+    } catch {}
+  }
+
+  const LIST = customList || COMPETITORS;
+
   try {
     // Single-competitor refresh
     if (id) {
-      const comp = COMPETITORS.find(c => c.id === id);
-      if (!comp) return res.status(404).json({ ok: false, error: `Unknown competitor id: ${id}. Valid IDs: ${COMPETITORS.map(c => c.id).join(', ')}` });
+      const comp = LIST.find(c => c.id === id) || COMPETITORS.find(c => c.id === id);
+      if (!comp) return res.status(404).json({ ok: false, error: `Unknown competitor id: ${id}` });
       const result = await scrapeCompetitor(comp);
       return res.json({ ok: true, competitor: result });
     }
 
     // All competitors in parallel
     const results = await Promise.all(
-      COMPETITORS.map(c => scrapeCompetitor(c).catch(e => ({
+      LIST.map(c => scrapeCompetitor(c).catch(e => ({
         id: c.id, name: c.name, web: c.web, error: e.message, scrapedAt: new Date().toISOString(),
       })))
     );
