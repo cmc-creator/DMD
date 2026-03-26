@@ -1,15 +1,16 @@
 // Vercel serverless — Wix OAuth2 for Analytics
 // ─────────────────────────────────────────────────────────────────────────────
-// Required env vars (set in Vercel dashboard → Project → Settings → Env Vars):
-//   WIX_CLIENT_ID     = from manage.wix.com → Settings → Advanced → API Keys  (OAuth App Client ID)
-//   WIX_CLIENT_SECRET = OAuth App Client Secret
-//   WIX_REDIRECT_URI  = https://YOUR_VERCEL_URL/api/wix
+// Wix OAuth App Client ID is embedded as a default — no env var required.
+// Optional env vars (Vercel → Project → Settings → Env Vars):
+//   WIX_CLIENT_ID     = override the default client ID
+//   WIX_CLIENT_SECRET = only needed if your Wix OAuth App is "confidential"
+//   WIX_REDIRECT_URI  = override default redirect (https://dmd-flax.vercel.app/api/wix)
 //
-// Wix setup:
-//   1. manage.wix.com → Settings → Advanced → Headless Settings → OAuth Apps → + Add App
-//   2. Set Allowed Redirect Domain to: dmd-flax.vercel.app
-//   3. Copy the Client ID shown
-//   4. Contact Wix support or use API keys for server-to-server calls
+// Wix setup (one-time):
+//   manage.wix.com → Settings → Advanced → Headless Settings → OAuth Apps
+//   Set Allowed Redirect Domain to: dmd-flax.vercel.app
+
+const DEFAULT_CLIENT_ID = '7ed57615-a099-4553-a79b-706c6862adf1';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin',  '*');
@@ -17,55 +18,52 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const CLIENT_ID     = process.env.WIX_CLIENT_ID;
-  const CLIENT_SECRET = process.env.WIX_CLIENT_SECRET;
+  const CLIENT_ID     = process.env.WIX_CLIENT_ID || DEFAULT_CLIENT_ID;
+  const CLIENT_SECRET = process.env.WIX_CLIENT_SECRET || null; // optional for public clients
   const REDIRECT_URI  = process.env.WIX_REDIRECT_URI || 'https://dmd-flax.vercel.app/api/wix';
 
   const { action, code } = req.query;
 
-  // ── 0. Config diagnostic ────────────────────────────────────────────────
+  // ── 0. Config diagnostic ─────────────────────────────────────────
   if (action === 'check') {
     return res.json({
-      WIX_CLIENT_ID:     CLIENT_ID     ? `set (${CLIENT_ID.slice(0,8)}...)` : 'MISSING',
-      WIX_CLIENT_SECRET: CLIENT_SECRET ? 'set'                              : 'MISSING',
-      WIX_REDIRECT_URI:  REDIRECT_URI,
+      CLIENT_ID,
+      CLIENT_SECRET: CLIENT_SECRET ? 'set' : 'not set (public client mode)',
+      REDIRECT_URI,
     });
   }
 
-  // ── 1. Initiate OAuth login ──────────────────────────────────────────────
+  // ── 1. Initiate OAuth login ──────────────────────────────────────
   if (action === 'login') {
-    if (!CLIENT_ID) {
-      return res.redirect('/?wix_error=WIX_CLIENT_ID+not+set+in+Vercel+%E2%80%94+see+manage.wix.com+%E2%86%92+Settings+%E2%86%92+Headless+Settings+%E2%86%92+OAuth+Apps');
-    }
-    // Wix Headless OAuth — uses camelCase params
+    // Wix Headless OAuth — camelCase params, public client (no secret in URL)
     const url = new URL('https://www.wix.com/oauth/access');
-    url.searchParams.set('clientId',      CLIENT_ID);
-    url.searchParams.set('redirectUri',   REDIRECT_URI);
-    url.searchParams.set('responseType',  'code');
-    url.searchParams.set('scope',         'offline_access');
+    url.searchParams.set('clientId',     CLIENT_ID);
+    url.searchParams.set('redirectUri',  REDIRECT_URI);
+    url.searchParams.set('responseType', 'code');
+    url.searchParams.set('scope',        'offline_access');
     return res.redirect(url.toString());
   }
 
-  // ── 2. OAuth callback ────────────────────────────────────────────────────
+  // ── 2. OAuth callback ────────────────────────────────────────────
   if (code) {
-    if (!CLIENT_ID || !CLIENT_SECRET) {
-      return res.redirect('/?wix_error=Server+not+configured');
-    }
     try {
-      const tokenRes = await fetch('https://www.wix.com/oauth/access', {
+      const tokenBody = {
+        grant_type:   'authorization_code',
+        client_id:    CLIENT_ID,
+        redirect_uri: REDIRECT_URI,
+        code,
+      };
+      // Only include client_secret if set (confidential client flow)
+      if (CLIENT_SECRET) tokenBody.client_secret = CLIENT_SECRET;
+
+      const tokenRes  = await fetch('https://www.wix.com/oauth/access', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          grant_type:    'authorization_code',
-          client_id:     CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-          redirect_uri:  REDIRECT_URI,
-          code,
-        }),
+        body:    JSON.stringify(tokenBody),
       });
       const tokenData = await tokenRes.json();
       if (!tokenData.access_token) {
-        const msg = tokenData.error_description || tokenData.error || 'Token exchange failed';
+        const msg = tokenData.error_description || tokenData.error || JSON.stringify(tokenData);
         return res.redirect(`/?wix_error=${encodeURIComponent(msg)}`);
       }
 
@@ -79,22 +77,24 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── 3. Refresh using stored refresh_token ────────────────────────────────
+  // ── 3. Refresh using stored refresh_token ──────────────────────────────────
   if (action === 'refresh') {
     const refresh_token = req.query.refresh_token;
-    if (!refresh_token || !CLIENT_ID || !CLIENT_SECRET) {
-      return res.status(400).json({ ok: false, error: 'Missing refresh_token or server config' });
+    if (!refresh_token) {
+      return res.status(400).json({ ok: false, error: 'Missing refresh_token' });
     }
     try {
-      const tokenRes = await fetch('https://www.wix.com/oauth/access', {
+      const tokenBody = {
+        grant_type:    'refresh_token',
+        client_id:     CLIENT_ID,
+        refresh_token,
+      };
+      if (CLIENT_SECRET) tokenBody.client_secret = CLIENT_SECRET;
+
+      const tokenRes  = await fetch('https://www.wix.com/oauth/access', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          grant_type:    'refresh_token',
-          client_id:     CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-          refresh_token,
-        }),
+        body:    JSON.stringify(tokenBody),
       });
       const tokenData = await tokenRes.json();
       if (!tokenData.access_token) {
