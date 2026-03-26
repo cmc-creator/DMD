@@ -35,12 +35,13 @@ export default async function handler(req, res) {
   // ── 1. Initiate OAuth login ──────────────────────────────────────────────
   if (action === 'login') {
     if (!CLIENT_ID) {
-      return res.redirect('/?wix_error=Server+not+configured+%E2%80%94+set+WIX_CLIENT_ID+in+Vercel');
+      return res.redirect('/?wix_error=WIX_CLIENT_ID+not+set+in+Vercel+%E2%80%94+see+manage.wix.com+%E2%86%92+Settings+%E2%86%92+Headless+Settings+%E2%86%92+OAuth+Apps');
     }
+    // Wix Headless OAuth — uses camelCase params
     const url = new URL('https://www.wix.com/oauth/access');
-    url.searchParams.set('client_id',     CLIENT_ID);
-    url.searchParams.set('redirect_uri',  REDIRECT_URI);
-    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('clientId',      CLIENT_ID);
+    url.searchParams.set('redirectUri',   REDIRECT_URI);
+    url.searchParams.set('responseType',  'code');
     url.searchParams.set('scope',         'offline_access');
     return res.redirect(url.toString());
   }
