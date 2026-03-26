@@ -3044,7 +3044,10 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                                   <a href="https://www.tiktok.com/@destinyspringshealthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-slate-700 dark:text-slate-300 hover:opacity-70 mt-1"><ExternalLink size={9}/> Open on TikTok</a>
                                 </div>
                               ) : !destinyLoading ? (
-                                <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>
+                                <div>
+                                  <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>
+                                  <a href="https://www.tiktok.com/@destinyspringshealthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-slate-700 dark:text-slate-300 hover:opacity-70 mt-1"><ExternalLink size={9}/> Open on TikTok</a>
+                                </div>
                               ) : null}
                             </div>
                           );
@@ -3915,7 +3918,12 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                       ) : (
                         <div className="text-center py-4">
                           <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching…' : 'No live data yet'}</p>
-                          {!destinyLoading && <p className={`text-[11px] ${subtl}`}>Click Sync Now to pull TikTok data</p>}
+                          {!destinyLoading && (
+                            <div>
+                              <p className={`text-[11px] ${subtl} mb-1`}>Click Sync Now to pull TikTok data</p>
+                              <a href="https://www.tiktok.com/@destinyspringshealthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-slate-700 dark:text-slate-300 hover:opacity-70"><ExternalLink size={9}/> Open on TikTok</a>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
