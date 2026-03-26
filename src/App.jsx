@@ -556,6 +556,9 @@ const App = () => {
       { key: 'apiKey',       label: 'API Key',             placeholder: 'your-newsapi.org-key', type: 'password', hint: 'Register free at newsapi.org → Account → API Key (100 req/day free)' },
       { key: 'defaultQuery', label: 'Default Search Query (optional)', placeholder: 'mental health Arizona',         hint: 'Keywords auto-loaded on the Intel tab. Leave blank for default.' },
     ],
+    'SurveyMonkey': [
+      { key: 'accessToken', label: 'Access Token', placeholder: 'your-access-token', type: 'password', hint: 'developer.surveymonkey.com → My Apps → your app → Access Token' },
+    ],
   };
 
   // ── Live data fetch helpers ───────────────────────────────────────────────────
@@ -617,6 +620,17 @@ const App = () => {
       const res  = await fetch(`/api/mailchimp?${params}`);
       const data = await res.json();
       if (!data.ok) return { success: false, error: data.error || 'Mailchimp fetch failed' };
+      return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+  };
+
+  const fetchSurveyMonkeyDirect = async (creds) => {
+    const { accessToken } = creds;
+    if (!accessToken) return { success: false, error: 'Enter your SurveyMonkey Access Token' };
+    try {
+      const res  = await fetch(`/api/surveymonkey?action=sync&token=${encodeURIComponent(accessToken)}`);
+      const data = await res.json();
+      if (!data.ok) return { success: false, error: data.error || 'SurveyMonkey sync failed' };
       return { success: true, data };
     } catch (e) { return { success: false, error: e.message }; }
   };
@@ -1038,6 +1052,7 @@ const App = () => {
       else if (name === 'Yelp Reviews') result = await fetchYelpData(creds);
       else if (name === 'Mailchimp') result = await fetchMailchimpDirect(creds);
       else if (name === 'Google Analytics') result = await fetchGoogleAnalyticsData(creds);
+      else if (name === 'SurveyMonkey') result = await fetchSurveyMonkeyDirect(creds);
       // Other platforms require a server-side proxy — mark synced but no live payload
       if (result.success) {
         if (result.data && Object.keys(result.data).length > 0) setLiveData(d => ({ ...d, [name]: result.data }));
@@ -1070,6 +1085,7 @@ const App = () => {
     else if (name === 'Yelp Reviews') testResult = await fetchYelpData(formData);
     else if (name === 'Mailchimp') testResult = await fetchMailchimpDirect(formData);
     else if (name === 'Google Analytics') testResult = await fetchGoogleAnalyticsData(formData);
+    else if (name === 'SurveyMonkey') testResult = await fetchSurveyMonkeyDirect(formData);
     setConnectTesting(false);
     if (!testResult.success) { setConnectError(`Connection failed: ${testResult.error}`); return; }
     if (testResult.warning) { setConnectError(`⚠️ ${testResult.warning}`); }
@@ -7221,23 +7237,35 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
               ) : connectModal === 'SurveyMonkey' ? (
                 <div className="mb-4">
                   <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
-                    Click below to sign in with SurveyMonkey. You will be redirected and back automatically — connects your surveys and response data.
+                    Paste your SurveyMonkey personal access token below. Find it at{' '}
+                    <span className="font-black text-teal-400">developer.surveymonkey.com</span> → My Apps → your app → Access Token.
                   </p>
-                  <a
-                    href="/api/surveymonkey?action=login"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-black text-white transition-colors"
-                    style={{ background: '#00BF6F' }}
-                  >
-                    <ThumbsUp size={16} />
-                    Sign in with SurveyMonkey
-                  </a>
-                  <p className={`text-[11px] mt-3 text-center ${subtl}`}>
-                    Requires surveys_read and responses_read permissions
-                  </p>
-                  <button
-                    onClick={() => { setConnectModal(null); setConnectError(null); }}
-                    className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
-                  >Cancel</button>
+                  {fields.map(field => (
+                    <div key={field.key} className="mb-3">
+                      <label className={`block text-[12px] font-black ${txt2} uppercase tracking-wider mb-1.5`}>{field.label}</label>
+                      <input
+                        type={field.type || 'text'}
+                        placeholder={field.placeholder}
+                        value={connectFormData[field.key] || ''}
+                        onChange={e => setConnectFormData(d => ({ ...d, [field.key]: e.target.value }))}
+                        className={`w-full px-3 py-2.5 rounded-xl text-sm ${txt} bg-slate-50 dark:bg-slate-800 border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500`}
+                      />
+                      {field.hint && <p className={`text-[11px] mt-1 ${subtl}`}>{field.hint}</p>}
+                    </div>
+                  ))}
+                  {connectError && (
+                    <div className="mb-3 p-3 rounded-xl text-sm bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">{connectError}</div>
+                  )}
+                  <div className="flex gap-3 mt-2">
+                    <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
+                    <button
+                      onClick={() => saveConnection(connectModal, connectFormData)}
+                      disabled={connectTesting}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-black bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2"
+                    >
+                      {connectTesting ? <><RefreshCw size={14} className="animate-spin" /> Testing...</> : <><Plug size={14} /> Save &amp; Connect</>}
+                    </button>
+                  </div>
                 </div>
               ) : connectModal === 'TikTok for Business' ? (
                 <div className="mb-4">

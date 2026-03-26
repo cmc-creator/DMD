@@ -1,15 +1,11 @@
-// Vercel serverless — SurveyMonkey OAuth2
+// Vercel serverless — SurveyMonkey Personal Access Token
 // ─────────────────────────────────────────────────────────────────────────────
-// Required env vars (set in Vercel dashboard → Project → Settings → Env Vars):
-//   SURVEYMONKEY_CLIENT_ID     = from SurveyMonkey Developer Portal
-//   SURVEYMONKEY_CLIENT_SECRET = from SurveyMonkey Developer Portal
-//   SURVEYMONKEY_REDIRECT_URI  = https://YOUR_VERCEL_URL/api/surveymonkey
+// No env vars required — token is entered by the user in the connect form.
 //
 // SurveyMonkey setup:
-//   1. developer.surveymonkey.com → My Apps → Create App
-//   2. Scopes: surveys_read, responses_read, contacts_read
-//   3. Redirect URI: add SURVEYMONKEY_REDIRECT_URI
-//   4. Copy Client ID and Secret to Vercel env vars
+//   1. developer.surveymonkey.com → My Apps → your app (or create one)
+//   2. Click "Access Token" on the app page — copy the token shown
+//   3. Paste it into DMD → Integrations → SurveyMonkey → Access Token field
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,69 +13,24 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const CLIENT_ID     = process.env.SURVEYMONKEY_CLIENT_ID;
-  const CLIENT_SECRET = process.env.SURVEYMONKEY_CLIENT_SECRET;
-  const REDIRECT_URI  = process.env.SURVEYMONKEY_REDIRECT_URI;
+  const { action, token } = req.query;
 
-  const { action, code, token } = req.query;
+  // Use token from query param or env var fallback
+  const accessToken = token || process.env.SURVEYMONKEY_ACCESS_TOKEN;
 
-  // ── 1. Initiate OAuth login ──────────────────────────────────────────────
-  if (action === 'login') {
-    if (!CLIENT_ID || !REDIRECT_URI) {
-      return res.redirect('/?surveymonkey_error=Server+not+configured+%E2%80%94+set+SURVEYMONKEY_CLIENT_ID+%26+SURVEYMONKEY_REDIRECT_URI+in+Vercel');
-    }
-    const url = new URL('https://api.surveymonkey.com/oauth/authorize');
-    url.searchParams.set('response_type', 'code');
-    url.searchParams.set('client_id', CLIENT_ID);
-    url.searchParams.set('redirect_uri', REDIRECT_URI);
-    return res.redirect(url.toString());
-  }
-
-  // ── 2. OAuth callback ────────────────────────────────────────────────────
-  if (code) {
-    if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
-      return res.redirect('/?surveymonkey_error=Server+not+configured');
+  if (action === 'sync') {
+    if (!accessToken) {
+      return res.status(400).json({ ok: false, error: 'No access token provided' });
     }
     try {
-      const tokenRes = await fetch('https://api.surveymonkey.com/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type:    'authorization_code',
-          code,
-          redirect_uri:  REDIRECT_URI,
-          client_id:     CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-        }),
-      });
-      const tokenData = await tokenRes.json();
-      if (!tokenData.access_token) {
-        const msg = tokenData.error_description || tokenData.error || 'Token exchange failed';
-        return res.redirect(`/?surveymonkey_error=${encodeURIComponent(msg)}`);
-      }
-
-      const data = await fetchSurveyMonkeyData(tokenData.access_token);
-      data.accessToken = tokenData.access_token;
-
-      const encoded = Buffer.from(JSON.stringify(data)).toString('base64')
-        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      return res.redirect(`/?surveymonkey_data=${encoded}`);
-    } catch (e) {
-      return res.redirect(`/?surveymonkey_error=${encodeURIComponent(e.message)}`);
-    }
-  }
-
-  // ── 3. Refresh using stored token ────────────────────────────────────────
-  if (action === 'refresh' && token) {
-    try {
-      const data = await fetchSurveyMonkeyData(token);
+      const data = await fetchSurveyMonkeyData(accessToken);
       return res.json({ ok: true, ...data });
     } catch (e) {
       return res.status(500).json({ ok: false, error: e.message });
     }
   }
 
-  return res.status(400).json({ error: 'Invalid request — use ?action=login or OAuth callback ?code=' });
+  return res.status(400).json({ error: 'Use ?action=sync&token=YOUR_TOKEN' });
 }
 
 // ── Data fetching ─────────────────────────────────────────────────────────────
