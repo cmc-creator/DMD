@@ -648,6 +648,18 @@ const App = () => {
     } catch (e) { return { success: false, error: e.message }; }
   };
 
+  const fetchGoogleBusinessData = async (creds) => {
+    const refresh_token = creds.refresh_token || creds.refreshToken;
+    if (!refresh_token) return { success: false, error: 'Not connected — reconnect via Google OAuth' };
+    try {
+      const params = new URLSearchParams({ action: 'refresh', refresh_token });
+      const res  = await fetch(`/api/google?${params}`);
+      const data = await res.json();
+      if (!data.ok) return { success: false, error: data.error || 'Google Business refresh failed' };
+      return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+  };
+
   // ── AI caption generation ─────────────────────────────────────────────────────
   const generateCaption = async (title, platform, type) => {
     if (!title) return;
@@ -1052,6 +1064,7 @@ const App = () => {
       else if (name === 'Yelp Reviews') result = await fetchYelpData(creds);
       else if (name === 'Mailchimp') result = await fetchMailchimpDirect(creds);
       else if (name === 'Google Analytics') result = await fetchGoogleAnalyticsData(creds);
+      else if (name === 'Google Business') result = await fetchGoogleBusinessData(creds);
       else if (name === 'SurveyMonkey') result = await fetchSurveyMonkeyDirect(creds);
       // Other platforms require a server-side proxy — mark synced but no live payload
       if (result.success) {
