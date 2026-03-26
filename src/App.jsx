@@ -222,6 +222,7 @@ const App = () => {
   const [connectFormData, setConnectFormData]   = useState({});
   const [connectTesting, setConnectTesting]     = useState(false);
   const [connectError, setConnectError]         = useState(null);
+  const [oauthBannerError, setOauthBannerError] = useState(null);
   const [syncStatus, setSyncStatus]             = useState({});
   const [liveData, setLiveData]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_livedata') || '{}'); } catch { return {}; } });
   const [manualData, setManualData]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_manual') || '{}'); } catch { return {}; } });
@@ -494,10 +495,8 @@ const App = () => {
       }
     });
     if (oauthError) {
-      setConnectError('OAuth error: ' + oauthError);
+      setOauthBannerError(oauthError);
       setConnectModal(null);
-      // Show a visible alert — store in a toast-style state
-      setTimeout(() => alert('Connection failed: ' + oauthError), 500);
     }
     if (handled) window.history.replaceState({}, '', window.location.pathname);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -5670,6 +5669,21 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
         {/* ══════════════════ INTEGRATIONS ══════════════════ */}
         {activeTab === 'integrations' && (
           <>
+            {oauthBannerError && (
+              <div className="mb-4 p-4 rounded-2xl bg-rose-50 dark:bg-rose-900/20 border border-rose-300 dark:border-rose-700 flex items-start gap-3">
+                <AlertCircle size={18} className="text-rose-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black text-rose-600 dark:text-rose-400 mb-0.5">Connection Failed</p>
+                  <p className="text-sm text-rose-600 dark:text-rose-400 break-words">{oauthBannerError}</p>
+                  <button onClick={() => {
+                    fetch('/api/google?action=check').then(r => r.json()).then(d => {
+                      setOauthBannerError('Config check: ' + JSON.stringify(d));
+                    }).catch(() => setOauthBannerError('Config check failed - API not reachable'));
+                  }} className="mt-2 text-xs font-black text-rose-500 underline">Run diagnostics</button>
+                </div>
+                <button onClick={() => setOauthBannerError(null)} className="text-rose-400 hover:text-rose-600 flex-shrink-0"><X size={14} /></button>
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
               <div className={`${card} p-5 rounded-2xl text-center`}>
                 <div className="text-3xl font-black text-teal-500 mb-1">{integrations.filter(i=>i.connected).length}</div>

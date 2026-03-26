@@ -31,6 +31,15 @@ export default async function handler(req, res) {
     'profile',
   ].join(' ');
 
+  // ── 0. Config diagnostic ────────────────────────────────────────────────
+  if (action === 'check') {
+    return res.json({
+      GOOGLE_CLIENT_ID:     CLIENT_ID     ? `set (${CLIENT_ID.slice(0,8)}...)` : 'MISSING',
+      GOOGLE_CLIENT_SECRET: CLIENT_SECRET ? 'set'                              : 'MISSING',
+      GOOGLE_REDIRECT_URI:  REDIRECT_URI  ? REDIRECT_URI                       : 'MISSING',
+    });
+  }
+
   // ── 1. Initiate OAuth login ──────────────────────────────────────────────
   if (action === 'login') {
     if (!CLIENT_ID || !REDIRECT_URI) {
