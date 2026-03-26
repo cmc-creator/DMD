@@ -2194,14 +2194,19 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   const pipeline = [];
 
   // ── My Achievements data ────────────────────────────────────────────────────
-  // Social posts: sum manual entries + IG post count from Meta live data
-  const _igPostCount   = _metaLive.igMediaCount ? Number(_metaLive.igMediaCount) : 0;
+  // Social Posts: sum of ALL platform post/video counts for Destiny Springs
+  const _igPostCount   = Number(_metaLive.igMediaCount || destinyData?.instagram?.posts || _igLive.posts || 0);
+  const _fbPostCount   = Number(destinyData?.facebook?.posts || (_metaLive.fbPosts?.length > 0 ? _metaLive.fbPosts.length : 0));
+  const _ttVideoCount  = Number(_tikLive.videos || destinyData?.tiktok?.videos || 0) || _tiktokPosts.length;
+  const _liPostCount   = Number(_socialLive?.linkedin?.posts || 0);
   const _manualPostSum = _socialMet.reduce((s, e) => s + (Number(e.posts) || 0), 0);
-  const _totalSocialPosts = Math.max(_igPostCount, _manualPostSum);
-  // TikTok video count from live data or manual entries
-  const _tiktokVideoCount = Number(_tikLive.videos || 0) || _tiktokPosts.length;
-  // Blog count from manual entries tagged as blog type
-  const _blogCount = (manualData.blog_posts || []).length || (manualData.seo_rankings || []).filter(r => r.type === 'blog').length;
+  // Add up all platform counts; fall back to manual entries if no live data at all
+  const _livePlatformTotal = _igPostCount + _fbPostCount + _ttVideoCount + _liPostCount;
+  const _totalSocialPosts  = _livePlatformTotal > 0 ? _livePlatformTotal : _manualPostSum;
+  // TikTok video count for its own stat card
+  const _tiktokVideoCount = _ttVideoCount;
+  // Blog count from manual entries
+  const _blogCount = (manualData.blog_posts || []).length;
 
   const myStats = [
     { label: 'Blogs Written',    value: _blogCount,           icon: FileText,  color: 'text-purple-500', target: 12  },
