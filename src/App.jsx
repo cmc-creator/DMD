@@ -420,6 +420,14 @@ const App = () => {
 
   useEffect(() => { setShowQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
 
+  // Safety reset: hidden overview sections can get persisted, but there is no
+  // active UI for un-hiding them. Reset so KPI cards (including NPS) stay visible.
+  useEffect(() => {
+    if (!Array.isArray(overviewHidden) || overviewHidden.length === 0) return;
+    setOverviewHidden([]);
+    localStorage.setItem('dmd_overview_hidden', JSON.stringify([]));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-scroll chatbot to latest message
   useEffect(() => {
     if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1157,7 +1165,58 @@ const App = () => {
 
   const batchSaveToManualData = (type, rows) => {
     const key = type.replace(/\s+/g, '_').toLowerCase();
-    const timestamped = rows.map(r => ({ ...r, _savedAt: new Date().toLocaleString() }));
+    const norm = (k = '') => String(k).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const normalizeRowForType = (row, k) => {
+      const src = {};
+      Object.entries(row || {}).forEach(([rk, rv]) => { src[norm(rk)] = rv; });
+      if (k === 'ad_spend') return {
+        platform: src.platform || src.channel || src.source || 'Platform',
+        month: src.month || src.period || src.date || '',
+        spend: src.spend || src.ad_spend || src.cost || src.amount || 0,
+        leads: src.leads || src.conversions || src.conv || 0,
+        clicks: src.clicks || 0,
+        impressions: src.impressions || 0,
+        cpl: src.cpl || src.cost_per_lead || 0,
+        roas: src.roas || 0,
+      };
+      if (k === 'email_stats') return {
+        campaign: src.campaign || src.campaign_name || 'Campaign',
+        date: src.date || src.month || src.period || '',
+        sent: src.sent || src.delivered || 0,
+        opened: src.opened || src.opens || 0,
+        clicked: src.clicked || src.clicks || 0,
+        subscribers: src.subscribers || src.list_size || 0,
+        open_rate: src.open_rate || src.openrate || 0,
+        click_rate: src.click_rate || src.ctr || 0,
+        conversions: src.conversions || src.leads || 0,
+      };
+      if (k === 'social_metrics') return {
+        platform: src.platform || src.network || 'Social',
+        month: src.month || src.period || src.date || '',
+        posts: src.posts || src.post_count || 0,
+        reach: src.reach || src.views || 0,
+        engagement: src.engagement || src.engagements || 0,
+        clicks: src.clicks || 0,
+        followers: src.followers || src.fans || 0,
+      };
+      if (k === 'reviews') return {
+        name: src.name || src.author || src.reviewer || 'Anonymous',
+        rating: src.rating || src.stars || 0,
+        text: src.text || src.review || src.comment || '',
+        date: src.date || src.created_at || '',
+        platform: src.platform || src.source || 'Google',
+      };
+      if (k === 'seo_rankings') return {
+        keyword: src.keyword || src.query || '',
+        rank: src.rank || src.position || 0,
+        prevRank: src.prev_rank || src.previous_rank || src.last_rank || 0,
+        searchVol: src.search_vol || src.search_volume || src.volume || 0,
+        clicks: src.clicks || 0,
+        month: src.month || src.period || src.date || '',
+      };
+      return row;
+    };
+    const timestamped = rows.map(r => ({ ...normalizeRowForType(r, key), _savedAt: new Date().toLocaleString() }));
     setManualData(prev => {
       const updated = { ...prev, [key]: [...(prev[key] || []), ...timestamped] };
       localStorage.setItem('dmd_manual', JSON.stringify(updated));
@@ -2044,6 +2103,10 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
     totalLeads: '—',
     leadsGrowth: null,
   };
+  const toNum = (v) => {
+    const n = parseFloat(String(v ?? '').replace(/,/g, '').replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  };
 
   // ── Derived data from manual entries & live integrations ─────────────────────
   const _reviews    = manualData.reviews       || [];
@@ -2077,24 +2140,34 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   const _mostReviewsPlatform = _platformEntries.length
     ? Object.entries(reviewPlatformData).filter(([,p])=>p.count&&Number(p.count)>0).sort((a,b)=>(Number(b[1].count)||0)-(Number(a[1].count)||0))[0]
     : null;
-  const _totalLeads = _adSpend.reduce((s, e) => s + (Number(e.leads) || 0), 0);
-  const _totalSpend = _adSpend.reduce((s, e) => s + (Number(e.spend) || 0), 0);
+  const _totalLeads = _adSpend.reduce((s, e) => s + toNum(e.leads), 0);
+  const _totalSpend = _adSpend.reduce((s, e) => s + toNum(e.spend), 0);
   const _latestSocial = {};
   _socialMet.forEach(e => { if (!_latestSocial[e.platform] || (e.month || '') > (_latestSocial[e.platform].month || '')) _latestSocial[e.platform] = e; });
   const _latestSurvey = (manualData.survey_results || [])[0] || null;
+  const _reviewNpsBreakdown = (() => {
+    if (!_reviews.length) return null;
+    const promoters = _reviews.filter(r => toNum(r.rating) >= 4).length;
+    const passives = _reviews.filter(r => toNum(r.rating) === 3).length;
+    const detractors = _reviews.filter(r => toNum(r.rating) <= 2).length;
+    const total = promoters + passives + detractors;
+    if (!total) return null;
+    return { promoters, passives, detractors, score: Math.round(((promoters - detractors) / total) * 100) };
+  })();
   // Patch placeholder metrics with computed values
   Object.assign(metrics, {
     googleScore:        _avgRating ? _avgRating + ' ★' : '—',
-    nps:                _latestSurvey?.npsScore != null ? String(_latestSurvey.npsScore) : (_smLive?.npsScore != null ? String(_smLive.npsScore) : '—'),
-    videoViews:         _tikLive.recentViews  ? Number(_tikLive.recentViews).toLocaleString()  : '—',
-    tiktokVelocity:     (_tiktokPosts.length  || _tikLive.recentPosts) ? String(_tiktokPosts.length || _tikLive.recentPosts) : '—',
-    socialPostsMonthly: _socialMet.reduce((s, e) => s + (Number(e.posts) || 0), 0) || '—',
-    wixSessions:        _gaLive.sessions    ? Number(_gaLive.sessions).replace?.(/,/g,'') ? _gaLive.sessions : String(Number(_gaLive.sessions)).toLocaleString()
-                      : _wixLive.sessions   ? Number(_wixLive.sessions).toLocaleString()  : '—',
-    wixBounceRate:      _gaLive.bounceRate  ? _gaLive.bounceRate
-                      : _wixLive.bounceRate ? _wixLive.bounceRate + '%'                   : '—',
-    emailOpenRate:      _mailLive.openRate  ? _mailLive.openRate
-                      : _emailStats.length  ? (_emailStats.reduce((s, e) => s + (e.sent ? Number(e.opened || 0) / Number(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : '—',
+    nps:                _latestSurvey?.npsScore != null ? String(_latestSurvey.npsScore) : (_smLive?.npsScore != null ? String(_smLive.npsScore) : (_reviewNpsBreakdown ? String(_reviewNpsBreakdown.score) : '—')),
+    videoViews:         toNum(_tikLive.recentViews || _ttLive.recentViews) > 0 ? Math.round(toNum(_tikLive.recentViews || _ttLive.recentViews)).toLocaleString() : '—',
+    tiktokVelocity:     (_tiktokPosts.length || toNum(_tikLive.recentPosts) || toNum(_ttLive.videos)) ? String(_tiktokPosts.length || toNum(_tikLive.recentPosts) || toNum(_ttLive.videos)) : '—',
+    socialPostsMonthly: _socialMet.reduce((s, e) => s + toNum(e.posts), 0) || '—',
+    blogVelocity:       contentItems.filter(c => String(c.type || '').toLowerCase() === 'blog').length || '—',
+    wixSessions:        toNum(_gaLive.sessions) > 0 ? Math.round(toNum(_gaLive.sessions)).toLocaleString()
+              : toNum(_wixLive.sessions) > 0 ? Math.round(toNum(_wixLive.sessions)).toLocaleString() : '—',
+    wixBounceRate:      toNum(_gaLive.bounceRate) > 0 ? `${toNum(_gaLive.bounceRate).toFixed(1)}%`
+              : toNum(_wixLive.bounceRate) > 0 ? `${toNum(_wixLive.bounceRate).toFixed(1)}%` : '—',
+    emailOpenRate:      toNum(_mailLive.openRate) > 0 ? `${toNum(_mailLive.openRate).toFixed(1)}%`
+              : _emailStats.length ? (_emailStats.reduce((s, e) => s + (toNum(e.sent) ? toNum(e.opened) / toNum(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : '—',
     costPerLead:        (_totalSpend && _totalLeads) ? '$' + (_totalSpend / _totalLeads).toFixed(0) : '—',
     totalLeads:         _totalLeads || '—',
     siteConversion:     (() => {
@@ -2120,7 +2193,21 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   ];
 
   // ── Weekly Engagement Trend ──────────────────────────────────────────────────
-  const weeklyEngagement = [];
+  const weeklyEngagement = (() => {
+    const map = {};
+    _socialMet.forEach(e => {
+      const p = String(e.platform || '').toLowerCase();
+      const wk = String(e.month || e.date || '').slice(0, 7);
+      if (!wk || !p) return;
+      if (!map[wk]) map[wk] = { week: wk.slice(5), facebook: 0, instagram: 0, linkedin: 0, tiktok: 0 };
+      const val = toNum(e.engagement || e.reach);
+      if (p.includes('face')) map[wk].facebook += val;
+      else if (p.includes('insta')) map[wk].instagram += val;
+      else if (p.includes('linked')) map[wk].linkedin += val;
+      else if (p.includes('tik')) map[wk].tiktok += val;
+    });
+    return Object.values(map).slice(-4);
+  })();
 
   // ── Wix Traffic Sources ──────────────────────────────────────────────────────
   const wixSources = [
@@ -2152,7 +2239,17 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   }));
 
   // ── Blog Performance ─────────────────────────────────────────────────────────
-  const blogPosts = [];
+  const blogPosts = contentItems
+    .filter(c => String(c.type || '').toLowerCase() === 'blog')
+    .slice()
+    .reverse()
+    .slice(0, 5)
+    .map((c, i) => ({
+      title: c.title || `Blog Post ${i + 1}`,
+      views: toNum(c.views || c.impressions),
+      readTime: c.readTime || c.read_time || 'N/A',
+      shares: toNum(c.shares),
+    }));
 
   // ── Email Campaign Metrics ────────────────────────────────────────────────────
   const emailCampaigns = _emailStats.map(e => ({
@@ -2179,7 +2276,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   const _totalImpressions = _adSpend.reduce((s,e)=>s+Number(e.impressions||0),0);
 
   // ── NPS Breakdown — pulls from latest imported survey or SurveyMonkey live data ─
-  const _npsSource = _latestSurvey?.npsBreakdown ? _latestSurvey : (_smLive?.npsBreakdown ? _smLive : null);
+  const _npsSource = _latestSurvey?.npsBreakdown ? _latestSurvey : (_smLive?.npsBreakdown ? _smLive : (_reviewNpsBreakdown ? { npsBreakdown: _reviewNpsBreakdown } : null));
   const npsData = _npsSource?.npsBreakdown ? [
     { name: 'Promoters',  value: _npsSource.npsBreakdown.promoters,  color: '#10b981' },
     { name: 'Passives',   value: _npsSource.npsBreakdown.passives,   color: '#f59e0b' },
@@ -2206,7 +2303,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
   // TikTok video count for its own stat card
   const _tiktokVideoCount = _ttVideoCount;
   // Blog count from manual entries
-  const _blogCount = (manualData.blog_posts || []).length;
+  const _blogCount = contentItems.filter(c => String(c.type || '').toLowerCase() === 'blog').length || (manualData.blog_posts || []).length;
 
   const myStats = [
     { label: 'Blogs Written',    value: _blogCount,           icon: FileText,  color: 'text-purple-500', target: 12  },
