@@ -102,7 +102,7 @@ function findAggRating(items) {
 // How to get one:
 //   console.cloud.google.com → Enable "Places API" → Credentials → Create API Key
 async function scrapeGoogleRating(query) {
-  const key = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
+  const key = process.env.GOOGLE_PLACES_KEY || process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
 
   // ── Method 1: Google Places Text Search (requires API key, most reliable) ──
   if (key) {
