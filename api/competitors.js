@@ -142,32 +142,36 @@ async function scrapeGoogleRating(query) {
   } catch { return null; }
 }
 
-// ── Scrape Healthgrades for a competitor ─────────────────────────────────────
-async function scrapeHealthgrades(hgQuery) {
+// ── CMS Medicare Care Compare API — free, no key, no scraping ───────────────
+// Healthgrades uses AWS WAF + CAPTCHA — completely blocks server-side requests.
+// CMS (Centers for Medicare & Medicaid Services) provides a public REST API
+// with facility names, overall ratings (1-5 stars), and inspection data.
+// Endpoint: data.cms.gov/provider-data
+async function fetchCMSRating(name) {
   try {
-    const searchUrl = `https://www.healthgrades.com/search?what=${encodeURIComponent(hgQuery)}&pt=HOSPITAL`;
-    const r1 = await fetchH(searchUrl, {}, 7000);
-    if (!r1.ok) return null;
-    const html1 = await r1.text();
-    // Try multiple link patterns Healthgrades uses
-    const linkM = html1.match(/href="(\/group-directory\/[^"?#]+)/i)
-                || html1.match(/href="(\/hospital\/[^"?#]+)/i)
-                || html1.match(/href="(\/facility\/[^"?#]+)/i)
-                || html1.match(/href="(\/provider\/[^"?#]+)/i)
-                || html1.match(/"url"\s*:\s*"(https?:\/\/www\.healthgrades\.com\/[^"]+\/[^"?#]{10,})"/i);
-    if (!linkM) return null;
-    const profileUrl = linkM[1].startsWith('http') ? linkM[1] : 'https://www.healthgrades.com' + linkM[1];
-    const r2 = await fetchH(profileUrl, {}, 7000);
-    if (!r2.ok) return null;
-    const html2 = await r2.text();
-    const ld = findAggRating(getJsonLd(html2));
-    if (ld) return { ...ld, source: 'Healthgrades', url: profileUrl };
-    const rM = html2.match(/"ratingValue"\s*:\s*"?([\d.]+)/i);
-    const cM = html2.match(/"reviewCount"\s*:\s*"?(\d+)/i) || html2.match(/([\d,]+)\s+(?:reviews?|ratings?)/i);
-    if (rM) return { rating: parseFloat(rM[1]), reviewCount: cM ? parseInt(cM[1].replace(/,/g, '')) : null, source: 'Healthgrades', url: profileUrl };
+    // Try inpatient psychiatric facilities first, then hospitals
+    const encoded = encodeURIComponent(name);
+    const urls = [
+      `https://data.cms.gov/provider-data/api/1/datastore/query/77tb-adt5/0?conditions[0][property]=facility_name&conditions[0][value]=${encoded}&conditions[0][operator]=LIKE&limit=3`,
+      `https://data.cms.gov/provider-data/api/1/datastore/query/xubh-q36u/0?conditions[0][property]=facility_name&conditions[0][value]=${encoded}&conditions[0][operator]=LIKE&limit=3`,
+    ];
+    for (const url of urls) {
+      const r = await fetch(url, { signal: AbortSignal.timeout(7000), headers: { Accept: 'application/json' } });
+      if (!r.ok) continue;
+      const data = await r.json();
+      const row = data.results?.[0];
+      if (!row) continue;
+      // Psychiatric facilities: overall_quality_star_rating or overall_rating; hospitals: hospital_overall_rating
+      const rawRating = row.overall_quality_star_rating ?? row.overall_rating ?? row.hospital_overall_rating ?? row.quality_star_rating;
+      const rating = rawRating != null ? parseFloat(rawRating) : null;
+      if (rating && !isNaN(rating)) {
+        return { rating, reviewCount: null, source: 'CMS Care Compare', cmsId: row.facility_id || row.provider_id || null };
+      }
+    }
     return null;
   } catch { return null; }
 }
+
 
 // ── Scrape competitor website for basic profile info ─────────────────────────
 async function scrapeWebsite(url) {
@@ -200,6 +204,7 @@ async function scrapeWebsite(url) {
 async function scrapeCompetitor(competitor) {
   const [google, healthgrades, website] = await Promise.all([
     scrapeGoogleRating(competitor.query).catch(() => null),
+    fetchCMSRating(competitor.name).catch(() => null),
     scrapeHealthgrades(competitor.hgQuery).catch(() => null),
     scrapeWebsite(competitor.web).catch(() => null),
   ]);

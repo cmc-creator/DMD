@@ -3289,7 +3289,7 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
                             <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Provider</th>
                             <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Google Rating</th>
                             <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Reviews</th>
-                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Healthgrades</th>
+                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>CMS Rating</th>
                             <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider`}>Services</th>
                           </tr>
                         </thead>
