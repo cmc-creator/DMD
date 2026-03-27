@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
@@ -16,7 +16,7 @@ import {
   Trash2, Layers, Scale, Tag, Camera, Scan, CheckSquare, AlertTriangle,
 } from 'lucide-react';
 
-// â”€â”€â”€ Captain KPI avatar â€” inline SVG bot face â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Captain KPI avatar  inline SVG bot face 
 const CaptainKPI = ({ size = 28 }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
     {/* Body / head */}
@@ -40,8 +40,8 @@ const CaptainKPI = ({ size = 28 }) => (
   </svg>
 );
 
-// â”€â”€â”€ Shared style helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Color system â€“ maps Tailwind color prop strings to actual hex/RGB values
+//  Shared style helpers 
+// Color system  maps Tailwind color prop strings to actual hex/RGB values
 const colorMap = {
   'bg-amber-500':   { hex: '#f59e0b', r: 245, g: 158, b: 11  },
   'bg-amber-600':   { hex: '#d97706', r: 217, g: 119, b: 6   },
@@ -80,7 +80,7 @@ const rowCls= 'row-hover transition-colors';
 const divdr = 'divide-slate-100 dark:divide-white/[0.05]';
 const brd   = 'border-slate-200 dark:border-white/[0.06]';
 
-// â”€â”€ GA CSV Import mini-component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  GA CSV Import mini-component 
 const GaCsvImport = ({ onImport, card, txt, txt2, subtl, brd, muted }) => {
   const [gacsv, setGacsv] = React.useState('');
   const [gaError, setGaError] = React.useState('');
@@ -255,7 +255,7 @@ const App = () => {
   const [aiInsights, setAiInsights]             = useState('');
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [chatOpen, setChatOpen]                 = useState(false);
-  const [chatMessages, setChatMessages]         = useState([{ role: 'assistant', content: "Reporting for duty! ðŸ«¡ I'm **Captain KPI**, your marketing analytics officer. Fire away â€” ask me about the data, what to post, how to get more reviews, or why your bounce rate looks like a trampoline." }]);
+  const [chatMessages, setChatMessages]         = useState([{ role: 'assistant', content: "Reporting for duty!  I'm **Captain KPI**, your marketing analytics officer. Fire away  ask me about the data, what to post, how to get more reviews, or why your bounce rate looks like a trampoline." }]);
   const [chatInput, setChatInput]               = useState('');
   const [chatLoading, setChatLoading]           = useState(false);
   const [importNotice, setImportNotice]         = useState('');
@@ -263,7 +263,7 @@ const App = () => {
   const [reviewPlatformData, setReviewPlatformData] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}'); } catch { return {}; } });
   const [reviewPlatformForm, setReviewPlatformForm]   = useState({ editingPlatform: null, rating: '', count: '', url: '' });
   const [reviewFetchingPlatform, setReviewFetchingPlatform] = useState(null);
-  // â”€â”€ Intel tab state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Intel tab state 
   const [intelSubTab, setIntelSubTab]           = useState('news');
   const [newsQuery, setNewsQuery]               = useState('mental health Arizona');
   const [newsItems, setNewsItems]               = useState([]);
@@ -285,14 +285,14 @@ const App = () => {
   const [compareIdxB, setCompareIdxB]           = useState(1);
   const [compareReport, setCompareReport]       = useState('');
   const [compareReportLoading, setCompareReportLoading] = useState(false);
-  // â”€â”€ Destiny Springs auto-profile state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Destiny Springs auto-profile state 
   const [destinyData, setDestinyData]           = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_destiny') || 'null'); } catch { return null; } });
   const [destinyLoading, setDestinyLoading]     = useState(false);
   const [destinyError, setDestinyError]         = useState('');
-  // â”€â”€ Competitor Intelligence state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Competitor Intelligence state 
   const [competitorData, setCompetitorData]      = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_competitors') || 'null'); } catch { return null; } });
   const [competitorLoading, setCompetitorLoading] = useState(false);
-  // â”€â”€ Overview layout customization â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Overview layout customization 
   const [overviewHidden, setOverviewHidden]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_overview_hidden') || '[]'); } catch { return []; } });
   const [showOverviewCustomizer, setShowOverviewCustomizer] = useState(false);
   const [reviewOverrides, setReviewOverrides]     = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_overrides') || '{}'); } catch { return {}; } });
@@ -300,7 +300,7 @@ const App = () => {
   const [ratingEditVal, setRatingEditVal]         = useState('');
   const [ratingCountVal, setRatingCountVal]       = useState('');
 
-  // â”€â”€ AI Screenshot Scanner state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  AI Screenshot Scanner state 
   const [scanImage, setScanImage]                 = useState(null);   // { base64, mimeType, name }
   const [scanLoading, setScanLoading]             = useState(false);
   const [scanResult, setScanResult]               = useState(null);   // extracted fields from AI
@@ -308,13 +308,13 @@ const App = () => {
   const [scanApplied, setScanApplied]             = useState(false);
   const scanFileRef                               = useRef(null);
 
-  // â”€â”€ Historical metrics state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Historical metrics state 
   const [metricsHistory, setMetricsHistory]       = useState([]);
   const [historyLoading, setHistoryLoading]       = useState(false);
   const [historyPeriod, setHistoryPeriod]         = useState(30);
   const [weeklyDigest, setWeeklyDigest]           = useState(null); // { text, generatedAt, metrics }
 
-  // â”€â”€ Feature state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Feature state 
   const [captionGenerating, setCaptionGenerating]   = useState(false);
   const [reviewDrafts, setReviewDrafts]             = useState({});
   const [reviewDraftLoading, setReviewDraftLoading] = useState({});
@@ -329,8 +329,8 @@ const App = () => {
     return [
       { title: 'Mental Health Awareness Post',       platform: 'Facebook, Instagram', date: '2026-03-03', type: 'Social', status: 'scheduled', notes: 'Focus on stigma reduction'          },
       { title: '5 Signs You Need Support (TikTok)',  platform: 'TikTok',              date: '2026-03-04', type: 'TikTok', status: 'filming',   notes: 'Short-form, 60s max'                },
-      { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: '2026-03-05', type: 'Blog',   status: 'draft',     notes: '1,200 words â€“ SEO optimized'        },
-      { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: '2026-03-06', type: 'Email',  status: 'scheduled', notes: 'All subscribers â€“ 3pm send time'    },
+      { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: '2026-03-05', type: 'Blog',   status: 'draft',     notes: '1,200 words  SEO optimized'        },
+      { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: '2026-03-06', type: 'Email',  status: 'scheduled', notes: 'All subscribers  3pm send time'    },
       { title: 'Success Story Spotlight',            platform: 'LinkedIn',            date: '2026-03-07', type: 'Social', status: 'idea',      notes: 'Patient testimonial (anonymized)'   },
       { title: 'Weekend Wellness Tip',               platform: 'Instagram',           date: '2026-03-08', type: 'Social', status: 'scheduled', notes: '5 breathing exercises for calm'     },
       { title: 'Staff Introduction Video',           platform: 'TikTok, Instagram',   date: '2026-03-10', type: 'TikTok', status: 'filming',   notes: 'Behind the scenes series'           },
@@ -357,7 +357,7 @@ const App = () => {
     localStorage.setItem('dmd_content', JSON.stringify(contentItems));
   }, [contentItems]);
 
-  // â”€â”€ Cloud sync: pull shared data from Vercel KV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Cloud sync: pull shared data from Vercel KV 
   const pullFromCloud = () => {
     setCloudSynced('loading');
     return fetch('/api/data')
@@ -390,7 +390,7 @@ const App = () => {
 
   useEffect(() => { pullFromCloud(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // â”€â”€ Cloud sync: auto-push whenever data changes (debounced 3 s) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Cloud sync: auto-push whenever data changes (debounced 3 s) 
   useEffect(() => {
     if (!cloudLoadedRef.current || skipNextPushRef.current) return;
     clearTimeout(pushTimerRef.current);
@@ -434,7 +434,7 @@ const App = () => {
     if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, chatOpen]);
 
-  // Handle TikTok OAuth redirect â€” parse ?tiktok_data= on first load
+  // Handle TikTok OAuth redirect  parse ?tiktok_data= on first load
   useEffect(() => {
     const params   = new URLSearchParams(window.location.search);
     const rawData  = params.get('tiktok_data');
@@ -511,65 +511,65 @@ const App = () => {
     if (handled) window.history.replaceState({}, '', window.location.pathname);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // â”€â”€ Integration fields config (per-service credential forms) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Integration fields config (per-service credential forms) 
   const integrationFields = {
     'Google Analytics':    [
-      { key: 'propertyId', label: 'GA4 Property ID',             placeholder: 'G-XXXXXXXXXX or numeric ID',   hint: 'GA Admin â†’ Property Settings â†’ Property ID'                                        },
-      { key: 'apiSecret',  label: 'Measurement Protocol Secret', placeholder: 'Your API secret', type: 'password', hint: 'GA Admin â†’ Data Streams â†’ Measurement Protocol â†’ API Secrets'              },
+      { key: 'propertyId', label: 'GA4 Property ID',             placeholder: 'G-XXXXXXXXXX or numeric ID',   hint: 'GA Admin  Property Settings  Property ID'                                        },
+      { key: 'apiSecret',  label: 'Measurement Protocol Secret', placeholder: 'Your API secret', type: 'password', hint: 'GA Admin  Data Streams  Measurement Protocol  API Secrets'              },
     ],
     'Google Business': [
-      { key: 'placeId', label: 'Google Place ID (optional)', placeholder: 'ChIJxxxxxxxxxxxxxxxx',  hint: 'Leave blank to auto-find by name. Or: Google Maps â†’ your listing â†’ Share â†’ copy place_id from the URL'             },
-      { key: 'apiKey',  label: 'Places API Key',             placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'Enables auto-sync of live Google Rating, Review Count & Reviews on the Overview tab. console.cloud.google.com â†’ Enable "Places API" â†’ Credentials â†’ API Key (free up to $200/mo credit)' },
+      { key: 'placeId', label: 'Google Place ID (optional)', placeholder: 'ChIJxxxxxxxxxxxxxxxx',  hint: 'Leave blank to auto-find by name. Or: Google Maps  your listing  Share  copy place_id from the URL'             },
+      { key: 'apiKey',  label: 'Places API Key',             placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'Enables auto-sync of live Google Rating, Review Count & Reviews on the Overview tab. console.cloud.google.com  Enable "Places API"  Credentials  API Key (free up to $200/mo credit)' },
     ],
     'Meta Business Suite': [
-      { key: 'accessToken', label: 'Page Access Token', placeholder: 'EAAxxxxxxxxâ€¦', type: 'password', hint: 'developers.facebook.com â†’ Graph API Explorer â†’ Generate Token' },
-      { key: 'pageId',      label: 'Facebook Page ID',  placeholder: '123456789012345',                hint: 'Facebook Page â†’ About â†’ Page ID'                                },
+      { key: 'accessToken', label: 'Page Access Token', placeholder: 'EAAxxxxxxxx', type: 'password', hint: 'developers.facebook.com  Graph API Explorer  Generate Token' },
+      { key: 'pageId',      label: 'Facebook Page ID',  placeholder: '123456789012345',                hint: 'Facebook Page  About  Page ID'                                },
     ],
     'Wix Analytics': [
-      { key: 'apiKey', label: 'Wix API Key', placeholder: 'IST2.xxxxxxxx...', type: 'password', hint: 'manage.wix.com â†’ select your site â†’ Settings â†’ Advanced â†’ API Keys â†’ Generate Key (enable Analytics permission)' },
+      { key: 'apiKey', label: 'Wix API Key', placeholder: 'IST2.xxxxxxxx...', type: 'password', hint: 'manage.wix.com  select your site  Settings  Advanced  API Keys  Generate Key (enable Analytics permission)' },
     ],
     'Mailchimp': [
-      { key: 'apiKey',  label: 'API Key',     placeholder: 'xxxxxxxxxxxxxxxx-us1', type: 'password', hint: 'Mailchimp â†’ Account â†’ Extras â†’ API Keys' },
-      { key: 'listId',  label: 'Audience ID', placeholder: 'xxxxxxxxxx',                             hint: 'Audience â†’ Settings â†’ Audience ID'        },
+      { key: 'apiKey',  label: 'API Key',     placeholder: 'xxxxxxxxxxxxxxxx-us1', type: 'password', hint: 'Mailchimp  Account  Extras  API Keys' },
+      { key: 'listId',  label: 'Audience ID', placeholder: 'xxxxxxxxxx',                             hint: 'Audience  Settings  Audience ID'        },
     ],
     'Google Ads': [
       { key: 'customerId', label: 'Customer ID',     placeholder: 'xxx-xxx-xxxx',   hint: 'Top-right corner of Google Ads dashboard'                           },
-      { key: 'devToken',   label: 'Developer Token', placeholder: 'Your dev token', hint: 'Tools â†’ API Center â†’ Developer Token', type: 'password'            },
+      { key: 'devToken',   label: 'Developer Token', placeholder: 'Your dev token', hint: 'Tools  API Center  Developer Token', type: 'password'            },
     ],
     'Meta Ads Manager': [
-      { key: 'accessToken', label: 'Access Token',  placeholder: 'EAAxxxxxxxxâ€¦',  type: 'password', hint: 'developers.facebook.com â†’ Access Token Tool'                },
-      { key: 'adAccountId', label: 'Ad Account ID', placeholder: 'act_123456789',                   hint: 'Ads Manager â†’ Account Settings â†’ prepend "act_" to your ID' },
+      { key: 'accessToken', label: 'Access Token',  placeholder: 'EAAxxxxxxxx',  type: 'password', hint: 'developers.facebook.com  Access Token Tool'                },
+      { key: 'adAccountId', label: 'Ad Account ID', placeholder: 'act_123456789',                   hint: 'Ads Manager  Account Settings  prepend "act_" to your ID' },
     ],
-    'TikTok for Business': [], // OAuth flow â€” no manual fields
+    'TikTok for Business': [], // OAuth flow  no manual fields
     'Sintra AI': [
-      { key: 'apiKey',      label: 'API Key',       placeholder: 'Your Sintra API key',  type: 'password', hint: 'Sintra Dashboard â†’ Settings â†’ API Keys'    },
-      { key: 'workspaceId', label: 'Workspace ID',  placeholder: 'ws_xxxxxxxxxx',                          hint: 'Sintra â†’ Workspace â†’ Settings â†’ ID'         },
+      { key: 'apiKey',      label: 'API Key',       placeholder: 'Your Sintra API key',  type: 'password', hint: 'Sintra Dashboard  Settings  API Keys'    },
+      { key: 'workspaceId', label: 'Workspace ID',  placeholder: 'ws_xxxxxxxxxx',                          hint: 'Sintra  Workspace  Settings  ID'         },
     ],
     'MarkyAI': [
-      { key: 'apiKey',  label: 'API Key',  placeholder: 'Your MarkyAI API key',  type: 'password', hint: 'MarkyAI â†’ Account â†’ API Access'         },
-      { key: 'brandId', label: 'Brand ID', placeholder: 'Your brand ID',                           hint: 'MarkyAI â†’ Brand â†’ Settings â†’ Brand ID'  },
+      { key: 'apiKey',  label: 'API Key',  placeholder: 'Your MarkyAI API key',  type: 'password', hint: 'MarkyAI  Account  API Access'         },
+      { key: 'brandId', label: 'Brand ID', placeholder: 'Your brand ID',                           hint: 'MarkyAI  Brand  Settings  Brand ID'  },
     ],
     'YouTube Analytics': [
-      { key: 'channelId', label: 'Channel ID',              placeholder: 'UCxxxxxxxxxxxxxxxxxxxxxxxx',    hint: 'YouTube Studio â†’ Customization â†’ Basic info â†’ scroll to bottom for Channel ID' },
-      { key: 'apiKey',    label: 'YouTube Data API v3 Key', placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'console.cloud.google.com â†’ Enable YouTube Data API v3 â†’ Credentials â†’ API Key' },
+      { key: 'channelId', label: 'Channel ID',              placeholder: 'UCxxxxxxxxxxxxxxxxxxxxxxxx',    hint: 'YouTube Studio  Customization  Basic info  scroll to bottom for Channel ID' },
+      { key: 'apiKey',    label: 'YouTube Data API v3 Key', placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'console.cloud.google.com  Enable YouTube Data API v3  Credentials  API Key' },
     ],
     'Yelp Reviews': [
       { key: 'businessId', label: 'Yelp Business ID',  placeholder: 'destiny-springs-healthcare-surprise', hint: 'From the Yelp business URL: yelp.com/biz/YOUR-BUSINESS-ID' },
-      { key: 'apiKey',     label: 'Yelp API Key',      placeholder: 'your-yelp-api-key', type: 'password',   hint: 'Register at api.yelp.com â†’ Create App â†’ API Key (500 free calls/day)' },
+      { key: 'apiKey',     label: 'Yelp API Key',      placeholder: 'your-yelp-api-key', type: 'password',   hint: 'Register at api.yelp.com  Create App  API Key (500 free calls/day)' },
     ],
     'News API': [
-      { key: 'apiKey',       label: 'API Key',             placeholder: 'your-newsapi.org-key', type: 'password', hint: 'Register free at newsapi.org â†’ Account â†’ API Key (100 req/day free)' },
+      { key: 'apiKey',       label: 'API Key',             placeholder: 'your-newsapi.org-key', type: 'password', hint: 'Register free at newsapi.org  Account  API Key (100 req/day free)' },
       { key: 'defaultQuery', label: 'Default Search Query (optional)', placeholder: 'mental health Arizona',         hint: 'Keywords auto-loaded on the Intel tab. Leave blank for default.' },
     ],
     'SurveyMonkey': [
-      { key: 'accessToken', label: 'Access Token', placeholder: 'your-access-token', type: 'password', hint: 'developer.surveymonkey.com â†’ My Apps â†’ your app â†’ Access Token' },
+      { key: 'accessToken', label: 'Access Token', placeholder: 'your-access-token', type: 'password', hint: 'developer.surveymonkey.com  My Apps  your app  Access Token' },
     ],
   };
 
-  // â”€â”€ Live data fetch helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Live data fetch helpers 
   const fetchWixData = async (creds) => {
     const apiKey = creds.apiKey || creds.api_key;
-    if (!apiKey) return { success: false, error: 'No API key â€” enter your Wix API key in the connect form' };
+    if (!apiKey) return { success: false, error: 'No API key  enter your Wix API key in the connect form' };
     try {
       const res  = await fetch(`/api/wix?action=sync&token=${encodeURIComponent(apiKey)}`);
       const data = await res.json();
@@ -585,7 +585,7 @@ const App = () => {
   };
 
   const fetchTikTokData = async (creds) => {
-    if (!creds?.accessToken) return { success: false, error: 'Not connected â€” use the OAuth login button' };
+    if (!creds?.accessToken) return { success: false, error: 'Not connected  use the OAuth login button' };
     try {
       const res  = await fetch(`/api/tiktok?action=refresh&token=${encodeURIComponent(creds.accessToken)}`);
       const data = await res.json();
@@ -619,7 +619,7 @@ const App = () => {
 
   const fetchMailchimpDirect = async (creds) => {
     const { apiKey, listId } = creds;
-    if (!apiKey) return { success: false, error: 'Enter your Mailchimp API key in Integrations â†’ Mailchimp â†’ Connect' };
+    if (!apiKey) return { success: false, error: 'Enter your Mailchimp API key in Integrations  Mailchimp  Connect' };
     try {
       const params = new URLSearchParams({ action: 'data', apiKey, ...(listId && { listId }) });
       const res  = await fetch(`/api/mailchimp?${params}`);
@@ -643,7 +643,7 @@ const App = () => {
   const fetchGoogleAnalyticsData = async (creds) => {
     const refresh_token = creds.refresh_token || creds.refreshToken;
     const { propertyId } = creds;
-    if (!refresh_token) return { success: false, error: 'Not connected â€” click the Google OAuth login button to authorize' };
+    if (!refresh_token) return { success: false, error: 'Not connected  click the Google OAuth login button to authorize' };
     try {
       const params = new URLSearchParams({ action: 'refresh', refresh_token, ...(propertyId && { propertyId }) });
       const res  = await fetch(`/api/google?${params}`);
@@ -655,7 +655,7 @@ const App = () => {
 
   const fetchGoogleBusinessData = async (creds) => {
     const refresh_token = creds.refresh_token || creds.refreshToken;
-    if (!refresh_token) return { success: false, error: 'Not connected â€” reconnect via Google OAuth' };
+    if (!refresh_token) return { success: false, error: 'Not connected  reconnect via Google OAuth' };
     try {
       const params = new URLSearchParams({ action: 'refresh', refresh_token });
       const res  = await fetch(`/api/google?${params}`);
@@ -665,7 +665,7 @@ const App = () => {
     } catch (e) { return { success: false, error: e.message }; }
   };
 
-  // â”€â”€ AI caption generation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  AI caption generation 
   const generateCaption = async (title, platform, type) => {
     if (!title) return;
     setCaptionGenerating(true);
@@ -684,7 +684,7 @@ const App = () => {
     setCaptionGenerating(false);
   };
 
-  // â”€â”€ AI review response draft â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  AI review response draft 
   const generateReviewResponse = async (review, idx) => {
     setReviewDraftLoading(l => ({ ...l, [idx]: true }));
     try {
@@ -702,11 +702,11 @@ const App = () => {
     setReviewDraftLoading(l => ({ ...l, [idx]: false }));
   };
 
-  // â”€â”€ Auto-post to Facebook/Instagram via Graph API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Auto-post to Facebook/Instagram via Graph API 
   const publishPost = async (item, idx) => {
     const metaCreds = connections['Meta Business Suite'];
     if (!metaCreds?.connected || !metaCreds?.accessToken || !metaCreds?.pageId) {
-      alert('Connect Meta Business Suite with a Page Access Token first (Settings â†’ Integrations).');
+      alert('Connect Meta Business Suite with a Page Access Token first (Settings  Integrations).');
       return;
     }
     setAutoPostLoading(l => ({ ...l, [idx]: true }));
@@ -723,19 +723,19 @@ const App = () => {
       const d = await res.json();
       if (d.ok) {
         setContentItems(prev => prev.map((c, i) => i === idx ? { ...c, status: 'published', postId: d.postId } : c));
-        alert(`âœ… Published! Post ID: ${d.postId}`);
+        alert(` Published! Post ID: ${d.postId}`);
       } else {
-        alert(`âŒ Publish failed: ${d.error}`);
+        alert(` Publish failed: ${d.error}`);
       }
-    } catch (e) { alert(`âŒ Error: ${e.message}`); }
+    } catch (e) { alert(` Error: ${e.message}`); }
     setAutoPostLoading(l => ({ ...l, [idx]: false }));
   };
 
-  // â”€â”€ Send weekly digest via Mailchimp â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Send weekly digest via Mailchimp 
   const sendWeeklyDigest = async () => {
     const mc = connections['Mailchimp'];
     if (!mc?.connected || !mc?.apiKey) {
-      alert('Connect Mailchimp with an API Key first (Settings â†’ Integrations).');
+      alert('Connect Mailchimp with an API Key first (Settings  Integrations).');
       return;
     }
     setDigestSending(true); setDigestResult('');
@@ -754,14 +754,14 @@ const App = () => {
         }),
       });
       const d = await res.json();
-      setDigestResult(d.ok ? `âœ… Digest campaign created! ${d.campaignId ? 'ID: ' + d.campaignId : ''}` : `âŒ ${d.error || 'Failed to create digest'}`);
-    } catch (e) { setDigestResult(`âŒ Error: ${e.message}`); }
+      setDigestResult(d.ok ? ` Digest campaign created! ${d.campaignId ? 'ID: ' + d.campaignId : ''}` : ` ${d.error || 'Failed to create digest'}`);
+    } catch (e) { setDigestResult(` Error: ${e.message}`); }
     setDigestSending(false);
   };
 
   const fetchMetaAdsData = async (creds) => {
     const { accessToken, adAccountId } = creds || {};
-    if (!accessToken || !adAccountId) return { success: false, error: 'Missing Access Token or Ad Account ID â€” check Integrations â†’ Meta Ads Manager' };
+    if (!accessToken || !adAccountId) return { success: false, error: 'Missing Access Token or Ad Account ID  check Integrations  Meta Ads Manager' };
     try {
       const res  = await fetch(`https://graph.facebook.com/v18.0/${adAccountId}?fields=name,currency,account_status&access_token=${encodeURIComponent(accessToken)}`);
       const data = await res.json();
@@ -888,7 +888,7 @@ const App = () => {
     setCompareReportLoading(false);
   };
 
-  // â”€â”€ Destiny Springs: one-click auto-profile fetch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Destiny Springs: one-click auto-profile fetch 
   const fetchDestinyProfile = async () => {
     const gBizCreds = connections['Google Business'] || {};
     const apiKey  = gBizCreds.apiKey  || '';
@@ -908,16 +908,16 @@ const App = () => {
       if (!data.ok) { setDestinyError(data.error || 'Sync failed'); setDestinyLoading(false); return; }
       setDestinyData(data);
       localStorage.setItem('dmd_destiny', JSON.stringify(data));
-      // â”€â”€ Auto-populate best available rating into overrides â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      //  Auto-populate best available rating into overrides 
       // Uses Google Places if key is set, otherwise falls back to Google search
-      // scrape / website JSON-LD schema / Healthgrades â€” whichever has data first.
+      // scrape / website JSON-LD schema / Healthgrades  whichever has data first.
       const best = data.bestRating || data.google || null;
       if (best?.rating) {
         const overrides = { rating: String(best.rating), totalReviews: String(best.reviewCount || '') };
         setReviewOverrides(overrides);
         localStorage.setItem('dmd_review_overrides', JSON.stringify(overrides));
       }
-      // â”€â”€ Push Google Places reviews into manualData (only when API key set) â”€â”€
+      //  Push Google Places reviews into manualData (only when API key set) 
       if (data.google?.reviews?.length) {
         const autoReviews = data.google.reviews.map(rv => ({
           name:     rv.author || 'Anonymous',
@@ -934,7 +934,7 @@ const App = () => {
           return updated;
         });
       }
-      // â”€â”€ Auto-populate reviewPlatformData from destiny sync â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      //  Auto-populate reviewPlatformData from destiny sync 
       // This makes metrics.googleScore (Overview KPI card) show real data
       // without requiring manual entry in the Integrations tab.
       setReviewPlatformData(prev => {
@@ -960,7 +960,7 @@ const App = () => {
         localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
         return updated;
       });
-// â”€â”€ Feed Google Business liveData (uses best available rating source) â”€â”€â”€
+//  Feed Google Business liveData (uses best available rating source) 
       const liveRating = data.google?.rating || best?.rating || null;
       if (liveRating || data.google) {
         setLiveData(d => ({ ...d, 'Google Business': {
@@ -980,7 +980,7 @@ const App = () => {
         });
         setSyncStatus(s => ({ ...s, 'Google Business': 'ok' }));
       }
-      // â”€â”€ Feed social media liveData (feeds Social tab with real follower counts) â”€â”€
+      //  Feed social media liveData (feeds Social tab with real follower counts) 
       if (data.instagram || data.facebook || data.tiktok) {
         setLiveData(d => {
           const prev = d['_social'] || {};
@@ -1017,7 +1017,7 @@ const App = () => {
           };
         });
       }
-      // â”€â”€ Bridge Graph API posts â‡’ Meta Business Suite so Social tab shows real content â”€â”€
+      //  Bridge Graph API posts  Meta Business Suite so Social tab shows real content 
       if ((data.facebook?.posts?.length) || (data.instagram?.recentMedia?.length)) {
         setLiveData(d => ({
           ...d,
@@ -1042,7 +1042,7 @@ const App = () => {
     setDestinyLoading(false);
   };
 
-  // â”€â”€ Competitor Intelligence fetch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Competitor Intelligence fetch 
   const fetchCompetitors = async () => {
     setCompetitorLoading(true);
     try {
@@ -1082,7 +1082,7 @@ const App = () => {
       else if (name === 'Google Analytics') result = await fetchGoogleAnalyticsData(creds);
       else if (name === 'Google Business') result = await fetchGoogleBusinessData(creds);
       else if (name === 'SurveyMonkey') result = await fetchSurveyMonkeyDirect(creds);
-      // Other platforms require a server-side proxy â€” mark synced but no live payload
+      // Other platforms require a server-side proxy  mark synced but no live payload
       if (result.success) {
         if (result.data && Object.keys(result.data).length > 0) setLiveData(d => ({ ...d, [name]: result.data }));
         const syncTime = new Date().toLocaleString();
@@ -1117,7 +1117,7 @@ const App = () => {
     else if (name === 'SurveyMonkey') testResult = await fetchSurveyMonkeyDirect(formData);
     setConnectTesting(false);
     if (!testResult.success) { setConnectError(`Connection failed: ${testResult.error}`); return; }
-    if (testResult.warning) { setConnectError(`âš ï¸ ${testResult.warning}`); }
+    if (testResult.warning) { setConnectError(` ${testResult.warning}`); }
     const syncTime = new Date().toLocaleString();
     const updated  = { ...connections, [name]: { ...formData, connected: true, lastSync: syncTime } };
     setConnections(updated);
@@ -1153,7 +1153,7 @@ const App = () => {
     setManualForm({});
   };
 
-  // â”€â”€ Import helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Import helpers 
   const detectTypeFromHeaders = (headers) => {
     const h = headers.map(x => x.toLowerCase().trim());
     if (h.some(x => x.includes('respondent') || x.includes('collector id'))) return 'Survey Results';
@@ -1255,7 +1255,7 @@ const App = () => {
     setPasteCSV('');
   };
 
-  // â”€â”€ AI Screenshot Scanner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  AI Screenshot Scanner 
   const handleScanFileSelect = (file) => {
     if (!file) return;
     const allowedTypes = ['image/png','image/jpeg','image/webp','image/gif'];
@@ -1400,12 +1400,12 @@ const App = () => {
 
     setScanApplied(applied > 0);
     setImportNotice(applied > 0
-      ? `âœ… AI scan applied â€” ${applied} data ${applied === 1 ? 'section' : 'sections'} updated from screenshot!`
-      : 'âš ï¸ No applicable metrics found. Try a screenshot with visible numbers.'
+      ? ` AI scan applied  ${applied} data ${applied === 1 ? 'section' : 'sections'} updated from screenshot!`
+      : ' No applicable metrics found. Try a screenshot with visible numbers.'
     );
   };
 
-  // â”€â”€ Historical metrics loader â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Historical metrics loader 
   const loadMetricsHistory = async (days = 90) => {
     setHistoryLoading(true);
     try {
@@ -1465,7 +1465,7 @@ const App = () => {
     a.download = `dmd-backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    setImportNotice('Backup downloaded â€” import this file on any device to restore all your data.');
+    setImportNotice('Backup downloaded  import this file on any device to restore all your data.');
   };
 
   const handleFileUpload = (file) => {
@@ -1477,7 +1477,7 @@ const App = () => {
       if (ext === 'json') {
         try {
           const parsed = JSON.parse(text);
-          // â”€â”€ Full backup restore â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          //  Full backup restore 
           if (parsed._dmdBackup === true) {
             const keys = ['dmd_destiny','dmd_review_platforms','dmd_manual','dmd_connections','dmd_wix','dmd_livedata'];
             keys.forEach(k => { if (parsed[k] != null) localStorage.setItem(k, JSON.stringify(parsed[k])); });
@@ -1488,10 +1488,10 @@ const App = () => {
             try { if (parsed.dmd_wix)              setWixData(parsed.dmd_wix); } catch(_){}
             try { if (parsed.dmd_destiny)          setDestinyData(parsed.dmd_destiny); } catch(_){}
             try { if (parsed.dmd_livedata)         setLiveData(parsed.dmd_livedata); } catch(_){}
-            setImportNotice(`âœ… Backup restored from ${file.name} â€” all data synced across device!`);
+            setImportNotice(` Backup restored from ${file.name}  all data synced across device!`);
             return;
           }
-          // â”€â”€ Regular JSON import â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          //  Regular JSON import 
           const rows = Array.isArray(parsed) ? parsed : [parsed];
           const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
           const type = detectTypeFromHeaders(headers);
@@ -1502,17 +1502,17 @@ const App = () => {
           setImportNotice('Invalid JSON file.');
         }
       } else {
-        // CSV / plain text â€” check for SurveyMonkey 2-row header format
+        // CSV / plain text  check for SurveyMonkey 2-row header format
         const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
         if (lines.length < 2) { setImportNotice('File needs at least a header row and one data row.'); return; }
         const firstCols = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
         const isSurveyMonkey = firstCols[0]?.includes('respondent') || firstCols[1]?.includes('collector');
         if (isSurveyMonkey) {
-          // Route to the SM parser â€” switch to survey mode and pre-fill paste area
+          // Route to the SM parser  switch to survey mode and pre-fill paste area
           setImportMode('survey');
           setSurveyParsed(null);
           setPasteCSV(text);
-          setImportNotice('SurveyMonkey file detected â€” click "Parse Survey" to review results before saving.');
+          setImportNotice('SurveyMonkey file detected  click "Parse Survey" to review results before saving.');
           setFileImportLog(prev => { const upd = [{ name: file.name, date: new Date().toLocaleString(), rows: lines.length - 2, type: 'SurveyMonkey' }, ...prev].slice(0, 100); localStorage.setItem('dmd_import_log', JSON.stringify(upd)); return upd; });
           return;
         }
@@ -1534,7 +1534,7 @@ const App = () => {
     reader.readAsText(file);
   };
 
-  // â”€â”€ Wix Analytics CSV import parser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Wix Analytics CSV import parser 
   const handleWixCsvUpload = (file) => {
     if (!file) return;
     const reader = new FileReader();
@@ -1587,7 +1587,7 @@ const App = () => {
     reader.readAsText(file);
   };
 
-  // â”€â”€ SurveyMonkey CSV Parser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  SurveyMonkey CSV Parser 
   const parseSurveyMonkeyCSV = (text) => {
     if (!text.trim()) { setImportNotice('Paste your SurveyMonkey CSV export first.'); return; }
 
@@ -1680,7 +1680,7 @@ const App = () => {
         const textMap = {};
         vals.filter(v => isNaN(parseFloat(v))).forEach(v => { textMap[v] = (textMap[v] || 0) + 1; });
         const topAnswers = Object.entries(textMap).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([answer, count]) => ({ answer, count }));
-        return { question: (c.q + (c.sub ? ' â€” ' + c.sub : '')).slice(0, 100), responseCount: vals.length, avg, topAnswers };
+        return { question: (c.q + (c.sub ? '  ' + c.sub : '')).slice(0, 100), responseCount: vals.length, avg, topAnswers };
       });
 
     setSurveyParsed({
@@ -1702,12 +1702,12 @@ const App = () => {
       localStorage.setItem('dmd_manual', JSON.stringify(updated));
       return updated;
     });
-    setImportNotice(`\u2705 Survey imported â€” ${surveyParsed.totalResponses} responses, NPS ${surveyParsed.npsScore ?? 'n/a'}`);
+    setImportNotice(`\u2705 Survey imported  ${surveyParsed.totalResponses} responses, NPS ${surveyParsed.npsScore ?? 'n/a'}`);
     setSurveyParsed(null);
     setPasteCSV('');
   };
 
-  // â”€â”€ AI Content Generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  AI Content Generator 
   const generateAIContent = () => {
     if (!aiTopic.trim()) { setAiOutput('Please enter a topic or brief before generating.'); return; }
     setAiGenerating(true);
@@ -1722,17 +1722,17 @@ const App = () => {
       'Empathetic':      ['We understand how difficult it can be', 'Your mental health matters deeply to us', 'Healing begins with compassionate care'],
       'Informational':   ['Did you know that', 'Research shows that', 'Understanding your mental health is the first step'],
       'Motivational':    ['You have the strength to heal', 'Every step toward wellness counts', "Recovery is a journey, and you're not alone"],
-      'Conversational':  ["Let's talk about", "Here's something we think you should know", 'We get it â€” life gets hard'],
-      'Urgent':          ["Don't wait to get the help you deserve", 'Appointments are filling fast â€” act now', 'Today is the day to prioritize your mental health'],
+      'Conversational':  ["Let's talk about", "Here's something we think you should know", 'We get it  life gets hard'],
+      'Urgent':          ["Don't wait to get the help you deserve", 'Appointments are filling fast  act now', 'Today is the day to prioritize your mental health'],
     };
     const opens = toneMap[tone] || toneMap['Empathetic'];
     const opener = opens[Math.floor(Math.random() * opens.length)];
 
     const platformHints = {
-      'Facebook':      'ðŸ‘‡ Share this with someone who needs to hear it. #MentalHealth #DestinySprings',
-      'Instagram':     'âœ¨ Save this post & tag a friend who needs support ðŸ’™\n#MentalHealthAwareness #HealingJourney #ArizonaHealthcare',
+      'Facebook':      ' Share this with someone who needs to hear it. #MentalHealth #DestinySprings',
+      'Instagram':     ' Save this post & tag a friend who needs support \n#MentalHealthAwareness #HealingJourney #ArizonaHealthcare',
       'LinkedIn':      'At Destiny Springs Healthcare, we believe mental wellness drives personal and professional success.',
-      'TikTok':        'ðŸŽµ Drop a â¤ï¸ if this resonates! Follow for more mental health tips from our team. #MentalHealthTok #DestinySpringsDMD',
+      'TikTok':        ' Drop a  if this resonates! Follow for more mental health tips from our team. #MentalHealthTok #DestinySpringsDMD',
       'Email':         'As a valued member of the Destiny Springs community, we want to share something important with you.',
       'Website Blog':  'At Destiny Springs Healthcare, our multidisciplinary team is dedicated to providing evidence-based mental health treatment in Arizona.',
     };
@@ -1740,17 +1740,17 @@ const App = () => {
 
     let output = '';
     if (type === 'Social Post') {
-      output = `${opener} ${topic}.\n\nAt Destiny Springs Healthcare, our compassionate team provides personalized mental health care for individuals and families across Arizona.\n\nðŸ“ Scottsdale, AZ | ðŸŒ destinyspringshealthcare.com | ðŸ“ž Call to schedule\n\n${platformLine}`;
+      output = `${opener} ${topic}.\n\nAt Destiny Springs Healthcare, our compassionate team provides personalized mental health care for individuals and families across Arizona.\n\n Scottsdale, AZ |  destinyspringshealthcare.com |  Call to schedule\n\n${platformLine}`;
     } else if (type === 'Blog Brief') {
-      output = `BLOG TITLE: "${topic}: What You Need to Know"\n\nINTRO: ${opener} ${topic}. This post explores key insights for patients and families seeking mental health support.\n\nH2 SECTIONS:\n1. Understanding ${topic}\n2. How Destiny Springs Healthcare approaches ${topic}\n3. Treatment options and what to expect\n4. Resources and next steps\n\nCTA: Schedule a consultation at destinyspringshealthcare.com\nWORD COUNT TARGET: 800â€“1,200 words\nSEO TAGS: mental health Arizona, ${topic.toLowerCase()}, Scottsdale psychiatry`;
+      output = `BLOG TITLE: "${topic}: What You Need to Know"\n\nINTRO: ${opener} ${topic}. This post explores key insights for patients and families seeking mental health support.\n\nH2 SECTIONS:\n1. Understanding ${topic}\n2. How Destiny Springs Healthcare approaches ${topic}\n3. Treatment options and what to expect\n4. Resources and next steps\n\nCTA: Schedule a consultation at destinyspringshealthcare.com\nWORD COUNT TARGET: 8001,200 words\nSEO TAGS: mental health Arizona, ${topic.toLowerCase()}, Scottsdale psychiatry`;
     } else if (type === 'Email Subject Line') {
-      output = `Subject Line Options for "${topic}":\n\n1. "${opener.replace(/,$/,'')}: ${topic}"\n2. "Your guide to ${topic} â€” from Destiny Springs Healthcare"\n3. "Ready to take the next step? Let's talk about ${topic}"\n4. "New resources available: ${topic} support at Destiny Springs"\n5. "You deserve this â€” ${topic} care tailored for you"\n\nPreheader: Compassionate, evidence-based mental health care in Arizona.`;
+      output = `Subject Line Options for "${topic}":\n\n1. "${opener.replace(/,$/,'')}: ${topic}"\n2. "Your guide to ${topic}  from Destiny Springs Healthcare"\n3. "Ready to take the next step? Let's talk about ${topic}"\n4. "New resources available: ${topic} support at Destiny Springs"\n5. "You deserve this  ${topic} care tailored for you"\n\nPreheader: Compassionate, evidence-based mental health care in Arizona.`;
     } else if (type === 'Ad Copy') {
-      output = `HEADLINE: ${topic} â€” Expert Care in Scottsdale, AZ\n\nBODY: ${opener} ${topic}. Destiny Springs Healthcare offers personalized, evidence-based treatment from a team that truly cares. New patients welcome. Most insurance accepted.\n\nCTA: Book Your Free Consultation\nURLslug: destinyspringshealthcare.com/appointments\n\nCHARACTER COUNT (approx): Headline 60 | Body 145\nPLATFORM: ${platform}`;
+      output = `HEADLINE: ${topic}  Expert Care in Scottsdale, AZ\n\nBODY: ${opener} ${topic}. Destiny Springs Healthcare offers personalized, evidence-based treatment from a team that truly cares. New patients welcome. Most insurance accepted.\n\nCTA: Book Your Free Consultation\nURLslug: destinyspringshealthcare.com/appointments\n\nCHARACTER COUNT (approx): Headline 60 | Body 145\nPLATFORM: ${platform}`;
     } else if (type === 'TikTok Script') {
-      output = `ðŸŽ¬ TIKTOK SCRIPT â€” "${topic}"\nDURATION: 30â€“60 seconds | TONE: ${tone}\n\n[HOOK - 0-3s]\n"${toneMap['Urgent'][0]} â€” especially when it comes to ${topic}."\n\n[CONTENT - 3-25s]\n"${opener} ${topic}. At Destiny Springs Healthcare in Scottsdale, AZ, our team specializes in helping people [benefit related to ${topic}]. Here are 3 things to know: [Point 1], [Point 2], [Point 3]."\n\n[CTA - 25-30s]\n"Follow us for more mental health tips, and drop a â¤ï¸ if this helped. Book at the link in bio."\n\n#MentalHealth #DestinySprings #${topic.replace(/\s+/g,'')} #AZHealthcare`;
+      output = ` TIKTOK SCRIPT  "${topic}"\nDURATION: 3060 seconds | TONE: ${tone}\n\n[HOOK - 0-3s]\n"${toneMap['Urgent'][0]}  especially when it comes to ${topic}."\n\n[CONTENT - 3-25s]\n"${opener} ${topic}. At Destiny Springs Healthcare in Scottsdale, AZ, our team specializes in helping people [benefit related to ${topic}]. Here are 3 things to know: [Point 1], [Point 2], [Point 3]."\n\n[CTA - 25-30s]\n"Follow us for more mental health tips, and drop a  if this helped. Book at the link in bio."\n\n#MentalHealth #DestinySprings #${topic.replace(/\s+/g,'')} #AZHealthcare`;
     } else if (type === 'Caption + Hashtags') {
-      output = `CAPTION:\n${opener} ${topic}.\n\nDestiny Springs Healthcare is here to support your mental health journey every step of the way. Whether you're seeking help for the first time or continuing your wellness path â€” you belong here. ðŸ’™\n\nðŸ“ Scottsdale, AZ | Link in bio to schedule\n\nHASHTAGS:\n#DestinySprings #MentalHealthAwareness #${topic.replace(/\s+/g,'')} #ArizonaMentalHealth #HealingJourney #PsychiatryScottsdale #MindfulRecovery #MentalWellness #BreakTheStigma #YouAreNotAlone`;
+      output = `CAPTION:\n${opener} ${topic}.\n\nDestiny Springs Healthcare is here to support your mental health journey every step of the way. Whether you're seeking help for the first time or continuing your wellness path  you belong here. \n\n Scottsdale, AZ | Link in bio to schedule\n\nHASHTAGS:\n#DestinySprings #MentalHealthAwareness #${topic.replace(/\s+/g,'')} #ArizonaMentalHealth #HealingJourney #PsychiatryScottsdale #MindfulRecovery #MentalWellness #BreakTheStigma #YouAreNotAlone`;
     }
 
     setTimeout(() => {
@@ -1759,7 +1759,7 @@ const App = () => {
     }, 600);
   };
 
-  // â”€â”€ AI data analysis â€” Sir Clicks-a-Lot reads your imported data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  AI data analysis  Sir Clicks-a-Lot reads your imported data 
   const analyzeData = async () => {
     setAiInsightsLoading(true);
     setAiInsights('');
@@ -1774,13 +1774,13 @@ const App = () => {
     const cpl = totalLeads > 0 ? (totalSpend / totalLeads).toFixed(2) : 'N/A';
     const platformRatings = Object.entries(reviewPlatformData)
       .filter(([, p]) => p.rating && Number(p.rating) > 0)
-      .map(([k, p]) => `${k}: ${p.rating}â˜… (${p.count || '?'} reviews)`)
+      .map(([k, p]) => `${k}: ${p.rating} (${p.count || '?'} reviews)`)
       .join(', ') || 'none entered';
-    const wixSess   = wixData?.sessions   || 'â€”';
-    const wixBounce = wixData?.bounceRate ? wixData.bounceRate + '%' : 'â€”';
+    const wixSess   = wixData?.sessions   || '';
+    const wixBounce = wixData?.bounceRate ? wixData.bounceRate + '%' : '';
     const googleRating = destinyData?.bestRating?.rating || destinyData?.googleSearch?.rating || destinyData?.google?.rating || 'not yet fetched';
     const summary = [
-      `Business: Destiny Springs Healthcare â€” mental health clinic, Scottsdale AZ`,
+      `Business: Destiny Springs Healthcare  mental health clinic, Scottsdale AZ`,
       `Google/auto rating: ${googleRating}`,
       `Platform ratings: ${platformRatings}`,
       `Ad spend records: ${adSpend.length} entries | total spend: $${totalSpend.toFixed(0)} | total leads: ${totalLeads} | cost per lead: $${cpl}`,
@@ -1797,19 +1797,19 @@ const App = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          systemPrompt: 'You are Captain KPI ðŸ«¡ â€” a witty but sharp marketing analytics assistant for Destiny Springs Healthcare (mental health clinic, Scottsdale AZ). Analyze the dashboard data and provide 5-7 concise bullet-point insights with specific, actionable recommendations. Be direct and occasionally funny but genuinely useful. Use bullet points (â€¢) for each insight.',
+          systemPrompt: 'You are Captain KPI   a witty but sharp marketing analytics assistant for Destiny Springs Healthcare (mental health clinic, Scottsdale AZ). Analyze the dashboard data and provide 5-7 concise bullet-point insights with specific, actionable recommendations. Be direct and occasionally funny but genuinely useful. Use bullet points () for each insight.',
           messages: [{ role: 'user', content: `Here is the current Destiny Springs Healthcare marketing dashboard data:\n\n${summary}\n\nProvide your analysis of what's working, what needs attention, and your top action items.` }],
         }),
       });
       const { reply, error } = await r.json();
-      setAiInsights(error ? `âš ï¸ ${error}` : reply);
+      setAiInsights(error ? ` ${error}` : reply);
     } catch {
-      setAiInsights('âš ï¸ Could not reach AI. Make sure GEMINI_API_KEY is set in Vercel environment variables. Get a free key at aistudio.google.com');
+      setAiInsights(' Could not reach AI. Make sure GEMINI_API_KEY is set in Vercel environment variables. Get a free key at aistudio.google.com');
     }
     setAiInsightsLoading(false);
   };
 
-  // â”€â”€ Sir Clicks-a-Lot chat message sender â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Sir Clicks-a-Lot chat message sender 
   const sendChatMessage = async (prefill) => {
     const text = (prefill || chatInput).trim();
     if (!text || chatLoading) return;
@@ -1819,7 +1819,7 @@ const App = () => {
     setChatInput('');
     setChatLoading(true);
 
-    // â”€â”€ Build rich context snapshot for Captain KPI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Build rich context snapshot for Captain KPI 
     const adSpend    = manualData.ad_spend || [];
     const totalSpend = adSpend.reduce((s, e) => s + (Number(e.spend) || 0), 0);
     const totalLeads = adSpend.reduce((s, e) => s + (Number(e.leads) || 0), 0);
@@ -1853,7 +1853,7 @@ const App = () => {
     // Reviews breakdown
     const platformReviewStr = Object.entries(reviewPlatformData)
       .filter(([, v]) => v?.rating)
-      .map(([k, v]) => `${k} ${v.rating}â˜… (${v.count || '?'} reviews)`)
+      .map(([k, v]) => `${k} ${v.rating} (${v.count || '?'} reviews)`)
       .join(', ');
 
     // Destiny Springs auto-profile data
@@ -1867,9 +1867,9 @@ const App = () => {
     // Recent news saved
     const newsStr = (newsItems || []).slice(0, 3).map(n => n.title).join(' | ');
 
-    const systemPrompt = `You are Captain KPI ðŸ«¡ â€” a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a behavioral health / mental health clinic in Scottsdale/Surprise AZ. Be helpful, specific, and occasionally funny but always professional. Keep responses under 250 words unless asked for more. Use bullet points for lists.
+    const systemPrompt = `You are Captain KPI   a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a behavioral health / mental health clinic in Scottsdale/Surprise AZ. Be helpful, specific, and occasionally funny but always professional. Keep responses under 250 words unless asked for more. Use bullet points for lists.
 
-â•â• LIVE DASHBOARD DATA â•â•
+ LIVE DASHBOARD DATA 
 
 BUSINESS PROFILE:
 - Phone: ${dsPhone} | Address: ${dsAddr}
@@ -1879,41 +1879,41 @@ BUSINESS PROFILE:
 - Social profiles: ${dsSocials}
 
 REVIEW PLATFORM SCORES:
-${platformReviewStr || 'No platform review data loaded yet â€” user can fetch from Reviews tab.'}
+${platformReviewStr || 'No platform review data loaded yet  user can fetch from Reviews tab.'}
 
 WEBSITE TRAFFIC (Wix/GA4):
-- Sessions: ${_wix.sessions || _ga.sessions || 'â€”'}
-- Bounce rate: ${_wix.bounceRate || _ga.bounceRate || 'â€”'}%
-- Avg session duration: ${_ga.avgDuration || 'â€”'}
-- New users: ${_ga.newUsers || 'â€”'}
-- Traffic sources: ${trafficSources || 'not loaded â€” user can enter in Settings â†’ Wix Analytics fields'}
-- Conversions: ${_ga.conversions || 'â€”'}
+- Sessions: ${_wix.sessions || _ga.sessions || ''}
+- Bounce rate: ${_wix.bounceRate || _ga.bounceRate || ''}%
+- Avg session duration: ${_ga.avgDuration || ''}
+- New users: ${_ga.newUsers || ''}
+- Traffic sources: ${trafficSources || 'not loaded  user can enter in Settings  Wix Analytics fields'}
+- Conversions: ${_ga.conversions || ''}
 
 FACEBOOK / INSTAGRAM (Meta Business Suite):
-- Page fans/likes: ${_meta.fanCount || _meta.fans || 'â€”'}
-- Instagram followers: ${_meta.instagramFollowers || 'â€”'}
+- Page fans/likes: ${_meta.fanCount || _meta.fans || ''}
+- Instagram followers: ${_meta.instagramFollowers || ''}
 - Recent FB posts: ${(_meta.fbPosts || []).length > 0 ? `${_meta.fbPosts.length} loaded, top post ${_meta.fbPosts[0]?.likes || 0} likes` : 'not loaded'}
 - Recent IG posts: ${(_meta.igPosts || []).length > 0 ? `${_meta.igPosts.length} loaded` : 'not loaded'}
 - Connected: ${connections['Meta Business Suite']?.connected ? 'yes' : 'no'}
 
 TIKTOK:
-- Followers: ${_tik.followers || 'â€”'} | Videos: ${_tik.videoCount || 'â€”'} | Total views: ${_tik.totalViews || 'â€”'}
+- Followers: ${_tik.followers || ''} | Videos: ${_tik.videoCount || ''} | Total views: ${_tik.totalViews || ''}
 - Connected: ${connections['TikTok for Business']?.connected ? 'yes' : 'no'}
 
 EMAIL (Mailchimp):
-- List: ${_mail.listName || 'â€”'} | Subscribers: ${_mail.subscribers || 'â€”'}
-- Open rate: ${_mail.openRate || 'â€”'} | Click rate: ${_mail.clickRate || 'â€”'}
-- Total campaigns: ${_mail.totalCampaigns || 'â€”'}
+- List: ${_mail.listName || ''} | Subscribers: ${_mail.subscribers || ''}
+- Open rate: ${_mail.openRate || ''} | Click rate: ${_mail.clickRate || ''}
+- Total campaigns: ${_mail.totalCampaigns || ''}
 - Connected: ${connections['Mailchimp']?.connected ? 'yes' : 'no'}
 
-YOUTUBE: subscribers ${_yt.subscribers || 'â€”'}, views ${_yt.totalViews || 'â€”'}
-YELP: ${_yelp.rating ? `${_yelp.rating}â˜… (${_yelp.reviewCount || '?'} reviews)` : 'not connected'}
-GOOGLE BUSINESS: searches ${_gb.searches || 'â€”'}, direction requests ${_gb.directionRequests || 'â€”'}
+YOUTUBE: subscribers ${_yt.subscribers || ''}, views ${_yt.totalViews || ''}
+YELP: ${_yelp.rating ? `${_yelp.rating} (${_yelp.reviewCount || '?'} reviews)` : 'not connected'}
+GOOGLE BUSINESS: searches ${_gb.searches || ''}, direction requests ${_gb.directionRequests || ''}
 
 PAID ADS: ${adSpend.length} records, total $${totalSpend.toFixed(0)} spend, ${totalLeads} leads${totalLeads > 0 ? `, CPL $${(totalSpend/totalLeads).toFixed(0)}` : ''}
 
 CONTENT CALENDAR: ${contentItems?.length || 0} items scheduled
-SOCIAL METRICS (last 3 entries): ${socialRows.length > 0 ? socialRows.map(r => `${r.platform || ''} ${r.month || ''}: followers ${r.followers || 'â€”'}, reach ${r.reach || 'â€”'}`).join(' | ') : 'none entered'}
+SOCIAL METRICS (last 3 entries): ${socialRows.length > 0 ? socialRows.map(r => `${r.platform || ''} ${r.month || ''}: followers ${r.followers || ''}, reach ${r.reach || ''}`).join(' | ') : 'none entered'}
 COMPETITOR INTEL: ${competitors || 'not loaded'}
 SAVED INTEL URLS: ${savedUrlsStr || 'none'}
 RECENT NEWS: ${newsStr || 'none loaded'}
@@ -1922,15 +1922,15 @@ POTENTIAL REFERRAL SOURCES TO SUGGEST (even without live data):
 - Primary care physicians, psychiatrists, therapists in Scottsdale/Surprise/Peoria AZ
 - Employee Assistance Programs (EAPs): Aetna, UHC, CIGNA
 - AZ DES / ADHS (Arizona behavioral health referrals)
-- VA (veterans mental health referrals) â€” VA Phoenix HCS
+- VA (veterans mental health referrals)  VA Phoenix HCS
 - Schools/universities: ASU, GCU, Maricopa Community Colleges
 - Hospitals: HonorHealth, Banner Health, Dignity Health in the West Valley
-- Crisis lines: 988 Suicide & Crisis Lifeline â€” can cross-refer
+- Crisis lines: 988 Suicide & Crisis Lifeline  can cross-refer
 - Online directories: Psychology Today, SAMHSA locator, ZocDoc, Headway
 - Insurance case managers: BCBS AZ, Mercy Care, UHC Community Plan
 - Faith communities, community health centers, FQHC partners in Maricopa County
 
-Always give actionable, specific suggestions. You HAVE the data above â€” use it. Never say you lack access to data.`;
+Always give actionable, specific suggestions. You HAVE the data above  use it. Never say you lack access to data.`;
 
     try {
       const r = await fetch('/api/chat', {
@@ -1944,7 +1944,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
       const { reply, error } = await r.json();
       setChatMessages(m => [...m, { role: 'assistant', content: error ? `Oops: ${error}` : reply }]);
     } catch {
-      setChatMessages(m => [...m, { role: 'assistant', content: "My circuits are jammed! ðŸ”§ Make sure GEMINI_API_KEY is set in your Vercel project. Get a free key at aistudio.google.com â€” I'll be back once fed." }]);
+      setChatMessages(m => [...m, { role: 'assistant', content: "My circuits are jammed!  Make sure GEMINI_API_KEY is set in your Vercel project. Get a free key at aistudio.google.com  I'll be back once fed." }]);
     }
     setChatLoading(false);
   };
@@ -2074,7 +2074,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     if (!fetchedAt || (Date.now() - fetchedAt) > STALE_MS) fetchCompetitors();
     const timer = setInterval(fetchCompetitors, STALE_MS);
     return () => clearInterval(timer);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps 
   const grid     = darkMode ? '#1e293b' : '#f1f5f9';
   const tick     = darkMode ? '#94a3b8' : '#64748b';
   const tipStyle = {
@@ -2084,24 +2084,24 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
   };
 
-  // â”€â”€ Core KPI Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Core KPI Metrics 
   const metrics = {
-    googleScore: 'â€”',
+    googleScore: '',
     googleTrend: null,
-    nps: 'â€”',
-    promoters: 'â€”',
-    socialPostsMonthly: 'â€”',
-    blogVelocity: 'â€”',
-    tiktokVelocity: 'â€”',
-    videoViews: 'â€”',
-    seoStatewideGrowth: 'â€”',
-    avgReadTime: 'â€”',
-    siteConversion: 'â€”',
-    wixSessions: 'â€”',
-    wixBounceRate: 'â€”',
-    emailOpenRate: 'â€”',
-    costPerLead: 'â€”',
-    totalLeads: 'â€”',
+    nps: '',
+    promoters: '',
+    socialPostsMonthly: '',
+    blogVelocity: '',
+    tiktokVelocity: '',
+    videoViews: '',
+    seoStatewideGrowth: '',
+    avgReadTime: '',
+    siteConversion: '',
+    wixSessions: '',
+    wixBounceRate: '',
+    emailOpenRate: '',
+    costPerLead: '',
+    totalLeads: '',
     leadsGrowth: null,
   };
   const toNum = (v) => {
@@ -2109,7 +2109,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     return Number.isFinite(n) ? n : 0;
   };
 
-  // â”€â”€ Derived data from manual entries & live integrations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Derived data from manual entries & live integrations 
   const _reviews    = manualData.reviews       || [];
   const _socialMet  = manualData.social_metrics || [];
   const _adSpend    = manualData.ad_spend       || [];
@@ -2272,35 +2272,35 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
   })();
   // Patch placeholder metrics with computed values
   Object.assign(metrics, {
-    googleScore:        _avgRating ? _avgRating + ' â˜…' : 'â€”',
-    nps:                _latestSurvey?.npsScore != null ? String(_latestSurvey.npsScore) : (_smLive?.npsScore != null ? String(_smLive.npsScore) : (_reviewNpsBreakdown ? String(_reviewNpsBreakdown.score) : 'â€”')),
-    videoViews:         toNum(_tikLive.recentViews || _ttLive.recentViews) > 0 ? Math.round(toNum(_tikLive.recentViews || _ttLive.recentViews)).toLocaleString() : 'â€”',
-    tiktokVelocity:     (_tiktokPosts.length || toNum(_tikLive.recentPosts) || toNum(_ttLive.videos)) ? String(_tiktokPosts.length || toNum(_tikLive.recentPosts) || toNum(_ttLive.videos)) : 'â€”',
-    socialPostsMonthly: _socialMet.reduce((s, e) => s + toNum(e.posts), 0) || 'â€”',
-    blogVelocity:       contentItems.filter(c => String(c.type || '').toLowerCase() === 'blog').length || 'â€”',
+    googleScore:        _avgRating ? _avgRating + ' ' : '',
+    nps:                _latestSurvey?.npsScore != null ? String(_latestSurvey.npsScore) : (_smLive?.npsScore != null ? String(_smLive.npsScore) : (_reviewNpsBreakdown ? String(_reviewNpsBreakdown.score) : '')),
+    videoViews:         toNum(_tikLive.recentViews || _ttLive.recentViews) > 0 ? Math.round(toNum(_tikLive.recentViews || _ttLive.recentViews)).toLocaleString() : '',
+    tiktokVelocity:     (_tiktokPosts.length || toNum(_tikLive.recentPosts) || toNum(_ttLive.videos)) ? String(_tiktokPosts.length || toNum(_tikLive.recentPosts) || toNum(_ttLive.videos)) : '',
+    socialPostsMonthly: _socialMet.reduce((s, e) => s + toNum(e.posts), 0) || '',
+    blogVelocity:       contentItems.filter(c => String(c.type || '').toLowerCase() === 'blog').length || '',
     wixSessions:        toNum(_gaLive.sessions) > 0 ? Math.round(toNum(_gaLive.sessions)).toLocaleString()
-              : toNum(_wixLive.sessions) > 0 ? Math.round(toNum(_wixLive.sessions)).toLocaleString() : 'â€”',
+              : toNum(_wixLive.sessions) > 0 ? Math.round(toNum(_wixLive.sessions)).toLocaleString() : '',
     wixBounceRate:      toNum(_gaLive.bounceRate) > 0 ? `${toNum(_gaLive.bounceRate).toFixed(1)}%`
-              : toNum(_wixLive.bounceRate) > 0 ? `${toNum(_wixLive.bounceRate).toFixed(1)}%` : 'â€”',
+              : toNum(_wixLive.bounceRate) > 0 ? `${toNum(_wixLive.bounceRate).toFixed(1)}%` : '',
     emailOpenRate:      toNum(_mailLive.openRate) > 0 ? `${toNum(_mailLive.openRate).toFixed(1)}%`
-              : _emailStats.length ? (_emailStats.reduce((s, e) => s + (toNum(e.sent) ? toNum(e.opened) / toNum(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : 'â€”',
-    costPerLead:        (_totalSpend && _totalLeads) ? '$' + (_totalSpend / _totalLeads).toFixed(0) : 'â€”',
-    totalLeads:         _totalLeads || 'â€”',
+              : _emailStats.length ? (_emailStats.reduce((s, e) => s + (toNum(e.sent) ? toNum(e.opened) / toNum(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : '',
+    costPerLead:        (_totalSpend && _totalLeads) ? '$' + (_totalSpend / _totalLeads).toFixed(0) : '',
+    totalLeads:         _totalLeads || '',
     siteConversion:     (() => {
       const sessions = Number((_gaLive.sessions || _wixLive.sessions || '').toString().replace(/,/g, ''));
       return (sessions > 0 && _totalLeads > 0)
         ? (_totalLeads / sessions * 100).toFixed(2) + '%'
-        : 'â€”';
+        : '';
     })(),
   });
 
-  // â”€â”€ Monthly Trend (from ad spend + social manual entries) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Monthly Trend (from ad spend + social manual entries) 
   const _trendMap = {};
   _socialMet.forEach(e => { if (!e.month) return; if (!_trendMap[e.month]) _trendMap[e.month] = { month: e.month, sessions: 0, reach: 0, leads: 0 }; _trendMap[e.month].reach += Number(e.reach || 0); });
   _adSpend.forEach(e  => { if (!e.month) return; if (!_trendMap[e.month]) _trendMap[e.month] = { month: e.month, sessions: 0, reach: 0, leads: 0 }; _trendMap[e.month].leads += Number(e.leads || 0); });
   const monthlyTrend = Object.values(_trendMap).sort((a, b) => a.month.localeCompare(b.month)).slice(-6);
 
-  // â”€â”€ Social Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Social Analytics 
   const socialAnalytics = [
     { platform: 'Facebook',  color: '#1877F2', reach: Number(_latestSocial['Facebook']?.reach  || _metaLive.reach   || 0), engagement: Number(_latestSocial['Facebook']?.engagement  || 0), clicks: Number(_latestSocial['Facebook']?.clicks  || 0), followers: Number(_fbLive.followers || _latestSocial['Facebook']?.followers  || _metaLive.fanCount || 0), posts: null,  videos: null, totalLikes: Number(_fbLive.likes     || 0) },
     { platform: 'Instagram', color: '#E4405F', reach: Number(_latestSocial['Instagram']?.reach || 0),                      engagement: Number(_latestSocial['Instagram']?.engagement || 0), clicks: Number(_latestSocial['Instagram']?.clicks || 0), followers: Number(_igLive.followers || _metaLive.igFollowers || _latestSocial['Instagram']?.followers || 0), posts: Number(_igLive.posts || _metaLive.igMediaCount || 0), videos: null, totalLikes: null },
@@ -2308,7 +2308,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     { platform: 'TikTok',    color: '#00f2ea', reach: Number(_latestSocial['TikTok']?.reach    || _tikLive.recentViews || 0), engagement: 0, clicks: 0, followers: Number(_ttLive.followers || _tikLive.followers || _latestSocial['TikTok']?.followers || 0), posts: null, videos: Number(_ttLive.videos || _tikLive.videos || 0), totalLikes: Number(_ttLive.likes || _tikLive.totalLikes || 0) },
   ];
 
-  // â”€â”€ Weekly Engagement Trend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Weekly Engagement Trend 
   const weeklyEngagement = (() => {
     const map = {};
     _socialMet.forEach(e => {
@@ -2325,7 +2325,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     return Object.values(map).slice(-4);
   })();
 
-  // â”€â”€ Wix Traffic Sources â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Wix Traffic Sources 
   const wixSources = [
     { name: 'Organic Search', value: Number(_wixLive.organic)  || 0, color: '#0d9488' },
     { name: 'Social Media',   value: Number(_wixLive.social)   || 0, color: '#8b5cf6' },
@@ -2333,7 +2333,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     { name: 'Referral',       value: Number(_wixLive.referral) || 0, color: '#f59e0b' },
   ];
 
-  // â”€â”€ AZ Regional Traffic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  AZ Regional Traffic 
   const regionalTraffic = [
     { city: 'Phoenix',        traffic: 0 },
     { city: 'Tucson',         traffic: 0 },
@@ -2342,19 +2342,19 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     { city: 'Rest of AZ',     traffic: 0 },
   ];
 
-  // â”€â”€ Website Video Tracing / UX Depth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Website Video Tracing / UX Depth 
   const pathData = [];
 
-  // â”€â”€ SEO Keyword Rankings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  SEO Keyword Rankings 
   const seoKeywords = _seoData.map(e => ({
-    keyword: e.keyword  || 'â€”',
+    keyword: e.keyword  || '',
     pos:     Number(e.rank      || 0),
     change:  Number(e.prevRank  || 0) - Number(e.rank || 0),
     volume:  Number(e.searchVol || 0),
     clicks:  Number(e.clicks    || 0),
   }));
 
-  // â”€â”€ Blog Performance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Blog Performance 
   const blogPosts = contentItems
     .filter(c => String(c.type || '').toLowerCase() === 'blog')
     .slice()
@@ -2367,7 +2367,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
       shares: toNum(c.shares),
     }));
 
-  // â”€â”€ Email Campaign Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Email Campaign Metrics 
   const emailCampaigns = _emailStats.map(e => ({
     campaign:  e.campaign || 'Campaign',
     sent:      Number(e.sent     || 0),
@@ -2378,7 +2378,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     date:      e.date || '',
   }));
 
-  // â”€â”€ Ad Performance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Ad Performance 
   const adPerformance = _adSpend.map(e => ({
     platform:    e.platform || 'Platform',
     spend:       Number(e.spend  || 0),
@@ -2391,7 +2391,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
   }));
   const _totalImpressions = _adSpend.reduce((s,e)=>s+Number(e.impressions||0),0);
 
-  // â”€â”€ NPS Breakdown â€” pulls from latest imported survey or SurveyMonkey live data â”€
+  //  NPS Breakdown  pulls from latest imported survey or SurveyMonkey live data 
   const _npsSource = _latestSurvey?.npsBreakdown ? _latestSurvey : (_smLive?.npsBreakdown ? _smLive : (_reviewNpsBreakdown ? { npsBreakdown: _reviewNpsBreakdown } : null));
   const npsData = _npsSource?.npsBreakdown ? [
     { name: 'Promoters',  value: _npsSource.npsBreakdown.promoters,  color: '#10b981' },
@@ -2403,10 +2403,10 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     { name: 'Detractors', value: 0, color: '#ef4444' },
   ];
 
-  // â”€â”€ Upcoming Tasks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Upcoming Tasks 
   const pipeline = [];
 
-  // â”€â”€ My Achievements data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  My Achievements data 
   // Social Posts: sum of ALL platform post/video counts for Destiny Springs
   const _igPostCount   = Number(_metaLive.igMediaCount || destinyData?.instagram?.posts || _igLive.posts || 0);
   const _fbPostCount   = Number(destinyData?.facebook?.posts || (_metaLive.fbPosts?.length > 0 ? _metaLive.fbPosts.length : 0));
@@ -2453,7 +2453,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     { skill: 'Video',        score: 0 },
   ];
 
-  // â”€â”€ Client ROI data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Client ROI data 
   const _roiSettings    = manualData.roi_settings || {};
   const _avgLeadValue   = Number(_roiSettings.avg_lead_value  || 0);
   const _agencyRetainer = Number(_roiSettings.agency_retainer || 0);
@@ -2482,11 +2482,11 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     }));
 
   // Per-channel CPL / ROI helpers
-  const _calcCpl = (spend, leads) => leads > 0 ? (spend > 0 ? '$' + (spend / leads).toFixed(0) : '$0') : 'â€”';
+  const _calcCpl = (spend, leads) => leads > 0 ? (spend > 0 ? '$' + (spend / leads).toFixed(0) : '$0') : '';
   const _calcRoi = (leads, spend) =>
     _avgLeadValue > 0 && leads > 0
-      ? spend > 0 ? ((leads * _avgLeadValue / spend) * 100).toFixed(0) + '%' : 'âˆž'
-      : 'â€”';
+      ? spend > 0 ? ((leads * _avgLeadValue / spend) * 100).toFixed(0) + '%' : ''
+      : '';
 
   const _gaLeads    = _adSpend.filter(e => e.platform === 'Google Ads').reduce((s, e) => s + Number(e.leads || 0), 0);
   const _gaSpend    = _adSpend.filter(e => e.platform === 'Google Ads').reduce((s, e) => s + Number(e.spend || 0), 0);
@@ -2504,14 +2504,14 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
 
   // Top-level ROI summary
   const _revenuePotential = _totalLeads > 0 && _avgLeadValue > 0 ? _totalLeads * _avgLeadValue : 0;
-  const _blendedRoi       = _totalSpend > 0 && _revenuePotential > 0 ? ((_revenuePotential / _totalSpend) * 100).toFixed(0) + '%' : 'â€”';
-  const _agencySavings    = _agencyRetainer > 0 && _totalSpend > 0 ? '$' + (_agencyRetainer - _totalSpend).toLocaleString() : 'â€”';
+  const _blendedRoi       = _totalSpend > 0 && _revenuePotential > 0 ? ((_revenuePotential / _totalSpend) * 100).toFixed(0) + '%' : '';
+  const _agencySavings    = _agencyRetainer > 0 && _totalSpend > 0 ? '$' + (_agencyRetainer - _totalSpend).toLocaleString() : '';
 
-  // â”€â”€ Content Calendar data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Content Calendar data 
   const calendarTypes = ['All', 'Blog', 'Social', 'TikTok', 'Email'];
   const filteredContent = calFilter === 'All' ? contentItems : contentItems.filter(c => c.type === calFilter);
 
-  // â”€â”€ Calendar view helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Calendar view helpers 
   const parseItemDate = (dateStr) => {
     if (!dateStr) return null;
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return new Date(dateStr + 'T12:00:00');
@@ -2532,7 +2532,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
   const _calWeekDays   = Array.from({ length: 7 }, (_, i) => { const d = new Date(_calWeekStart); d.setDate(_calWeekStart.getDate() + i); return d; });
   const _calToday      = (() => { const d = new Date(); d.setHours(12, 0, 0, 0); return d; })();
   const _calNavLabel   = calView === 'week'
-    ? `${_calWeekDays[0].toLocaleDateString('default', { month: 'short', day: 'numeric' })} â€“ ${_calWeekDays[6].toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    ? `${_calWeekDays[0].toLocaleDateString('default', { month: 'short', day: 'numeric' })}  ${_calWeekDays[6].toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}`
     : _calAnchor.toLocaleString('default', { month: 'long', year: 'numeric' });
   const navigateCal = (dir) => {
     const d = new Date(calViewDate + 'T12:00:00');
@@ -2556,7 +2556,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     idea:      'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
   };
 
-  // â”€â”€ Review Management data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Review Management data 
   const recentReviews = _reviews.slice().reverse().slice(0, 8).map(r => ({
     author:    r.name || 'Anonymous',
     rating:    Number(r.rating) || 5,
@@ -2582,7 +2582,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     status: 'pending',
   }));
 
-  // â”€â”€ Integrations data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Integrations data 
   const integrationsBase = [
     { name: 'Google Analytics',    sub: 'GA4 + Search Console',    icon: BarChart3,  color: 'text-orange-500', metrics: ['Sessions', 'Bounce Rate', 'Conversions', 'Keywords']       },
     { name: 'Google Business',     sub: 'Reviews & Rating Feed',   icon: Star,       color: 'text-amber-500',  metrics: ['Rating', 'Reviews', 'Searches', 'Direction Requests']     },
@@ -2612,7 +2612,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     setShowAddPost(false);
   };
 
-  // â”€â”€ Helper Components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Helper Components 
   const StatCard = ({ title, value, trend, icon: Icon, color, sub, trendPositive, onClick }) => {
     const isPositive = trend && (trendPositive !== undefined ? trendPositive : trend.startsWith('+'));
     const isNeutral  = trend && trend === '0%';
@@ -2689,7 +2689,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
     { id: 'ai-tools',     label: 'AI Tools',      icon: Bot         },
   ];
 
-  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Render 
   return (
     <div className="dashboard-shell font-sans">
 
@@ -2707,7 +2707,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           {!sidebarCollapsed && (
             <div className="sidebar-brand-text">
               <div className="gradient-title sidebar-title">Destiny Springs</div>
-              <div className="sidebar-subtitle">Healthcare â€“ DMD</div>
+              <div className="sidebar-subtitle">Healthcare  DMD</div>
             </div>
           )}
         </div>
@@ -2784,8 +2784,8 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
             </button>
             {cloudSynced === 'loading'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Connecting</span></div>}
-            {cloudSynced === 'ok'       && <button onClick={pullFromCloud} className="topbar-live cursor-pointer hover:opacity-80 transition-opacity" title="Pull latest data from database"><div className="live-dot" /><span>Synced â€” click to pull</span></button>}
-            {cloudSynced === 'syncing'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Savingâ€¦</span></div>}
+            {cloudSynced === 'ok'       && <button onClick={pullFromCloud} className="topbar-live cursor-pointer hover:opacity-80 transition-opacity" title="Pull latest data from database"><div className="live-dot" /><span>Synced  click to pull</span></button>}
+            {cloudSynced === 'syncing'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Saving</span></div>}
             {(cloudSynced === 'error' || cloudSynced === 'offline') && (
               <button
                 onClick={async () => {
@@ -2808,7 +2808,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 title="Click to diagnose database connection"
               >
                 <WifiOff size={10} />
-                <span>{cloudSynced === 'offline' ? 'Local only' : 'Sync error'} â€” tap to fix</span>
+                <span>{cloudSynced === 'offline' ? 'Local only' : 'Sync error'}  tap to fix</span>
               </button>
             )}
             {/* DB Diagnostic Modal */}
@@ -2819,7 +2819,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                     <h2 className="text-white font-black text-lg">Database Connection</h2>
                     <button onClick={() => setShowDbDiag(false)} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
                   </div>
-                  {dbDiagLoading && <p className="text-slate-400 text-sm">Running diagnosticsâ€¦</p>}
+                  {dbDiagLoading && <p className="text-slate-400 text-sm">Running diagnostics</p>}
                   {dbDiag && (() => {
                     const connected = dbDiag.envCheck?.connected;
                     const hasKvUrl  = dbDiag.envCheck?.KV_REST_API_URL || dbDiag.envCheck?.UPSTASH_REDIS_REST_URL;
@@ -2829,7 +2829,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                         <div className={`p-4 rounded-2xl text-sm font-bold ${
                           connected ? 'bg-teal-900/40 text-teal-300 border border-teal-700/40'
                                     : 'bg-red-900/40 text-red-300 border border-red-700/40'}`}>
-                          {connected ? 'âœ… Connected to Upstash Redis' : 'âŒ Not connected â€” env vars missing'}
+                          {connected ? ' Connected to Upstash Redis' : ' Not connected  env vars missing'}
                         </div>
                         <div className="space-y-2">
                           {[['KV_REST_API_URL', dbDiag.envCheck?.KV_REST_API_URL], ['KV_REST_API_TOKEN', dbDiag.envCheck?.KV_REST_API_TOKEN],
@@ -2837,7 +2837,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                             .map(([name, val]) => (
                               <div key={name} className="flex items-center justify-between text-xs">
                                 <span className="text-slate-400 font-mono">{name}</span>
-                                <span className={val ? 'text-teal-400 font-bold' : 'text-red-400 font-bold'}>{val ? 'âœ… set' : 'âœ— missing'}</span>
+                                <span className={val ? 'text-teal-400 font-bold' : 'text-red-400 font-bold'}>{val ? ' set' : ' missing'}</span>
                               </div>
                             ))}
                         </div>
@@ -2845,9 +2845,9 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                           <div className="p-4 rounded-2xl bg-amber-900/30 border border-amber-700/40 text-amber-200 text-sm space-y-2">
                             <p className="font-black">How to fix:</p>
                             <ol className="list-decimal list-inside space-y-1 text-xs leading-relaxed">
-                              <li>Go to <strong>vercel.com</strong> â†’ your project</li>
-                              <li>Click <strong>Storage</strong> tab â†’ connect your KV database</li>
-                              <li>If already connected, go to <strong>Settings â†’ Environment Variables</strong> and confirm <code>KV_REST_API_URL</code> and <code>KV_REST_API_TOKEN</code> are listed</li>
+                              <li>Go to <strong>vercel.com</strong>  your project</li>
+                              <li>Click <strong>Storage</strong> tab  connect your KV database</li>
+                              <li>If already connected, go to <strong>Settings  Environment Variables</strong> and confirm <code>KV_REST_API_URL</code> and <code>KV_REST_API_TOKEN</code> are listed</li>
                               <li><strong>Redeploy</strong> the project so the new vars are picked up</li>
                             </ol>
                           </div>
@@ -2881,7 +2881,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
 
 {activeTab === 'overview' && (
           <>
-            {/* â”€â”€ Destiny Springs Live Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/*  Destiny Springs Live Profile  */}
             {(() => {
               const website   = destinyData?.website;
               const google    = destinyData?.google;         // Places API (needs key)
@@ -2916,14 +2916,14 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
                     <SectionHeader icon={Heart} color="text-teal-500" title="Destiny Springs Live Snapshot"
-                      subtitle={fetchedAt ? `Auto-syncs hourly Â· last synced ${new Date(fetchedAt).toLocaleString()}` : 'Syncing automatically every hour â€” no setup needed'} />
+                      subtitle={fetchedAt ? `Auto-syncs hourly  last synced ${new Date(fetchedAt).toLocaleString()}` : 'Syncing automatically every hour  no setup needed'} />
                     <button
                       onClick={fetchDestinyProfile}
                       disabled={destinyLoading}
                       className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-colors flex-shrink-0"
                     >
                       <RefreshCw size={14} className={destinyLoading ? 'animate-spin' : ''} />
-                      {destinyLoading ? 'Syncingâ€¦' : 'Sync Now'}
+                      {destinyLoading ? 'Syncing' : 'Sync Now'}
                     </button>
                   </div>
 
@@ -2935,14 +2935,14 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* â”€â”€ Ratings / Google column â”€â”€ */}
+                    {/*  Ratings / Google column  */}
                     <div className="space-y-3">
                       <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider flex items-center gap-1.5`}><Star size={11} className="text-amber-500" /> Ratings & Reviews</p>
 
-                      {/* Big rating hero â€” shows from ANY source, no API key required */}
+                      {/* Big rating hero  shows from ANY source, no API key required */}
                       {cloudSynced === 'loading' && !displayRating ? (
                         <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center`}>
-                          <p className={`text-xs ${subtl}`}>Loading dataâ€¦</p>
+                          <p className={`text-xs ${subtl}`}>Loading data</p>
                         </div>
                       ) : displayRating ? (
                         <div className="flex items-center gap-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700 relative">
@@ -2973,15 +2973,15 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                               <div className="flex-1 min-w-0">
                                 {displayReviews && <p className={`text-2xl font-black ${txt}`}>{Number(displayReviews).toLocaleString()} <span className={`text-sm font-normal ${subtl}`}>reviews</span></p>}
                                 {google?.name && <p className={`text-xs font-black ${txt} mt-0.5 truncate`}>{google.name}</p>}
-                                {(google?.vicinity || google?.address) && <p className={`text-xs ${subtl} mt-0.5`}>ðŸ“ {google?.vicinity || google?.address}</p>}
-                                {google?.phone && <p className={`text-xs ${subtl} mt-0.5`}>ðŸ“ž {google.phone}</p>}
+                                {(google?.vicinity || google?.address) && <p className={`text-xs ${subtl} mt-0.5`}> {google?.vicinity || google?.address}</p>}
+                                {google?.phone && <p className={`text-xs ${subtl} mt-0.5`}> {google.phone}</p>}
                                 {displaySource && <p className={`text-[10px] ${subtl} mt-1 opacity-70`}>Source: {displaySource}</p>}
                                 {google && (
                                   <span className={`inline-flex mt-1.5 items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full ${
                                     google.isOpen === true  ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
                                     google.isOpen === false ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' :
                                     'bg-slate-100 dark:bg-slate-700 text-slate-500'
-                                  }`}>{google.isOpen === true ? 'â— Open Now' : google.isOpen === false ? 'â— Closed' : 'â— Status Unknown'}</span>
+                                  }`}>{google.isOpen === true ? ' Open Now' : google.isOpen === false ? ' Closed' : ' Status Unknown'}</span>
                                 )}
                               </div>
                               <button onClick={() => { setRatingEditVal(String(displayRating||'')); setRatingCountVal(String(displayReviews||'')); setEditingRating(true); }}
@@ -2994,7 +2994,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       ) : (
                         <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50`}>
                           {(destinyLoading || cloudSynced === 'loading')
-                            ? <p className={`text-xs ${subtl} text-center`}>Loading dataâ€¦</p>
+                            ? <p className={`text-xs ${subtl} text-center`}>Loading data</p>
                             : (
                               <div>
                                 <p className={`text-xs font-black ${txt} mb-1 text-center`}>No rating auto-fetched</p>
@@ -3013,7 +3013,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                         </div>
                       )}
 
-                      {/* Combined platform ratings â€” merges auto-scraped + manually-fetched scores */}
+                      {/* Combined platform ratings  merges auto-scraped + manually-fetched scores */}
                       {(() => {
                         const fetchedScores = Object.entries(reviewPlatformData)
                           .filter(([k, p]) => k !== 'facebook' && p.rating && !isNaN(Number(p.rating)) && Number(p.rating) > 0)
@@ -3030,7 +3030,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                                 <div key={i} className="flex items-center justify-between gap-2">
                                   <span className={`text-xs ${subtl} truncate`}>{r.source}</span>
                                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    <span className={`text-sm font-black text-amber-500`}>{Number(r.rating).toFixed(1)} â˜…</span>
+                                    <span className={`text-sm font-black text-amber-500`}>{Number(r.rating).toFixed(1)} </span>
                                     {r.reviewCount && <span className={`text-[11px] ${subtl}`}>({Number(r.reviewCount).toLocaleString()})</span>}
                                   </div>
                                 </div>
@@ -3084,7 +3084,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       )}
                     </div>
 
-                    {/* â”€â”€ Website + Social column â”€â”€ */}
+                    {/*  Website + Social column  */}
                     <div className="space-y-3">
                       <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider flex items-center gap-1.5`}><Globe size={11} className="text-teal-500" /> Website & Social</p>
                       {website ? (
@@ -3103,7 +3103,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                             <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
                               <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Page Sections</p>
                               <ul className="space-y-1">
-                                {website.h2s.slice(0,6).map((h, i) => <li key={i} className={`text-xs ${txt2}`}>â€¢ {h}</li>)}
+                                {website.h2s.slice(0,6).map((h, i) => <li key={i} className={`text-xs ${txt2}`}> {h}</li>)}
                               </ul>
                             </div>
                           )}
@@ -3132,8 +3132,8 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                             <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700">
                               <p className={`text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1`}>Schema Rating on Website</p>
                               <p className={`text-sm font-black text-amber-700 dark:text-amber-300`}>
-                                {Number(website.schemaRating.rating).toFixed(1)} â˜…
-                                {website.schemaRating.reviewCount && ` Â· ${Number(website.schemaRating.reviewCount).toLocaleString()} reviews`}
+                                {Number(website.schemaRating.rating).toFixed(1)} 
+                                {website.schemaRating.reviewCount && `  ${Number(website.schemaRating.reviewCount).toLocaleString()} reviews`}
                               </p>
                             </div>
                           )}
@@ -3147,40 +3147,40 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                               </div>
                             </div>
                           )}
-                          <p className={`text-[11px] ${subtl}`}>{website.wordCount?.toLocaleString()} words Â· scraped {website.scrapedAt ? new Date(website.scrapedAt).toLocaleString() : ''}</p>
+                          <p className={`text-[11px] ${subtl}`}>{website.wordCount?.toLocaleString()} words  scraped {website.scrapedAt ? new Date(website.scrapedAt).toLocaleString() : ''}</p>
                         </>
                       ) : (
                         <div className={`p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center ${subtl} text-xs`}>
-                          {destinyLoading ? 'Scraping websiteâ€¦' : 'Click Sync Now to pull website data'}
+                          {destinyLoading ? 'Scraping website' : 'Click Sync Now to pull website data'}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* â”€â”€ Source Status Strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                  {/*  Source Status Strip  */}
                   {destinyData && !destinyLoading && (
                     <div className="mt-4 flex flex-wrap gap-2">
                       {[
                         { label: 'Website',      ok: !!destinyData.website,                                                                      err: destinyData.websiteError },
                         { label: 'Google Search',ok: !!(destinyData.googleSearch?.rating),                                                      err: !destinyData.googleSearch ? 'No rating found' : null },
                         { label: 'Healthgrades', ok: !!(destinyData.healthgrades?.rating),                                                      err: !destinyData.healthgrades ? 'Not found' : null },
-                        { label: 'Google API',   ok: !!destinyData.google,                                                                      err: destinyData.googleSkipped ? 'No API key â€” add GOOGLE_PLACES_KEY in Vercel' : destinyData.googleError },
+                        { label: 'Google API',   ok: !!destinyData.google,                                                                      err: destinyData.googleSkipped ? 'No API key  add GOOGLE_PLACES_KEY in Vercel' : destinyData.googleError },
                         { label: 'Facebook',     ok: !!(destinyData.facebook?.likes ?? destinyData.facebook?.followers),                        err: destinyData.sources?.facebook?.error },
-                        { label: 'Instagram',    ok: destinyData.instagram?.followers != null,                                                  err: destinyData.instagram?.followers == null ? 'Blocked â€” add META_APP_ID + META_APP_SECRET in Vercel' : null },
-                        { label: 'TikTok',       ok: destinyData.tiktok?.followers != null,                                                     err: destinyData.tiktok?.followers == null ? 'Blocked by TikTok â€” no public API available' : null },
+                        { label: 'Instagram',    ok: destinyData.instagram?.followers != null,                                                  err: destinyData.instagram?.followers == null ? 'Blocked  add META_APP_ID + META_APP_SECRET in Vercel' : null },
+                        { label: 'TikTok',       ok: destinyData.tiktok?.followers != null,                                                     err: destinyData.tiktok?.followers == null ? 'Blocked by TikTok  no public API available' : null },
                         { label: 'LinkedIn',     ok: destinyData.linkedin?.followers != null,                                                   err: destinyData.sources?.linkedin?.error },
                       ].map(({ label, ok, err }) => (
                         <span key={label} title={err || ''} className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
                           ok  ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' :
                                 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
                         }`}>
-                          {ok ? 'âœ“' : 'â€“'} {label}
+                          {ok ? '' : ''} {label}
                         </span>
                       ))}
                     </div>
                   )}
 
-                  {/* â”€â”€ Social Media Stats Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                  {/*  Social Media Stats Row  */}
                   {(destinyData || destinyLoading) && (
                     <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-700">
                       <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3 flex items-center gap-1.5`}>
@@ -3198,7 +3198,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                                 <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0"><span className="text-white text-[10px] font-black">f</span></div>
                                 <span className={`text-xs font-black ${hasFb ? 'text-blue-700 dark:text-blue-300' : subtl}`}>Facebook</span>
                               </div>
-                              {destinyLoading && !fb && <p className={`text-[11px] ${subtl}`}>Fetchingâ€¦</p>}
+                              {destinyLoading && !fb && <p className={`text-[11px] ${subtl}`}>Fetching</p>}
                               {hasFb ? (
                                 <div className="space-y-1">
                                   {fb.name && <p className={`text-xs font-black ${txt} leading-tight`}>{fb.name}</p>}
@@ -3231,14 +3231,14 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                                 <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 via-pink-600 to-orange-400 flex items-center justify-center flex-shrink-0"><span className="text-white text-[10px] font-black">IG</span></div>
                                 <span className={`text-xs font-black ${hasIg ? 'text-pink-700 dark:text-pink-300' : subtl}`}>Instagram</span>
                               </div>
-                              {destinyLoading && !ig && <p className={`text-[11px] ${subtl}`}>Fetchingâ€¦</p>}
+                              {destinyLoading && !ig && <p className={`text-[11px] ${subtl}`}>Fetching</p>}
                               {hasIg ? (
                                 <div className="space-y-1">
                                   {(ig.fullName || ig.username) && <p className={`text-xs font-black ${txt} leading-tight`}>{ig.fullName || '@' + ig.username}</p>}
                                   {ig.followers != null && <p className="text-xl font-black text-pink-600 dark:text-pink-400">{Number(ig.followers).toLocaleString()} <span className={`text-xs font-normal ${subtl}`}>followers</span></p>}
                                   {ig.posts    != null && <p className={`text-xs ${subtl}`}>{Number(ig.posts).toLocaleString()} posts</p>}
                                   {ig.bio && <p className={`text-[11px] ${subtl} mt-1 line-clamp-2`}>{ig.bio}</p>}
-                                  {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500 mt-1">âœ“ Verified</span>}
+                                  {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500 mt-1"> Verified</span>}
                                   <a href={ig.url || 'https://www.instagram.com/destinyspringshealthcare/'} target="_blank" rel="noreferrer"
                                     className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400 mt-1">
                                     <ExternalLink size={9} /> View Profile
@@ -3265,7 +3265,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                                 <div className="w-6 h-6 rounded-lg bg-black flex items-center justify-center flex-shrink-0"><span className="text-white text-[9px] font-black">TT</span></div>
                                 <span className={`text-xs font-black ${hasTt ? txt : subtl}`}>TikTok</span>
                               </div>
-                              {destinyLoading && !tt && <p className={`text-[11px] ${subtl}`}>Fetchingâ€¦</p>}
+                              {destinyLoading && !tt && <p className={`text-[11px] ${subtl}`}>Fetching</p>}
                               {hasTt ? (
                                 <div className="space-y-1">
                                   {(tt.nickname || tt.username) && <p className={`text-xs font-black ${txt} leading-tight`}>{tt.nickname || '@' + tt.username}</p>}
@@ -3303,7 +3303,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                                 <div className="w-6 h-6 rounded-lg bg-[#0A66C2] flex items-center justify-center flex-shrink-0"><span className="text-white text-[9px] font-black">in</span></div>
                                 <span className={`text-xs font-black ${hasLi ? 'text-sky-700 dark:text-sky-300' : subtl}`}>LinkedIn</span>
                               </div>
-                              {destinyLoading && !li && <p className={`text-[11px] ${subtl}`}>Fetchingâ€¦</p>}
+                              {destinyLoading && !li && <p className={`text-[11px] ${subtl}`}>Fetching</p>}
                               {hasLi ? (
                                 <div className="space-y-1">
                                   {li.name && <p className={`text-xs font-black ${txt} leading-tight`}>{li.name}</p>}
@@ -3351,7 +3351,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
             </>
             )}
 
-            {/* â”€â”€ Brand Health Score â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/*  Brand Health Score  */}
             {!overviewHidden.includes('health') && (() => {
               const dsRating  = destinyData?.google?.rating ?? destinyData?.bestRating?.rating ?? null;
               const dsReviews = destinyData?.google?.reviewCount ?? destinyData?.bestRating?.reviewCount ?? null;
@@ -3364,23 +3364,23 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               const totalC    = allR.length;
               const breakdown = [];
               let score = 0;
-              if (dsRating) { const p=Math.round((dsRating/5)*25); score+=p; breakdown.push({label:'Star Rating',pts:p,max:25,detail:`${dsRating}/5.0 â˜…`,color:'bg-amber-500'}); }
+              if (dsRating) { const p=Math.round((dsRating/5)*25); score+=p; breakdown.push({label:'Star Rating',pts:p,max:25,detail:`${dsRating}/5.0 `,color:'bg-amber-500'}); }
               if (dsReviews) { const p=Math.min(20,Math.round((Math.min(dsReviews,200)/200)*20)); score+=p; breakdown.push({label:'Review Volume',pts:p,max:20,detail:`${dsReviews.toLocaleString()} reviews`,color:'bg-blue-500'}); }
               const sp=Math.round((socials/4)*20); score+=sp; breakdown.push({label:'Social Presence',pts:sp,max:20,detail:`${socials}/4 platforms active`,color:'bg-pink-500'});
-              const wp=Math.min(20,Math.round((Math.min(wq,10)/10)*15)+(wc>2000?5:Math.round((wc/2000)*5))); score+=wp; breakdown.push({label:'Website Quality',pts:wp,max:20,detail:`${wq} services detected Â· ${wc.toLocaleString()} words`,color:'bg-teal-500'});
+              const wp=Math.min(20,Math.round((Math.min(wq,10)/10)*15)+(wc>2000?5:Math.round((wc/2000)*5))); score+=wp; breakdown.push({label:'Website Quality',pts:wp,max:20,detail:`${wq} services detected  ${wc.toLocaleString()} words`,color:'bg-teal-500'});
               if (dsRank&&totalC>1){const p=Math.round(((totalC-dsRank)/(totalC-1))*15);score+=p;breakdown.push({label:'Competitive Rank',pts:p,max:15,detail:`#${dsRank} of ${totalC} providers`,color:'bg-purple-500'});}
               const maxPs = breakdown.reduce((s,b)=>s+b.max,0)||100;
               const healthScore = breakdown.length ? Math.min(100,Math.round((score/maxPs)*100)) : null;
-              const grade = healthScore!=null ? (healthScore>=85?'A':healthScore>=70?'B':healthScore>=55?'C':healthScore>=40?'D':'F') : 'â€”';
+              const grade = healthScore!=null ? (healthScore>=85?'A':healthScore>=70?'B':healthScore>=55?'C':healthScore>=40?'D':'F') : '';
               const gradeColor = healthScore!=null ? (healthScore>=85?'text-emerald-500':healthScore>=70?'text-teal-500':healthScore>=55?'text-amber-500':healthScore>=40?'text-orange-500':'text-rose-500') : subtl;
               const insights = [];
-              if (!dsRating) insights.push({ icon:'âš ï¸', text:'No rating data yet â€” run a Sync to pull live Google/Yelp/Healthgrades scores.' });
-              else if (dsRating < 4.0)  insights.push({ icon:'ðŸ“ˆ', text:`Rating of ${dsRating} is below the 4.0 threshold for strong trust. Prioritize review recovery.` });
-              else if (dsRating >= 4.5) insights.push({ icon:'â­', text:`Excellent ${dsRating} rating. Focus on volume â€” more reviews = more SEO authority.` });
-              if (socials < 3)          insights.push({ icon:'ðŸ”—', text:`Only ${socials}/4 social profiles scraped. Connect missing platforms in Integrations.` });
-              if (wq < 5)               insights.push({ icon:'ðŸŒ', text:'Website content thin â€” consider adding more service pages for SEO.' });
-              if (dsRank === 1 && totalC > 1) insights.push({ icon:'ðŸ†', text:`Top-rated out of ${totalC} providers tracked. Maintain and market this position!` });
-              else if (dsRank && dsRank > Math.ceil(totalC/2)) insights.push({ icon:'ðŸ”„', text:`Ranked #${dsRank} of ${totalC} locally. Primary lever: grow Google review count.` });
+              if (!dsRating) insights.push({ icon:'', text:'No rating data yet  run a Sync to pull live Google/Yelp/Healthgrades scores.' });
+              else if (dsRating < 4.0)  insights.push({ icon:'', text:`Rating of ${dsRating} is below the 4.0 threshold for strong trust. Prioritize review recovery.` });
+              else if (dsRating >= 4.5) insights.push({ icon:'', text:`Excellent ${dsRating} rating. Focus on volume  more reviews = more SEO authority.` });
+              if (socials < 3)          insights.push({ icon:'', text:`Only ${socials}/4 social profiles scraped. Connect missing platforms in Integrations.` });
+              if (wq < 5)               insights.push({ icon:'', text:'Website content thin  consider adding more service pages for SEO.' });
+              if (dsRank === 1 && totalC > 1) insights.push({ icon:'', text:`Top-rated out of ${totalC} providers tracked. Maintain and market this position!` });
+              else if (dsRank && dsRank > Math.ceil(totalC/2)) insights.push({ icon:'', text:`Ranked #${dsRank} of ${totalC} locally. Primary lever: grow Google review count.` });
               return (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <div className="flex items-start gap-6 flex-wrap md:flex-nowrap">
@@ -3415,7 +3415,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   </div>
                   {insights.length > 0 && (
                     <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3`}>âš¡ AI Insights</p>
+                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3`}> AI Insights</p>
                       {insights.map((ins, i) => (
                         <div key={i} className="flex items-start gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                           <span className="text-base leading-none mt-0.5">{ins.icon}</span>
@@ -3434,7 +3434,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               <SectionHeader icon={TrendingUp} color="text-teal-500" title="6-Month Growth Trend" subtitle="Sessions, Reach & Lead Volume" />
               <div className="h-72">
                 {monthlyTrend.length === 0 ? (
-                  <EmptyChart height="h-72" message="No trend data yet â€“ connect Google Analytics &amp; Meta to populate" />
+                  <EmptyChart height="h-72" message="No trend data yet  connect Google Analytics &amp; Meta to populate" />
                 ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -3454,7 +3454,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
             </div>
             )}
 
-            {/* â”€â”€ Competitor Intelligence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/*  Competitor Intelligence  */}
             {!overviewHidden.includes('competitors') && (() => {
               const dsRating  = destinyData?.google?.rating ?? destinyData?.bestRating?.rating ?? null;
               const dsReviews = destinyData?.google?.reviewCount ?? destinyData?.bestRating?.reviewCount ?? null;
@@ -3478,7 +3478,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 return b.avgRating - a.avgRating;
               });
               const starBar = (r) => {
-                if (!r) return <span className={`text-[11px] ${subtl}`}>â€”</span>;
+                if (!r) return <span className={`text-[11px] ${subtl}`}></span>;
                 const pct = Math.round((r / 5) * 100);
                 return (
                   <div className="flex items-center gap-1.5">
@@ -3496,13 +3496,13 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                     <button onClick={fetchCompetitors} disabled={competitorLoading}
                       className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-colors">
                       <RefreshCw size={13} className={competitorLoading ? 'animate-spin' : ''} />
-                      {competitorLoading ? 'Scanningâ€¦' : 'Refresh'}
+                      {competitorLoading ? 'Scanning' : 'Refresh'}
                     </button>
                   </div>
                   {competitorLoading && !competitorData && (
                     <div className="flex items-center gap-3 py-8 justify-center">
                       <RefreshCw size={18} className="animate-spin text-purple-500" />
-                      <p className={`text-sm font-bold ${subtl}`}>Scraping competitor dataâ€¦ this takes ~30s</p>
+                      <p className={`text-sm font-bold ${subtl}`}>Scraping competitor data this takes ~30s</p>
                     </div>
                   )}
                   {!competitorLoading && !competitorData && (
@@ -3525,7 +3525,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                           {allProviders.map((p, idx) => (
                             <tr key={p.id} className={`${p.isUs ? 'bg-teal-50/60 dark:bg-teal-900/10' : rowCls}`}>
                               <td className={`py-3 pr-4 text-xs font-black ${p.isUs ? 'text-teal-600 dark:text-teal-400' : subtl}`}>
-                                {idx === 0 ? 'ðŸ¥‡' : idx === 1 ? 'ðŸ¥ˆ' : idx === 2 ? 'ðŸ¥‰' : `#${idx+1}`}
+                                {idx === 0 ? '' : idx === 1 ? '' : idx === 2 ? '' : `#${idx+1}`}
                               </td>
                               <td className="py-3 pr-4">
                                 <div className="flex items-center gap-2">
@@ -3540,17 +3540,17 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                               <td className="py-3 pr-4">
                                 {p.totalReviews || p.google?.reviewCount
                                   ? <span className={`text-xs font-bold ${txt2}`}>{(p.totalReviews || p.google?.reviewCount || 0).toLocaleString()}</span>
-                                  : <span className={`text-[11px] ${subtl}`}>â€”</span>}
+                                  : <span className={`text-[11px] ${subtl}`}></span>}
                               </td>
                               <td className="py-3 pr-4">
                                 {p.healthgrades?.rating
-                                  ? <span className={`text-xs font-bold ${txt2}`}>{p.healthgrades.rating.toFixed(1)} â˜…</span>
-                                  : <span className={`text-[11px] ${subtl}`}>â€”</span>}
+                                  ? <span className={`text-xs font-bold ${txt2}`}>{p.healthgrades.rating.toFixed(1)} </span>
+                                  : <span className={`text-[11px] ${subtl}`}></span>}
                               </td>
                               <td className="py-3">
                                 {(p.services || p.website?.services?.length)
                                   ? <span className={`text-xs font-bold ${txt2}`}>{p.services || p.website?.services?.length} detected</span>
-                                  : <span className={`text-[11px] ${subtl}`}>â€”</span>}
+                                  : <span className={`text-[11px] ${subtl}`}></span>}
                               </td>
                             </tr>
                           ))}
@@ -3563,7 +3563,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               );
             })()}
 
-            {/* â”€â”€ Historical Trends â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/*  Historical Trends  */}
             {(() => {
               const cutoff   = new Date(Date.now() - historyPeriod * 24 * 60 * 60 * 1000);
               const sliced   = metricsHistory
@@ -3581,7 +3581,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
                     <SectionHeader icon={TrendingUp} color="text-indigo-500"
                       title="Historical Trends"
-                      subtitle="Time-series view of your key metrics â€” auto-recorded daily" />
+                      subtitle="Time-series view of your key metrics  auto-recorded daily" />
                     <div className="flex items-center gap-2">
                       {[7, 30, 90, 365].map(d => (
                         <button key={d}
@@ -3597,7 +3597,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                         disabled={historyLoading}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-colors bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white`}>
                         <RefreshCw size={11} className={historyLoading ? 'animate-spin' : ''} />
-                        {historyLoading ? 'Loadingâ€¦' : 'Refresh'}
+                        {historyLoading ? 'Loading' : 'Refresh'}
                       </button>
                     </div>
                   </div>
@@ -3688,7 +3688,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                                   axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10, fontWeight: 700 }} />
                                 <YAxis domain={[3, 5]} axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10 }} width={30} />
                                 <Tooltip contentStyle={tipStyle} labelFormatter={v => new Date(v).toLocaleDateString()}
-                                  formatter={v => [Number(v).toFixed(2) + ' â˜…', 'Rating']} />
+                                  formatter={v => [Number(v).toFixed(2) + ' ', 'Rating']} />
                                 <Area type="monotone" dataKey="googleRating" stroke="#f59e0b" fill={darkMode ? '#f59e0b25' : '#fef3c7'} strokeWidth={2.5} dot={false} name="Google Rating" />
                               </AreaChart>
                             </ResponsiveContainer>
@@ -3703,42 +3703,42 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                             label: 'IG Growth',
                             value: (() => {
                               const vals = sliced.filter(h => h.igFollowers).map(h => h.igFollowers);
-                              if (vals.length < 2) return 'â€”';
+                              if (vals.length < 2) return '';
                               const diff = vals[vals.length-1] - vals[0];
                               return (diff >= 0 ? '+' : '') + diff.toLocaleString();
                             })(),
                             color: diff => diff && diff.startsWith('+') ? 'text-emerald-500' : diff && diff.startsWith('-') ? 'text-rose-500' : subtl,
-                            icon: 'ðŸ“¸',
+                            icon: '',
                           },
                           {
-                            label: 'Sessions Î”',
+                            label: 'Sessions ',
                             value: (() => {
                               const vals = sliced.filter(h => h.sessions).map(h => h.sessions);
-                              if (vals.length < 2) return 'â€”';
+                              if (vals.length < 2) return '';
                               const diff = vals[vals.length-1] - vals[0];
                               return (diff >= 0 ? '+' : '') + diff.toLocaleString();
                             })(),
-                            icon: 'ðŸŒ',
+                            icon: '',
                           },
                           {
-                            label: 'Leads Î”',
+                            label: 'Leads ',
                             value: (() => {
                               const vals = sliced.filter(h => h.totalLeads).map(h => h.totalLeads);
-                              if (vals.length < 2) return 'â€”';
+                              if (vals.length < 2) return '';
                               const diff = vals[vals.length-1] - vals[0];
                               return (diff >= 0 ? '+' : '') + diff.toLocaleString();
                             })(),
-                            icon: 'ðŸŽ¯',
+                            icon: '',
                           },
                           {
-                            label: 'Rating Î”',
+                            label: 'Rating ',
                             value: (() => {
                               const vals = sliced.filter(h => h.googleRating).map(h => h.googleRating);
-                              if (vals.length < 2) return 'â€”';
+                              if (vals.length < 2) return '';
                               const diff = (vals[vals.length-1] - vals[0]).toFixed(2);
                               return (Number(diff) >= 0 ? '+' : '') + diff;
                             })(),
-                            icon: 'â­',
+                            icon: '',
                           },
                         ].map(({ label, value, icon }) => {
                           const isPos = value && value.startsWith('+') && value !== '+0' && value !== '+0.00';
@@ -3754,7 +3754,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       </div>
 
                       <p className={`text-[10px] ${subtl} text-right`}>
-                        {sliced.length} data point{sliced.length !== 1 ? 's' : ''} Â· last {historyPeriod === 365 ? '365' : historyPeriod} days
+                        {sliced.length} data point{sliced.length !== 1 ? 's' : ''}  last {historyPeriod === 365 ? '365' : historyPeriod} days
                         {metricsHistory.length > sliced.length ? ` (${metricsHistory.length} total in archive)` : ''}
                       </p>
                     </div>
@@ -3763,7 +3763,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               );
             })()}
 
-            {/* â”€â”€ AI Weekly Brief â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/*  AI Weekly Brief  */}
             {weeklyDigest && (
               <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                 <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
@@ -3782,10 +3782,10 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 {weeklyDigest.metrics && (
                   <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-4 border-t ${brd}`}>
                     {[
-                      { label: 'Google Rating', val: weeklyDigest.metrics.googleRating ? `${Number(weeklyDigest.metrics.googleRating).toFixed(1)} â˜…` : 'â€”' },
-                      { label: 'Sessions',      val: weeklyDigest.metrics.sessions ? Number(weeklyDigest.metrics.sessions).toLocaleString() : 'â€”' },
-                      { label: 'Total Leads',   val: weeklyDigest.metrics.totalLeads || 'â€”' },
-                      { label: 'Email Open',    val: weeklyDigest.metrics.emailOpenRate || 'â€”' },
+                      { label: 'Google Rating', val: weeklyDigest.metrics.googleRating ? `${Number(weeklyDigest.metrics.googleRating).toFixed(1)} ` : '' },
+                      { label: 'Sessions',      val: weeklyDigest.metrics.sessions ? Number(weeklyDigest.metrics.sessions).toLocaleString() : '' },
+                      { label: 'Total Leads',   val: weeklyDigest.metrics.totalLeads || '' },
+                      { label: 'Email Open',    val: weeklyDigest.metrics.emailOpenRate || '' },
                     ].map(({ label, val }) => (
                       <div key={label} className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                         <div className={`text-sm font-black ${txt}`}>{val}</div>
@@ -3927,7 +3927,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               </div>
             </div>
 
-            {/* â”€â”€ Sir Clicks-a-Lot AI Insights â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/*  Sir Clicks-a-Lot AI Insights  */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
                 <SectionHeader icon={Bot} color="text-purple-500" title="AI Data Analysis" subtitle="Captain KPI reads your imported data and delivers the hard truths" />
@@ -3937,7 +3937,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-all flex-shrink-0 shadow-lg"
                 >
                   <Bot size={14} className={aiInsightsLoading ? 'animate-spin' : ''} />
-                  {aiInsightsLoading ? 'Analyzingâ€¦' : 'Analyze Now'}
+                  {aiInsightsLoading ? 'Analyzing' : 'Analyze Now'}
                 </button>
               </div>
               {aiInsights ? (
@@ -3984,7 +3984,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SOCIAL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  SOCIAL  */}
         {activeTab === 'social' && (
           <>
             {/* Live Social Snapshot */}
@@ -3997,7 +3997,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   s.platform === 'TikTok'    ? (s.videos > 0    ? `${s.videos.toLocaleString()} videos`          : s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} total likes` : 'Account followers') :
                   s.reach > 0 ? `${s.reach.toLocaleString()} reach` : 'Followers';
                 const tertiaryVal =
-                  s.platform === 'TikTok' && s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} â¤` :
+                  s.platform === 'TikTok' && s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} ` :
                   s.platform === 'Instagram' && s.posts > 0   ? `${s.posts.toLocaleString()} posts` :
                   s.clicks > 0 ? `${s.clicks} clicks` : null;
                 return (
@@ -4006,7 +4006,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       <div className="h-4 w-4 rounded-full" style={{ backgroundColor: s.color }}></div>
                     </div>
                     <p className={`text-[13px] font-black uppercase ${subtl} tracking-widest mb-1`}>{s.platform}</p>
-                    <h3 className={`text-2xl font-black ${txt}`}>{s.followers > 0 ? s.followers.toLocaleString() : 'â€”'}</h3>
+                    <h3 className={`text-2xl font-black ${txt}`}>{s.followers > 0 ? s.followers.toLocaleString() : ''}</h3>
                     <p className={`text-[13px] ${subtl} italic mt-1`}>{hasLiveData ? 'Followers' : 'No live data'}</p>
                     <div className={`mt-3 pt-3 border-t ${brd} flex justify-between text-[13px] font-bold`}>
                       <span className={muted}>{secondaryLabel}</span>
@@ -4017,17 +4017,17 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               })}
             </div>
 
-            {/* Live Social Stats â€” detailed breakdown per platform */}
+            {/* Live Social Stats  detailed breakdown per platform */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-5">
-                <SectionHeader icon={Activity} color="text-purple-500" title="Live Social Performance" subtitle="Followers, posts & engagement â€” synced from each platform" />
+                <SectionHeader icon={Activity} color="text-purple-500" title="Live Social Performance" subtitle="Followers, posts & engagement  synced from each platform" />
                 <button
                   onClick={fetchDestinyProfile}
                   disabled={destinyLoading}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-black transition-all shrink-0"
                 >
                   <RefreshCw size={11} className={destinyLoading ? 'animate-spin' : ''} />
-                  {destinyLoading ? 'Syncingâ€¦' : 'Sync Now'}
+                  {destinyLoading ? 'Syncing' : 'Sync Now'}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -4069,7 +4069,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                         </div>
                       ) : (
                         <div className="text-center py-4">
-                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetchingâ€¦' : 'No live data yet'}</p>
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching' : 'No live data yet'}</p>
                           {!destinyLoading && <p className={`text-[11px] ${subtl}`}>Click Sync Now to pull Facebook data</p>}
                         </div>
                       )}
@@ -4105,13 +4105,13 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                               <span>Following</span><span className={`font-black ${txt}`}>{Number(ig.following).toLocaleString()}</span>
                             </div>
                           )}
-                          {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500">âœ“ Verified</span>}
+                          {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500"> Verified</span>}
                           {(destinyData?.fetchedAt || _socialLive.fetchedAt) && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(destinyData?.fetchedAt || _socialLive.fetchedAt).toLocaleString()}</p>}
                           <a href={ig.url || 'https://www.instagram.com/destinyspringshealthcare/'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400 mt-1"><ExternalLink size={9}/> View Profile</a>
                         </div>
                       ) : (
                         <div className="text-center py-4">
-                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetchingâ€¦' : 'No live data yet'}</p>
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching' : 'No live data yet'}</p>
                           {!destinyLoading && (
                             <div>
                               <p className={`text-[11px] ${subtl} mb-1`}>Click Sync Now to pull Instagram data</p>
@@ -4143,7 +4143,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                           </div>
                           {tt.likes != null && (
                             <div className={`flex items-center justify-between text-xs ${subtl} pt-2 border-t ${brd}`}>
-                              <span>Total Likes â¤</span><span className={`font-black ${txt}`}>{Number(tt.likes).toLocaleString()}</span>
+                              <span>Total Likes </span><span className={`font-black ${txt}`}>{Number(tt.likes).toLocaleString()}</span>
                             </div>
                           )}
                           {tt.videos != null && (
@@ -4156,13 +4156,13 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                               <span>Following</span><span className={`font-black ${txt}`}>{Number(tt.following).toLocaleString()}</span>
                             </div>
                           )}
-                          {tt.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500">âœ“ Verified</span>}
+                          {tt.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500"> Verified</span>}
                           {(destinyData?.fetchedAt || _socialLive.fetchedAt) && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(destinyData?.fetchedAt || _socialLive.fetchedAt).toLocaleString()}</p>}
                           <a href={tt.url || 'https://www.tiktok.com/@destinyspringshealthcare'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black hover:opacity-70 mt-1"><ExternalLink size={9}/> View Profile</a>
                         </div>
                       ) : (
                         <div className="text-center py-4">
-                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetchingâ€¦' : 'No live data yet'}</p>
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching' : 'No live data yet'}</p>
                           {!destinyLoading && (
                             <div>
                               <p className={`text-[11px] ${subtl} mb-1`}>Click Sync Now to pull TikTok data</p>
@@ -4201,7 +4201,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                         </div>
                       ) : (
                         <div className="text-center py-4">
-                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetchingâ€¦' : 'No live data yet'}</p>
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching' : 'No live data yet'}</p>
                           {!destinyLoading && (
                             <div>
                               <p className={`text-[11px] ${subtl} mb-1`}>LinkedIn data not yet available</p>
@@ -4258,7 +4258,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 )}
               </div>
             </div>
-            {/* â”€â”€ Recent Content from Meta Graph API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/*  Recent Content from Meta Graph API  */}
             {(_metaLive.igPosts?.length > 0 || _metaLive.fbPosts?.length > 0) && (
               <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                 <SectionHeader icon={Share2} color="text-pink-500" title="Recent Content" subtitle="Latest posts pulled via Meta Graph API" />
@@ -4266,7 +4266,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 {/* Instagram grid */}
                 {_metaLive.igPosts?.length > 0 && (
                   <div className="mt-5">
-                    <p className="text-[11px] font-black text-pink-500 uppercase tracking-wider mb-3">Instagram â€” Latest Posts</p>
+                    <p className="text-[11px] font-black text-pink-500 uppercase tracking-wider mb-3">Instagram  Latest Posts</p>
                     <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                       {_metaLive.igPosts.map(post => (
                         <a key={post.id} href={post.url || '#'} target="_blank" rel="noreferrer"
@@ -4285,14 +4285,14 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                             </div>
                           )}
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex-col items-center justify-center gap-1 hidden group-hover:flex">
-                            <span className="text-white text-[10px] font-black">â¤ {post.likes.toLocaleString()}</span>
-                            <span className="text-white text-[10px]">ðŸ’¬ {post.comments}</span>
+                            <span className="text-white text-[10px] font-black"> {post.likes.toLocaleString()}</span>
+                            <span className="text-white text-[10px]"> {post.comments}</span>
                           </div>
                         </a>
                       ))}
                     </div>
                     {_metaLive.igPosts.length > 0 && (
-                      <p className={`text-[10px] ${subtl} mt-2`}>Media URLs expire after ~1 hour â€” reconnect Meta to refresh</p>
+                      <p className={`text-[10px] ${subtl} mt-2`}>Media URLs expire after ~1 hour  reconnect Meta to refresh</p>
                     )}
                   </div>
                 )}
@@ -4300,7 +4300,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 {/* Facebook posts list */}
                 {_metaLive.fbPosts?.length > 0 && (
                   <div className={`${_metaLive.igPosts?.length > 0 ? 'mt-6 pt-6 border-t ' + brd : 'mt-5'}`}>
-                    <p className="text-[11px] font-black text-blue-500 uppercase tracking-wider mb-3">Facebook â€” Recent Posts</p>
+                    <p className="text-[11px] font-black text-blue-500 uppercase tracking-wider mb-3">Facebook  Recent Posts</p>
                     {(() => {
                       const engScore = (p) => (p.likes || 0) + (p.comments || 0) * 2 + (p.shares || 0) * 3;
                       const maxEng   = Math.max(1, ..._metaLive.fbPosts.map(p => engScore(p)));
@@ -4322,9 +4322,9 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                                   </p>
                                   <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                                     <span className={`text-[10px] ${subtl}`}>{new Date(post.date).toLocaleDateString()}</span>
-                                    <span className="text-[10px] text-blue-500 font-black">â¤ {post.likes.toLocaleString()}</span>
-                                    <span className={`text-[10px] ${subtl} font-bold`}>ðŸ’¬ {post.comments}</span>
-                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${scoreColor}`}>âš¡ {score}</span>
+                                    <span className="text-[10px] text-blue-500 font-black"> {post.likes.toLocaleString()}</span>
+                                    <span className={`text-[10px] ${subtl} font-bold`}> {post.comments}</span>
+                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${scoreColor}`}> {score}</span>
                                   </div>
                                 </div>
                                 <ExternalLink size={12} className={`${subtl} flex-shrink-0 mt-1`} />
@@ -4346,7 +4346,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
                   <div>
                     <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Social Metrics Entry</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Log data here â€” charts update instantly</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log data here  charts update instantly</p>
                   </div>
                 </div>
                 <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
@@ -4369,12 +4369,12 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SEO & CONTENT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  SEO & CONTENT  */}
         {activeTab === 'seo' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Organic Growth"  value={_wixLive.organic ? _wixLive.organic + '%' : 'â€”'} trend={_wixLive.organic ? '+' + _wixLive.organic + '%' : null} icon={TrendingUp} color="bg-teal-600"   sub="Organic Traffic Share"   />
-              <StatCard title="Avg Position"    value={seoKeywords.length ? (seoKeywords.reduce((s,k)=>s+k.pos,0)/seoKeywords.length).toFixed(1) : 'â€”'} trend={seoKeywords.length > 1 ? null : null} icon={Search} color="bg-blue-600" sub="Google SERP Average" />
+              <StatCard title="Organic Growth"  value={_wixLive.organic ? _wixLive.organic + '%' : ''} trend={_wixLive.organic ? '+' + _wixLive.organic + '%' : null} icon={TrendingUp} color="bg-teal-600"   sub="Organic Traffic Share"   />
+              <StatCard title="Avg Position"    value={seoKeywords.length ? (seoKeywords.reduce((s,k)=>s+k.pos,0)/seoKeywords.length).toFixed(1) : ''} trend={seoKeywords.length > 1 ? null : null} icon={Search} color="bg-blue-600" sub="Google SERP Average" />
               <StatCard title="Blog Posts / Mo" value={metrics.blogVelocity} trend="+4" icon={FileText}  color="bg-purple-600" sub="Monthly Production"   />
               <StatCard title="Avg Read Time"   value={metrics.avgReadTime} trend="+12s" icon={Clock}    color="bg-amber-600"  sub="Content Engagement"   />
             </div>
@@ -4436,7 +4436,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 {[
                   { val: metrics.tiktokVelocity, label: 'Videos / Mo',  bg: 'bg-pink-50 dark:bg-pink-900/30',   tx: 'text-pink-900 dark:text-pink-200',   sm: 'text-pink-500'   },
                   { val: metrics.videoViews,      label: 'Total Views',  bg: 'bg-rose-50 dark:bg-rose-900/30',   tx: 'text-rose-900 dark:text-rose-200',   sm: 'text-rose-500'   },
-                  { val: (() => { const likes = Number(_tikLive.totalLikes || _ttLive.totalLikes || 0) + _tiktokPosts.reduce((s,e)=>s+Number(e.likes||0),0); return likes > 0 ? likes.toLocaleString() : 'â€”'; })(), label: 'Engagements',  bg: 'bg-orange-50 dark:bg-orange-900/30',tx: 'text-orange-900 dark:text-orange-200',sm: 'text-orange-500' },
+                  { val: (() => { const likes = Number(_tikLive.totalLikes || _ttLive.totalLikes || 0) + _tiktokPosts.reduce((s,e)=>s+Number(e.likes||0),0); return likes > 0 ? likes.toLocaleString() : ''; })(), label: 'Engagements',  bg: 'bg-orange-50 dark:bg-orange-900/30',tx: 'text-orange-900 dark:text-orange-200',sm: 'text-orange-500' },
                 ].map(s => (
                   <div key={s.label} className={`p-4 ${s.bg} rounded-3xl text-center`}>
                     <div className={`text-3xl font-black ${s.tx}`}>{s.val}</div>
@@ -4452,7 +4452,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
                   <div>
                     <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add SEO Rankings Entry</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Log keyword data â€” charts update instantly</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log keyword data  charts update instantly</p>
                   </div>
                 </div>
                 <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
@@ -4471,7 +4471,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• PAID ADS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  PAID ADS  */}
         {activeTab === 'ads' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
@@ -4493,7 +4493,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   </thead>
                   <tbody className={`divide-y ${divdr}`}>
                     {adPerformance.length === 0 ? (
-                      <tr><td colSpan={6} className="py-8 text-center text-sm text-slate-400">No ad data yet â€” add an entry below</td></tr>
+                      <tr><td colSpan={6} className="py-8 text-center text-sm text-slate-400">No ad data yet  add an entry below</td></tr>
                     ) : adPerformance.map(ad => (
                       <tr key={ad.platform}>
                         <td className={`py-3 pr-4 text-sm font-bold ${txt}`}>{ad.platform}</td>
@@ -4531,7 +4531,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
                   <div>
                     <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Ad Spend Entry</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Log campaign data â€” performance table updates instantly</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log campaign data  performance table updates instantly</p>
                   </div>
                 </div>
                 <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
@@ -4554,11 +4554,11 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• EMAIL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  EMAIL  */}
         {activeTab === 'email' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Avg Open Rate"  value={_mailLive.openRate  || metrics.emailOpenRate} trend={null} icon={Mail}         color="bg-teal-600"   sub={_mailLive.listName ? `${_mailLive.listName} Â· Mailchimp` : 'All Campaigns'} />
+              <StatCard title="Avg Open Rate"  value={_mailLive.openRate  || metrics.emailOpenRate} trend={null} icon={Mail}         color="bg-teal-600"   sub={_mailLive.listName ? `${_mailLive.listName}  Mailchimp` : 'All Campaigns'} />
               <StatCard title="Subscribers"    value={_mailLive.subscribers ? Number(_mailLive.subscribers).toLocaleString() : (emailCampaigns.reduce((s,c)=>s+c.sent,0)>0 ? emailCampaigns.reduce((s,c)=>s+c.sent,0).toLocaleString() : '---')} trend={null} icon={Users} color="bg-purple-600" sub={_mailLive.subscribers ? 'Mailchimp Audience' : 'Total Emails Sent'} />
               <StatCard title="Avg Click Rate" value={_mailLive.clickRate  || (emailCampaigns.length>0 ? (emailCampaigns.reduce((s,c)=>s+c.clicked,0)/Math.max(1,emailCampaigns.reduce((s,c)=>s+c.sent,0))*100).toFixed(1)+'%' : '---')} trend={null} icon={MousePointer} color="bg-emerald-600" sub="Avg CTR" />
               <StatCard title="Total Campaigns" value={_mailLive.totalCampaigns || emailCampaigns.reduce((s,c)=>s+(c.conversions||0),0)||'---'} trend={null} icon={CheckCircle} color="bg-amber-600" sub={_mailLive.totalCampaigns ? 'Sent via Mailchimp' : 'Email-Attributed'} />
@@ -4596,10 +4596,10 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       {_mailLive.recentCampaigns.map(c => (
                         <tr key={c.id}>
                           <td className={`py-3 pr-3 text-sm font-bold ${txt} max-w-[220px] truncate`} title={c.subject}>{c.title || c.subject}</td>
-                          <td className={`py-3 px-3 text-right text-sm font-bold ${txt2}`}>{c.emailsSent?.toLocaleString() || c.uniqueOpens?.toLocaleString() || 'â€”'}</td>
+                          <td className={`py-3 px-3 text-right text-sm font-bold ${txt2}`}>{c.emailsSent?.toLocaleString() || c.uniqueOpens?.toLocaleString() || ''}</td>
                           <td className="py-3 px-3 text-right"><span className="text-sm font-bold text-blue-500">{c.openRate}</span></td>
                           <td className="py-3 px-3 text-right"><span className="text-sm font-bold text-purple-500">{c.clickRate}</span></td>
-                          <td className={`py-3 pl-3 text-right text-xs ${subtl}`}>{c.sentAt ? new Date(c.sentAt).toLocaleDateString() : 'â€”'}</td>
+                          <td className={`py-3 pl-3 text-right text-xs ${subtl}`}>{c.sentAt ? new Date(c.sentAt).toLocaleDateString() : ''}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -4656,7 +4656,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
                   <div>
                     <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Email Campaign Entry</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Log campaign stats â€” metrics update instantly</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log campaign stats  metrics update instantly</p>
                   </div>
                 </div>
                 <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
@@ -4675,7 +4675,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• PIPELINE â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  PIPELINE  */}
         {activeTab === 'pipeline' && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -4727,7 +4727,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• MY ACHIEVEMENTS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  MY ACHIEVEMENTS  */}
         {activeTab === 'achievements' && (
           <>
             <div className="bg-gradient-to-r from-teal-700 to-teal-900 rounded-[2.5rem] p-8 text-white mb-8 flex flex-col md:flex-row items-center gap-6">
@@ -4736,8 +4736,8 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               </div>
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight">My Digital Marketing Achievements</h2>
-                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing â€“ Social Media â€“ Website Management â€“ Blog Writing â€“ SEO â€“ Paid Ads</p>
-                <p className="text-teal-200 text-xs mt-2 italic">Ongoing â€“ Destiny Springs Healthcare</p>
+                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing  Social Media  Website Management  Blog Writing  SEO  Paid Ads</p>
+                <p className="text-teal-200 text-xs mt-2 italic">Ongoing  Destiny Springs Healthcare</p>
               </div>
               <div className="ml-auto shrink-0 text-right hidden md:block">
                 <div className="text-4xl font-black text-amber-300">312</div>
@@ -4813,7 +4813,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• CLIENT ROI â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  CLIENT ROI  */}
         {activeTab === 'roi' && (
           <>
             {/* ROI settings bar */}
@@ -4851,8 +4851,8 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Est. Revenue Potential" value={_revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : 'â€”'} trend={null} icon={DollarSign} color="bg-teal-600"    sub="Based on avg value / lead"  />
-              <StatCard title="Total Mktg Spend"       value={_totalSpend > 0 ? '$' + _totalSpend.toLocaleString() : 'â€”'}            trend={null} icon={Target}     color="bg-indigo-600"  sub="All paid channels"          />
+              <StatCard title="Est. Revenue Potential" value={_revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : ''} trend={null} icon={DollarSign} color="bg-teal-600"    sub="Based on avg value / lead"  />
+              <StatCard title="Total Mktg Spend"       value={_totalSpend > 0 ? '$' + _totalSpend.toLocaleString() : ''}            trend={null} icon={Target}     color="bg-indigo-600"  sub="All paid channels"          />
               <StatCard title="Blended ROI"            value={_blendedRoi}                                                            trend={null} icon={TrendingUp} color="bg-emerald-600" sub="Revenue / Spend Ratio"      />
               <StatCard title="Agency Cost Savings"    value={_agencySavings}                                                         trend={null} icon={ShieldCheck} color="bg-amber-600"  sub="vs. Full Agency Retainer"   />
             </div>
@@ -4909,8 +4909,8 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[
-                { label: 'Total Leads Ã— Avg Patient Value', value: _revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : 'â€”', icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
-                { label: 'Total Marketing Investment',      value: _totalSpend > 0 ? '$' + _totalSpend.toLocaleString() : 'â€”',             icon: Target,     color: 'text-indigo-500',  sub: 'Blended spend across all channels'   },
+                { label: 'Total Leads  Avg Patient Value', value: _revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : '', icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
+                { label: 'Total Marketing Investment',      value: _totalSpend > 0 ? '$' + _totalSpend.toLocaleString() : '',             icon: Target,     color: 'text-indigo-500',  sub: 'Blended spend across all channels'   },
                 { label: 'Return on Investment',            value: _blendedRoi,                                                             icon: TrendingUp, color: 'text-emerald-500', sub: 'Revenue potential / marketing spend'  },
               ].map(s => (
                 <div key={s.label} className={`${card} p-6 rounded-2xl text-center`}>
@@ -4924,10 +4924,10 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• CONTENT CALENDAR â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  CONTENT CALENDAR  */}
         {activeTab === 'calendar' && (
           <>
-            {/* â”€â”€ Toolbar: view toggle + type filter + schedule button â”€â”€ */}
+            {/*  Toolbar: view toggle + type filter + schedule button  */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div className="flex items-center gap-2 flex-wrap">
                 {/* View toggle pill */}
@@ -4955,7 +4955,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               </button>
             </div>
 
-            {/* â”€â”€ Schedule Post form â”€â”€ */}
+            {/*  Schedule Post form  */}
             {showAddPost && (
               <div className={`${card} p-6 rounded-[2rem] mb-6`} style={{ borderColor: 'rgba(13,148,136,0.35)' }}>
                 <div className="flex items-center justify-between mb-5">
@@ -4992,7 +4992,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   <button onClick={() => generateCaption(newPost.title, newPost.platform, newPost.type)}
                     disabled={captionGenerating || !newPost.title}
                     className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-black hover:bg-purple-500 transition-all disabled:opacity-40">
-                    {captionGenerating ? <RefreshCw size={13} className="animate-spin" /> : <Zap size={13} />} {captionGenerating ? 'Writingâ€¦' : 'AI Caption'}
+                    {captionGenerating ? <RefreshCw size={13} className="animate-spin" /> : <Zap size={13} />} {captionGenerating ? 'Writing' : 'AI Caption'}
                   </button>
                   <button onClick={() => setShowAddPost(false)}
                     className={`px-6 py-2.5 ${card} ${muted} rounded-xl text-sm font-black hover:text-teal-500 transition-all border`}>
@@ -5002,7 +5002,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               </div>
             )}
 
-            {/* â”€â”€ Status summary chips â”€â”€ */}
+            {/*  Status summary chips  */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               {[
                 { label: 'Scheduled',     value: contentItems.filter(c=>c.status==='scheduled').length, color: 'text-teal-500'   },
@@ -5017,7 +5017,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               ))}
             </div>
 
-            {/* â”€â”€ Content Calendar card â”€â”€ */}
+            {/*  Content Calendar card  */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
                 <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="Upcoming Posts &amp; Deadlines" />
@@ -5035,7 +5035,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 )}
               </div>
 
-              {/* â”€â”€â”€â”€ MONTH VIEW â”€â”€â”€â”€ */}
+              {/*  MONTH VIEW  */}
               {calView === 'month' && (() => {
                 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                 const cells = [];
@@ -5065,7 +5065,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                               <div className={`text-[12px] font-black mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-teal-600 text-white' : txt}`}>{day}</div>
                               <div className="space-y-0.5">
                                 {dayItems.slice(0, 3).map((item, ii) => (
-                                  <div key={ii} title={`${item.title} â€” ${item.platform}`}
+                                  <div key={ii} title={`${item.title}  ${item.platform}`}
                                     className={`text-[9px] font-black px-1 py-0.5 rounded truncate leading-tight ${typeColor[item.type] || 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
                                     {item.title}
                                   </div>
@@ -5083,7 +5083,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 );
               })()}
 
-              {/* â”€â”€â”€â”€ WEEK VIEW â”€â”€â”€â”€ */}
+              {/*  WEEK VIEW  */}
               {calView === 'week' && (() => {
                 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                 return (
@@ -5102,13 +5102,13 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                           </div>
                           <div className="space-y-1">
                             {dayItems.map((item, ii) => (
-                              <div key={ii} title={`${item.title} â€” ${item.platform}`}
+                              <div key={ii} title={`${item.title}  ${item.platform}`}
                                 className={`text-[10px] font-black px-1.5 py-1 rounded-lg truncate ${typeColor[item.type] || 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
                                 {item.title}
                               </div>
                             ))}
                             {dayItems.length === 0 && (
-                              <div className={`text-[10px] ${subtl} text-center py-2`}>â€”</div>
+                              <div className={`text-[10px] ${subtl} text-center py-2`}></div>
                             )}
                           </div>
                         </div>
@@ -5118,7 +5118,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 );
               })()}
 
-              {/* â”€â”€â”€â”€ LIST VIEW â”€â”€â”€â”€ */}
+              {/*  LIST VIEW  */}
               {calView === 'list' && (
                 <div className="space-y-3">
                   {filteredContent.map((item, i) => {
@@ -5145,7 +5145,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                             title="Publish now to Facebook via Graph API"
                             className="shrink-0 flex items-center gap-1 text-[11px] font-black px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-40">
                             {autoPostLoading[i] ? <RefreshCw size={10} className="animate-spin" /> : <Send size={10} />}
-                            {autoPostLoading[i] ? 'â€¦' : 'Publish'}
+                            {autoPostLoading[i] ? '' : 'Publish'}
                           </button>
                         )}
                       </div>
@@ -5157,30 +5157,30 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• REVIEWS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  REVIEWS  */}
         {activeTab === 'reviews' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Overall Rating"    value={_avgRating ? _avgRating + ' â˜…' : 'â€”'} trend={null} icon={Star} color="bg-amber-500" sub={_platformEntries.length ? 'Weighted Avg â€” All Platforms' : 'Google Business Profile'} />
-              <StatCard title="Total Reviews"     value={_totalReviewCount || 'â€”'} trend={null} icon={MessageSquare} color="bg-teal-600" sub={_platformEntries.length ? `Across ${_platformEntries.length} platform${_platformEntries.length!==1?'s':''}` : 'All Time'} />
-              <StatCard title="Best Platform"     value={_bestPlatform ? _bestPlatform[0].charAt(0).toUpperCase()+_bestPlatform[0].slice(1) : 'â€”'} trend={null} icon={Trophy} color="bg-emerald-600" sub={_bestPlatform ? _bestPlatform[1].rating+' â˜… Â· '+Number(_bestPlatform[1].count).toLocaleString()+' reviews' : 'No platform data'} />
-              <StatCard title="Most Reviews"      value={_mostReviewsPlatform ? Number(_mostReviewsPlatform[1].count).toLocaleString() : 'â€”'} trend={null} icon={ThumbsUp} color="bg-purple-600" sub={_mostReviewsPlatform ? _mostReviewsPlatform[0].charAt(0).toUpperCase()+_mostReviewsPlatform[0].slice(1) : 'No platform data'} />
+              <StatCard title="Overall Rating"    value={_avgRating ? _avgRating + ' ' : ''} trend={null} icon={Star} color="bg-amber-500" sub={_platformEntries.length ? 'Weighted Avg  All Platforms' : 'Google Business Profile'} />
+              <StatCard title="Total Reviews"     value={_totalReviewCount || ''} trend={null} icon={MessageSquare} color="bg-teal-600" sub={_platformEntries.length ? `Across ${_platformEntries.length} platform${_platformEntries.length!==1?'s':''}` : 'All Time'} />
+              <StatCard title="Best Platform"     value={_bestPlatform ? _bestPlatform[0].charAt(0).toUpperCase()+_bestPlatform[0].slice(1) : ''} trend={null} icon={Trophy} color="bg-emerald-600" sub={_bestPlatform ? _bestPlatform[1].rating+'   '+Number(_bestPlatform[1].count).toLocaleString()+' reviews' : 'No platform data'} />
+              <StatCard title="Most Reviews"      value={_mostReviewsPlatform ? Number(_mostReviewsPlatform[1].count).toLocaleString() : ''} trend={null} icon={ThumbsUp} color="bg-purple-600" sub={_mostReviewsPlatform ? _mostReviewsPlatform[0].charAt(0).toUpperCase()+_mostReviewsPlatform[0].slice(1) : 'No platform data'} />
             </div>
 
-            {/* â”€â”€ Multi-Platform Review Tracker â”€â”€ */}
+            {/*  Multi-Platform Review Tracker  */}
             <div className={`${card} p-6 rounded-[2rem] mb-8`}>
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><Star size={16} className="text-amber-500" /></div>
                   <div>
                     <p className={`text-sm font-black ${txt}`}>Live Review Scores</p>
-                    <p className={`text-xs ${subtl}`}>Fetch live scores from each platform â€” or enter manually</p>
+                    <p className={`text-xs ${subtl}`}>Fetch live scores from each platform  or enter manually</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {_platformEntries.length > 0 && (
                     <span className={`text-xs font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400`}>
-                      {_totalReviewCount.toLocaleString()} total Â· {_avgRating} â˜… avg
+                      {_totalReviewCount.toLocaleString()} total  {_avgRating}  avg
                     </span>
                   )}
                   <button
@@ -5238,12 +5238,12 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                         <div className="flex-1">
                           {(saved.rating || saved.count) ? (
                             <div className="mb-1">
-                              <span className={`text-2xl font-black ${plat.color}`}>{saved.rating || 'â€”'}</span>
-                              {saved.rating && <span className={`text-base ${plat.color} ml-0.5`}>â˜…</span>}
+                              <span className={`text-2xl font-black ${plat.color}`}>{saved.rating || ''}</span>
+                              {saved.rating && <span className={`text-base ${plat.color} ml-0.5`}></span>}
                               {saved.count && <p className={`text-xs ${subtl} mt-0.5`}>{Number(saved.count).toLocaleString()} reviews</p>}
                             </div>
                           ) : (
-                            <p className={`text-xs ${subtl} mb-1`}>{fetching ? 'Fetchingâ€¦' : 'No data yet'}</p>
+                            <p className={`text-xs ${subtl} mb-1`}>{fetching ? 'Fetching' : 'No data yet'}</p>
                           )}
                           {hasError && (
                             <p className="text-[10px] text-red-500 dark:text-red-400 leading-tight mb-1 line-clamp-2" title={saved.fetchError}>
@@ -5371,7 +5371,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                           disabled={reviewDraftLoading[i]}
                           className="flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 transition-colors disabled:opacity-40">
                           {reviewDraftLoading[i] ? <RefreshCw size={9} className="animate-spin" /> : <Bot size={9} />}
-                          {reviewDraftLoading[i] ? 'Writingâ€¦' : reviewDrafts[i] ? 'Regenerate' : 'AI Draft Response'}
+                          {reviewDraftLoading[i] ? 'Writing' : reviewDrafts[i] ? 'Regenerate' : 'AI Draft Response'}
                         </button>
                         <span className={`text-[12px] font-black px-2 py-1 rounded-full ${r.responded ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
                           {r.responded ? <><CheckCircle size={9} className="inline mr-1" />Responded</> : 'Needs Response'}
@@ -5383,7 +5383,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               </div>
 
               <div className={`${card} p-6 rounded-[2rem]`}>
-                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 9â€“10 Clients Ready for Google Review" />
+                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 910 Clients Ready for Google Review" />
                 <div className="space-y-3">
                   {promoters.map((p, i) => (
                     <div key={i} className={`flex items-center gap-3 p-3 ${rowCls} rounded-xl`}>
@@ -5406,16 +5406,16 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           </>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• INTEL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  INTEL  */}
         
         {/* SURVEYMONKEY */}
         {activeTab === 'survey' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Survey Imports" value={surveyEntries.length || '—'} trend={null} icon={Upload} color="bg-amber-500" sub="Saved SurveyMonkey snapshots" />
-              <StatCard title="Total Responses" value={surveyTotals.totalResponses ? Number(surveyTotals.totalResponses).toLocaleString() : '—'} trend={null} icon={Users} color="bg-teal-600" sub="Across all imported surveys" />
-              <StatCard title="Weighted NPS" value={surveyAvgNps != null ? surveyAvgNps : '—'} trend={null} icon={ThumbsUp} color="bg-emerald-600" sub="Weighted by response volume" />
-              <StatCard title="Avg Satisfaction" value={surveyAvgSatisfaction != null ? surveyAvgSatisfaction : '—'} trend={null} icon={Star} color="bg-indigo-600" sub="Weighted average score" />
+              <StatCard title="Survey Imports" value={surveyEntries.length || ''} trend={null} icon={Upload} color="bg-amber-500" sub="Saved SurveyMonkey snapshots" />
+              <StatCard title="Total Responses" value={surveyTotals.totalResponses ? Number(surveyTotals.totalResponses).toLocaleString() : ''} trend={null} icon={Users} color="bg-teal-600" sub="Across all imported surveys" />
+              <StatCard title="Weighted NPS" value={surveyAvgNps != null ? surveyAvgNps : ''} trend={null} icon={ThumbsUp} color="bg-emerald-600" sub="Weighted by response volume" />
+              <StatCard title="Avg Satisfaction" value={surveyAvgSatisfaction != null ? surveyAvgSatisfaction : ''} trend={null} icon={Star} color="bg-indigo-600" sub="Weighted average score" />
             </div>
 
             {surveyEntries.length === 0 && (
@@ -5553,9 +5553,9 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                         {surveyVisibleRows.slice(0, 80).map(r => (
                           <tr key={r.id} className={`${rowCls} border-t border-slate-100 dark:border-slate-800`}>
                             <td className={`px-3 py-2 text-xs font-bold ${txt}`}>{r.survey}</td>
-                            <td className={`px-3 py-2 text-xs font-black ${r.nps == null ? subtl : r.nps >= 50 ? 'text-emerald-500' : r.nps >= 0 ? 'text-amber-500' : 'text-rose-500'}`}>{r.nps == null ? '—' : r.nps}</td>
-                            <td className={`px-3 py-2 text-xs font-black ${r.satisfaction == null ? subtl : 'text-teal-500'}`}>{r.satisfaction == null ? '—' : r.satisfaction}</td>
-                            <td className={`px-3 py-2 text-xs ${txt2}`}>{r.response || '—'}</td>
+                            <td className={`px-3 py-2 text-xs font-black ${r.nps == null ? subtl : r.nps >= 50 ? 'text-emerald-500' : r.nps >= 0 ? 'text-amber-500' : 'text-rose-500'}`}>{r.nps == null ? '' : r.nps}</td>
+                            <td className={`px-3 py-2 text-xs font-black ${r.satisfaction == null ? subtl : 'text-teal-500'}`}>{r.satisfaction == null ? '' : r.satisfaction}</td>
+                            <td className={`px-3 py-2 text-xs ${txt2}`}>{r.response || ''}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -5586,8 +5586,8 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 {[
                   { label: 'Tracked URLs',    value: String(savedUrls.length),              color: 'text-teal-500',    icon: Link2 },
                   { label: 'News Loaded',     value: String(newsItems.length),              color: 'text-sky-500',     icon: Newspaper },
-                  { label: 'YT Subscribers',  value: _ytLive.subscribers ? Number(_ytLive.subscribers).toLocaleString()  : 'â€”', color: 'text-rose-500',    icon: Youtube },
-                  { label: 'Yelp Rating',     value: _yelpLive.rating    ? `${_yelpLive.rating} â˜… (${_yelpLive.reviewCount || 0})` : 'â€”', color: 'text-red-500', icon: Building2 },
+                  { label: 'YT Subscribers',  value: _ytLive.subscribers ? Number(_ytLive.subscribers).toLocaleString()  : '', color: 'text-rose-500',    icon: Youtube },
+                  { label: 'Yelp Rating',     value: _yelpLive.rating    ? `${_yelpLive.rating}  (${_yelpLive.reviewCount || 0})` : '', color: 'text-red-500', icon: Building2 },
                 ].map(s => (
                   <div key={s.label} className={`${card} p-5 rounded-2xl text-center`}>
                     <s.icon size={22} className={`${s.color} mx-auto mb-2`} />
@@ -5611,7 +5611,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 ))}
               </div>
 
-              {/* â”€â”€ News Feed â”€â”€ */}
+              {/*  News Feed  */}
               {intelSubTab === 'news' && (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <SectionHeader icon={Newspaper} color="text-sky-500" title="Industry News Feed" subtitle="Real-time news pulled from newsapi.org" />
@@ -5630,7 +5630,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       className={`flex-1 bg-slate-100 dark:bg-slate-800 ${txt} rounded-xl px-4 py-2.5 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}
                       value={newsQuery}
                       onChange={e => setNewsQuery(e.target.value)}
-                      placeholder="Search query e.g. mental health Arizonaâ€¦"
+                      placeholder="Search query e.g. mental health Arizona"
                       onKeyDown={e => { if (e.key === 'Enter') fetchNewsItems(newsQuery, newsApiCreds?.apiKey); }}
                     />
                     <button
@@ -5639,7 +5639,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-black flex items-center gap-2 disabled:opacity-50"
                     >
                       {newsLoading ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
-                      {newsLoading ? 'Fetchingâ€¦' : 'Fetch News'}
+                      {newsLoading ? 'Fetching' : 'Fetch News'}
                     </button>
                   </div>
                   {/* Preset queries */}
@@ -5681,7 +5681,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 </div>
               )}
 
-              {/* â”€â”€ Web Page Scraper â”€â”€ */}
+              {/*  Web Page Scraper  */}
               {intelSubTab === 'scraper' && (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <SectionHeader icon={Link2} color="text-teal-500" title="Page Intelligence Scraper" subtitle="Deep-scan any facility, save profiles, and compare head-to-head" />
@@ -5760,11 +5760,11 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                               <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-3">
                                 <div>
                                   <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-0.5`}>Page Title</p>
-                                  <p className={`font-black text-sm ${txt}`}>{scraperResult.title||'â€”'}</p>
+                                  <p className={`font-black text-sm ${txt}`}>{scraperResult.title||''}</p>
                                 </div>
                                 <div>
                                   <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-0.5`}>Meta Description</p>
-                                  <p className={`text-xs ${txt2}`}>{scraperResult.description||'â€”'}</p>
+                                  <p className={`text-xs ${txt2}`}>{scraperResult.description||''}</p>
                                 </div>
                                 {scraperResult.keywords && (
                                   <div>
@@ -5774,7 +5774,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                                 )}
                                 <div>
                                   <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-0.5`}>H1 Heading</p>
-                                  <p className={`font-black text-sm text-teal-600 dark:text-teal-400`}>{scraperResult.h1||'â€”'}</p>
+                                  <p className={`font-black text-sm text-teal-600 dark:text-teal-400`}>{scraperResult.h1||''}</p>
                                 </div>
                               </div>
                               {scraperResult.h2s?.length > 0 && (
@@ -6027,7 +6027,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-white rounded-xl text-sm font-black flex items-center gap-2 disabled:opacity-50"
                     >
                       {rssLoading ? <RefreshCw size={14} className="animate-spin" /> : <Rss size={14} />}
-                      {rssLoading ? 'Fetchingâ€¦' : 'Load Feed'}
+                      {rssLoading ? 'Fetching' : 'Load Feed'}
                     </button>
                   </div>
                   {/* Preset feeds */}
@@ -6103,7 +6103,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                                 {v.thumbnail && <img src={v.thumbnail} alt="" className="w-10 h-7 object-cover rounded-lg flex-shrink-0" />}
                                 <div className="min-w-0 flex-1">
                                   <p className={`text-xs font-black ${txt} truncate`}>{v.title}</p>
-                                  <p className={`text-[11px] ${subtl}`}>{Number(v.views||0).toLocaleString()} views Â· {Number(v.likes||0).toLocaleString()} likes</p>
+                                  <p className={`text-[11px] ${subtl}`}>{Number(v.views||0).toLocaleString()} views  {Number(v.likes||0).toLocaleString()} likes</p>
                                 </div>
                               </div>
                             ))}
@@ -6131,8 +6131,8 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                           <p className={`text-[11px] ${subtl}`}>Reviews</p>
                         </div>
                       </div>
-                      {_yelpLive.address && <p className={`text-xs ${subtl}`}>ðŸ“ {_yelpLive.address}</p>}
-                      {_yelpLive.phone   && <p className={`text-xs ${subtl} mt-1`}>ðŸ“ž {_yelpLive.phone}</p>}
+                      {_yelpLive.address && <p className={`text-xs ${subtl}`}> {_yelpLive.address}</p>}
+                      {_yelpLive.phone   && <p className={`text-xs ${subtl} mt-1`}> {_yelpLive.phone}</p>}
                       {_yelpLive.url && (
                         <a href={_yelpLive.url} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-1 text-xs text-red-500 hover:text-red-400 font-black">
                           <ExternalLink size={11} /> View on Yelp
@@ -6146,7 +6146,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
           );
         })()}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• INTEGRATIONS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  INTEGRATIONS  */}
         {activeTab === 'integrations' && (
           <>
             {oauthBannerError && (
@@ -6244,7 +6244,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                               : syncStatus[intg.name] === 'error'
                               ? <X size={10} className="text-rose-500" />
                               : <RefreshCw size={10} />}
-                            {syncStatus[intg.name] === 'syncing' ? 'Syncingâ€¦' : syncStatus[intg.name] === 'error' ? 'Retry' : 'Sync Now'}
+                            {syncStatus[intg.name] === 'syncing' ? 'Syncing' : syncStatus[intg.name] === 'error' ? 'Retry' : 'Sync Now'}
                           </button>
                         : <button onClick={() => { setConnectModal(intg.name); setConnectFormData(connections[intg.name] || {}); setConnectError(null); }} className="text-amber-500 hover:text-amber-400 font-black flex items-center gap-1">
                             <Plug size={10} /> Connect
@@ -6273,7 +6273,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               </div>
               <div className="p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-2xl">
                 <p className="text-xs font-black text-teal-700 dark:text-teal-300 uppercase tracking-wider mb-1">Note</p>
-                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 5â€“30 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
+                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 530 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
               </div>
             </div>
           </>
@@ -6297,20 +6297,20 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               ))}
             </div>
 
-            {/* â”€â”€ Backup & Sync card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/*  Backup & Sync card  */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
               <SectionHeader icon={RefreshCw} color="text-indigo-500" title="Cloud Sync" subtitle="All data syncs automatically across every device in real time" />
 
               {/* Cloud status banner */}
               {cloudSynced === 'offline' ? (
                 <div className="mb-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
-                  <p className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-1">â˜ï¸ Cloud sync not configured yet</p>
+                  <p className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-1"> Cloud sync not configured yet</p>
                   <p className="text-xs text-amber-600 dark:text-amber-500 mb-3">To enable automatic cross-device sync, create a free Upstash Redis database (takes ~2 min):</p>
                   <ol className="text-xs text-amber-600 dark:text-amber-500 space-y-1 list-decimal list-inside mb-3">
-                    <li>Go to <strong>upstash.com</strong> â†’ sign in â†’ <strong>Create Database</strong> â†’ Redis â†’ any region â†’ <strong>Create</strong></li>
-                    <li>Open the database â†’ <strong>REST API</strong> tab â†’ copy <strong>UPSTASH_REDIS_REST_URL</strong> and <strong>UPSTASH_REDIS_REST_TOKEN</strong></li>
-                    <li>Go to your <strong>Vercel project</strong> â†’ <strong>Settings</strong> â†’ <strong>Environment Variables</strong></li>
-                    <li>Add both variables, then <strong>Redeploy</strong> â€” sync activates instantly</li>
+                    <li>Go to <strong>upstash.com</strong>  sign in  <strong>Create Database</strong>  Redis  any region  <strong>Create</strong></li>
+                    <li>Open the database  <strong>REST API</strong> tab  copy <strong>UPSTASH_REDIS_REST_URL</strong> and <strong>UPSTASH_REDIS_REST_TOKEN</strong></li>
+                    <li>Go to your <strong>Vercel project</strong>  <strong>Settings</strong>  <strong>Environment Variables</strong></li>
+                    <li>Add both variables, then <strong>Redeploy</strong>  sync activates instantly</li>
                   </ol>
                   <p className="text-xs text-amber-500 dark:text-amber-600">Until then, use the <strong>Export Backup</strong> button below to manually move data between devices.</p>
                 </div>
@@ -6319,7 +6319,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Auto-sync active</p>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-500">Data saves automatically â€” open this dashboard on any device and you'll see the latest data instantly.</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-500">Data saves automatically  open this dashboard on any device and you'll see the latest data instantly.</p>
                   </div>
                 </div>
               )}
@@ -6421,9 +6421,9 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   <div className="mb-5 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
                     <p className="text-sm font-black text-amber-700 dark:text-amber-400 mb-1">How to export from SurveyMonkey</p>
                     <ol className="text-xs text-amber-600 dark:text-amber-500 space-y-0.5 list-decimal list-inside">
-                      <li>Open your survey â†’ <strong>Analyze Results</strong> tab</li>
-                      <li>Click <strong>Export All</strong> â†’ <strong>Export File</strong></li>
-                      <li>Choose <strong>All Responses Data</strong> â†’ format <strong>CSV</strong></li>
+                      <li>Open your survey  <strong>Analyze Results</strong> tab</li>
+                      <li>Click <strong>Export All</strong>  <strong>Export File</strong></li>
+                      <li>Choose <strong>All Responses Data</strong>  format <strong>CSV</strong></li>
                       <li>Paste the file contents below or drop the file onto the drop zone</li>
                     </ol>
                   </div>
@@ -6492,7 +6492,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   {surveyParsed && (
                     <div className="rounded-2xl border-2 border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/10 p-5 space-y-4">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-black text-amber-700 dark:text-amber-400">Survey Preview â€” review before saving</p>
+                        <p className="text-sm font-black text-amber-700 dark:text-amber-400">Survey Preview  review before saving</p>
                         <span className={`text-[11px] font-bold ${subtl}`}>{surveyParsed.totalResponses} responses</span>
                       </div>
 
@@ -6500,13 +6500,13 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       <div className="grid grid-cols-3 gap-3">
                         <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-800 text-center">
                           <p className={`text-2xl font-black ${ surveyParsed.npsScore == null ? subtl : surveyParsed.npsScore >= 50 ? 'text-emerald-600' : surveyParsed.npsScore >= 0 ? 'text-amber-500' : 'text-rose-500' }`}>
-                            {surveyParsed.npsScore != null ? surveyParsed.npsScore : 'â€”'}
+                            {surveyParsed.npsScore != null ? surveyParsed.npsScore : ''}
                           </p>
                           <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-0.5`}>NPS Score</p>
                         </div>
                         <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-800 text-center">
                           <p className={`text-2xl font-black ${surveyParsed.avgSatisfaction ? 'text-teal-600' : subtl}`}>
-                            {surveyParsed.avgSatisfaction ?? 'â€”'}
+                            {surveyParsed.avgSatisfaction ?? ''}
                           </p>
                           <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-0.5`}>Avg Satisfaction</p>
                         </div>
@@ -6547,7 +6547,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                                   <div className="flex flex-wrap gap-1 mt-1.5">
                                     {q.topAnswers.map((a, j) => (
                                       <span key={j} className={`text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 ${txt2}`}>
-                                        {a.answer.slice(0, 40)} <span className="font-black">Ã—{a.count}</span>
+                                        {a.answer.slice(0, 40)} <span className="font-black">{a.count}</span>
                                       </span>
                                     ))}
                                   </div>
@@ -6613,8 +6613,8 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                               <tbody className={`divide-y ${divdr}`}>
                                 {[...(manualData['tiktok_posts'] || [])].reverse().slice(0, 10).map((e, i) => (
                                   <tr key={i} className={rowCls}>
-                                    <td className={`py-2 pr-4 font-bold ${txt} max-w-[140px] truncate`}>{e.title || 'â€”'}</td>
-                                    <td className={`py-2 pr-4 ${txt2}`}>{e.date || 'â€”'}</td>
+                                    <td className={`py-2 pr-4 font-bold ${txt} max-w-[140px] truncate`}>{e.title || ''}</td>
+                                    <td className={`py-2 pr-4 ${txt2}`}>{e.date || ''}</td>
                                     <td className={`py-2 pr-4 font-black text-teal-500`}>{Number(e.views || 0).toLocaleString()}</td>
                                     <td className={`py-2 pr-4 ${txt2}`}>{Number(e.likes || 0).toLocaleString()}</td>
                                     <td className={`py-2 pr-4 ${txt2}`}>{Number(e.comments || 0).toLocaleString()}</td>
@@ -6741,7 +6741,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
 
               {importMode === 'wix' && (
                 <div>
-                  {/* â”€â”€ Instructions â”€â”€ */}
+                  {/*  Instructions  */}
                   <div className="mb-6 p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/50">
                     <p className="text-[13px] font-black text-violet-700 dark:text-violet-300 mb-3 flex items-center gap-2">
                       <Globe size={14} /> How to export from Wix Analytics
@@ -6749,7 +6749,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                     <ol className="space-y-2 text-xs text-violet-600 dark:text-violet-400">
                       <li className="flex items-start gap-2">
                         <span className="font-black shrink-0 bg-violet-200 dark:bg-violet-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">1</span>
-                        In your Wix Dashboard, go to <strong>Analytics &amp; Reports â†’ Traffic Overview</strong>
+                        In your Wix Dashboard, go to <strong>Analytics &amp; Reports  Traffic Overview</strong>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="font-black shrink-0 bg-violet-200 dark:bg-violet-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">2</span>
@@ -6761,12 +6761,12 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="font-black shrink-0 bg-violet-200 dark:bg-violet-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">4</span>
-                        Drop the downloaded file into the upload zone below â€” we'll auto-parse it
+                        Drop the downloaded file into the upload zone below  we'll auto-parse it
                       </li>
                     </ol>
                   </div>
 
-                  {/* â”€â”€ CSV upload zone â”€â”€ */}
+                  {/*  CSV upload zone  */}
                   <div
                     className="border-2 border-dashed border-violet-300 dark:border-violet-700/50 rounded-2xl p-10 text-center hover:border-violet-500 transition-colors cursor-pointer mb-6 group"
                     onClick={() => wixFileRef.current?.click()}
@@ -6782,7 +6782,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                     />
                     <Upload size={30} className={`${subtl} group-hover:text-violet-500 mx-auto mb-2 transition-colors`} />
                     <p className={`text-sm font-black ${txt} mb-1`}>Drop your Wix Analytics CSV here</p>
-                    <p className={`text-xs ${subtl} mb-4`}>Traffic Overview or Traffic Sources export â€” sessions, bounce rate &amp; channels auto-detected</p>
+                    <p className={`text-xs ${subtl} mb-4`}>Traffic Overview or Traffic Sources export  sessions, bounce rate &amp; channels auto-detected</p>
                     <button
                       className="px-5 py-2 bg-violet-600 text-white rounded-xl text-sm font-black hover:bg-violet-500 transition-all"
                       onClick={e => { e.stopPropagation(); wixFileRef.current?.click(); }}
@@ -6791,7 +6791,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                     </button>
                   </div>
 
-                  {/* â”€â”€ Manual entry fallback â”€â”€ */}
+                  {/*  Manual entry fallback  */}
                   <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-3`}>Or enter manually</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
                     {[
@@ -6825,7 +6825,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                     <Plus size={13} /> Save Wix Data
                   </button>
 
-                  {/* â”€â”€ Current Wix data preview â”€â”€ */}
+                  {/*  Current Wix data preview  */}
                   {wixData?.sessions > 0 && (
                     <div className="mt-5 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                       <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-3`}>Current Wix Data on Record</p>
@@ -6849,7 +6849,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 </div>
               )}
 
-              {/* â”€â”€ AI Screenshot Scanner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+              {/*  AI Screenshot Scanner  */}
               {importMode === 'scan' && (
                 <div>
                   <div className="mb-4 p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/50">
@@ -6858,7 +6858,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       <div>
                         <p className={`text-sm font-bold text-violet-700 dark:text-violet-300 mb-0.5`}>AI-Powered Screenshot Extractor</p>
                         <p className={`text-xs text-violet-600 dark:text-violet-400`}>
-                          Take a screenshot of <strong>any platform</strong> (Google, Yelp, Instagram, TikTok, Facebook Ads, GA4, Mailchimp â€” anything) and AI will read every visible metric and save it to your dashboard automatically.
+                          Take a screenshot of <strong>any platform</strong> (Google, Yelp, Instagram, TikTok, Facebook Ads, GA4, Mailchimp  anything) and AI will read every visible metric and save it to your dashboard automatically.
                         </p>
                       </div>
                     </div>
@@ -6885,7 +6885,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                     >
                       <Camera size={40} className="text-violet-300 dark:text-violet-600 group-hover:text-violet-500 mx-auto mb-3 transition-colors" />
                       <p className={`text-sm font-black ${txt} mb-1`}>Drop a screenshot here, click to browse, or paste (Ctrl+V)</p>
-                      <p className={`text-xs ${subtl} mb-5`}>Supports PNG, JPG, WebP â€” up to 10 MB</p>
+                      <p className={`text-xs ${subtl} mb-5`}>Supports PNG, JPG, WebP  up to 10 MB</p>
                       <p className={`text-xs text-violet-500`}>Works with Google Business, Yelp, Instagram, TikTok, Facebook, GA4, Meta Ads, Mailchimp, and more</p>
                       <input
                         ref={scanFileRef}
@@ -6969,7 +6969,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       {/* Extracted fields grid */}
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {[
-                          { key: 'rating',        label: 'Rating',       unit: 'â˜…',  color: 'text-amber-500'   },
+                          { key: 'rating',        label: 'Rating',       unit: '',  color: 'text-amber-500'   },
                           { key: 'reviewCount',   label: 'Reviews',      unit: '',   color: 'text-amber-500'   },
                           { key: 'followers',     label: 'Followers',    unit: '',   color: 'text-purple-500'  },
                           { key: 'likes',         label: 'Likes',        unit: '',   color: 'text-rose-500'    },
@@ -7038,8 +7038,8 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       <p className={`text-[13px] ${subtl} truncate`}>
                         {feed.connected
                           ? (liveData[feed.name] && Object.keys(liveData[feed.name]).filter(k=>!['id','name','connected','lastSync','accessToken','openId','clientId','apiKey','apiSecret','pageId','placeId'].includes(k)).length > 0
-                            ? Object.entries(liveData[feed.name]).filter(([k])=>!['id','name','connected','lastSync','accessToken','openId','clientId','apiKey','apiSecret','pageId','placeId'].includes(k)).slice(0,3).map(([k,v])=>`${k.replace(/_/g,' ')}: ${v}`).join(' Â· ')
-                            : `Last synced ${connections[feed.name]?.lastSync || 'â€”'}`)
+                            ? Object.entries(liveData[feed.name]).filter(([k])=>!['id','name','connected','lastSync','accessToken','openId','clientId','apiKey','apiSecret','pageId','placeId'].includes(k)).slice(0,3).map(([k,v])=>`${k.replace(/_/g,' ')}: ${v}`).join('  ')
+                            : `Last synced ${connections[feed.name]?.lastSync || ''}`)
                           : feed.metrics.join(', ')}
                       </p>
                     </div>
@@ -7049,7 +7049,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                         : <button
                             onClick={() => { setConnectModal(feed.name); setConnectFormData(connections[feed.name] || {}); setConnectError(null); setActiveTab('integrations'); }}
                             className="text-[12px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors cursor-pointer"
-                          >Set Up â†’</button>
+                          >Set Up </button>
                       }
                     </div>
                   </div>
@@ -7057,24 +7057,24 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               </div>
             </div>
 
-            {/* â”€â”€ Survey Results â€” Live data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/*  Survey Results  Live data  */}
             {(connections['SurveyMonkey']?.connected || _smLive.totalSurveys != null || _smLive.totalResponses != null) && (
               <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
                 <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
-                  <SectionHeader icon={ThumbsUp} color="text-amber-500" title="Survey Results (Live)" subtitle={`Connected as ${_smLive.username || _smLive.email || 'SurveyMonkey'} Â· ${_smLive.connectedAt ? new Date(_smLive.connectedAt).toLocaleDateString() : ''}`} />
+                  <SectionHeader icon={ThumbsUp} color="text-amber-500" title="Survey Results (Live)" subtitle={`Connected as ${_smLive.username || _smLive.email || 'SurveyMonkey'}  ${_smLive.connectedAt ? new Date(_smLive.connectedAt).toLocaleDateString() : ''}`} />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                   {_smLive.totalSurveys == null && _smLive.totalResponses == null ? (
                     <div className={`col-span-3 p-4 rounded-2xl border ${brd} text-center`}>
-                      <p className={`text-sm ${subtl}`}>No survey data yet â€” click <span className="font-black text-teal-400">Sync Now</span> on the SurveyMonkey integration above, or use the <span className="font-black text-amber-400">CSV Import</span> tab to upload a SurveyMonkey export.</p>
+                      <p className={`text-sm ${subtl}`}>No survey data yet  click <span className="font-black text-teal-400">Sync Now</span> on the SurveyMonkey integration above, or use the <span className="font-black text-amber-400">CSV Import</span> tab to upload a SurveyMonkey export.</p>
                     </div>
                   ) : (<>
                   <div className={`p-4 rounded-2xl border ${brd} text-center`}>
-                    <p className={`text-3xl font-black ${txt}`}>{_smLive.totalSurveys ?? 'â€”'}</p>
+                    <p className={`text-3xl font-black ${txt}`}>{_smLive.totalSurveys ?? ''}</p>
                     <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-1`}>Total Surveys</p>
                   </div>
                   <div className={`p-4 rounded-2xl border ${brd} text-center`}>
-                    <p className={`text-3xl font-black text-teal-600 dark:text-teal-400`}>{_smLive.totalResponses != null ? _smLive.totalResponses.toLocaleString() : 'â€”'}</p>
+                    <p className={`text-3xl font-black text-teal-600 dark:text-teal-400`}>{_smLive.totalResponses != null ? _smLive.totalResponses.toLocaleString() : ''}</p>
                     <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-1`}>Total Responses</p>
                   </div>
                   {_smLive.activeSurveyTitle && (
@@ -7127,7 +7127,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               </div>
             )}
 
-            {/* â”€â”€ Survey Results history â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/*  Survey Results history  */}
             {(manualData.survey_results || []).length > 0 && (
               <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
                 <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
@@ -7152,13 +7152,13 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       <div className="grid grid-cols-3 gap-3">
                         <div className="text-center">
                           <p className={`text-2xl font-black ${survey.npsScore == null ? subtl : survey.npsScore >= 50 ? 'text-emerald-600 dark:text-emerald-400' : survey.npsScore >= 0 ? 'text-amber-500' : 'text-rose-500'}`}>
-                            {survey.npsScore != null ? survey.npsScore : 'â€”'}
+                            {survey.npsScore != null ? survey.npsScore : ''}
                           </p>
                           <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>NPS</p>
                         </div>
                         <div className="text-center">
                           <p className={`text-2xl font-black ${survey.avgSatisfaction ? 'text-teal-600 dark:text-teal-400' : subtl}`}>
-                            {survey.avgSatisfaction ?? 'â€”'}
+                            {survey.avgSatisfaction ?? ''}
                           </p>
                           <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>Avg Sat.</p>
                         </div>
@@ -7169,9 +7169,9 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                       </div>
                       {survey.npsBreakdown && (
                         <div className={`flex gap-4 mt-3 pt-3 border-t ${brd} text-xs ${subtl}`}>
-                          <span>ðŸŸ¢ Promoters: <strong className={txt}>{survey.npsBreakdown.promoters}</strong></span>
-                          <span>ðŸŸ¡ Passives: <strong className={txt}>{survey.npsBreakdown.passives}</strong></span>
-                          <span>ðŸ”´ Detractors: <strong className={txt}>{survey.npsBreakdown.detractors}</strong></span>
+                          <span> Promoters: <strong className={txt}>{survey.npsBreakdown.promoters}</strong></span>
+                          <span> Passives: <strong className={txt}>{survey.npsBreakdown.passives}</strong></span>
+                          <span> Detractors: <strong className={txt}>{survey.npsBreakdown.detractors}</strong></span>
                         </div>
                       )}
                     </div>
@@ -7191,7 +7191,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 )}
               </div>
 
-              {/* â”€â”€ File upload log â”€â”€ */}
+              {/*  File upload log  */}
               {fileImportLog.length > 0 && (
                 <div className="mb-6">
                   <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-2`}>Files Uploaded ({fileImportLog.length})</p>
@@ -7219,15 +7219,15 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 </div>
               )}
 
-              {/* â”€â”€ Manual data entries â”€â”€ */}
+              {/*  Manual data entries  */}
               <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-2`}>Manual Data Entries</p>
               {(() => {
                 const allEntries = Object.entries(manualData)
                   .flatMap(([key, rows]) =>
                     (rows || []).map(row => ({
                       type: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                      savedAt: row._savedAt || 'â€”',
-                      summary: Object.entries(row).filter(([k]) => !k.startsWith('_')).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join('  Â·  '),
+                      savedAt: row._savedAt || '',
+                      summary: Object.entries(row).filter(([k]) => !k.startsWith('_')).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join('    '),
                     }))
                   )
                   .reverse()
@@ -7264,7 +7264,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               })()}
             </div>
 
-            {/* â”€â”€ Captain KPI â€” Import Data Analysis â”€â”€ */}
+            {/*  Captain KPI  Import Data Analysis  */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
               <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
                 <SectionHeader icon={Bot} color="text-purple-500" title="AI Data Analysis" subtitle="Captain KPI reads your imported data and delivers the hard truths" />
@@ -7274,7 +7274,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-all flex-shrink-0 shadow-lg"
                 >
                   <Bot size={14} className={aiInsightsLoading ? 'animate-spin' : ''} />
-                  {aiInsightsLoading ? 'Analyzingâ€¦' : 'Analyze Imported Data'}
+                  {aiInsightsLoading ? 'Analyzing' : 'Analyze Imported Data'}
                 </button>
               </div>
               {aiInsights ? (
@@ -7291,7 +7291,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 <div className="flex flex-col items-center justify-center py-8">
                   <CaptainKPI size={48} />
                   <p className={`text-sm font-black ${txt} mt-3 mb-1`}>Ready to analyze your data</p>
-                  <p className={`text-xs ${subtl} max-w-sm text-center`}>Import your data above, then hit Analyze â€” Captain KPI will break down what it means for Destiny Springs.</p>
+                  <p className={`text-xs ${subtl} max-w-sm text-center`}>Import your data above, then hit Analyze  Captain KPI will break down what it means for Destiny Springs.</p>
                 </div>
               )}
             </div>
@@ -7314,7 +7314,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   </div>
                   <span className="shrink-0 text-[13px] font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Connect Required</span>
                 </div>
-                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>Sintra AI automates your digital marketing workflows â€“ from social post generation to SEO optimization and ad copy. Connect your account to sync campaign data and run AI-powered automations directly from this dashboard.</p>
+                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>Sintra AI automates your digital marketing workflows  from social post generation to SEO optimization and ad copy. Connect your account to sync campaign data and run AI-powered automations directly from this dashboard.</p>
                 <div className="space-y-2 mb-6">
                   {[
                     'Automated social media post generation',
@@ -7404,7 +7404,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               <div className="mb-5">
                 <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>Topic / Brief</label>
                 <textarea value={aiTopic} onChange={e => setAiTopic(e.target.value)} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-24 resize-none focus:outline-none focus:border-purple-500`}
-                  placeholder="e.g. Mental health awareness week post â€“ focus on reducing stigma in Arizona healthcare..." />
+                  placeholder="e.g. Mental health awareness week post  focus on reducing stigma in Arizona healthcare..." />
               </div>
               <div className="flex items-center gap-3 flex-wrap mb-5">
                 <button
@@ -7463,19 +7463,19 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
         <div className={`mt-12 pt-6 border-t ${brd} flex flex-col md:flex-row justify-between items-center gap-3 no-print`}>
           <div className="flex items-center gap-2">
             <Heart size={13} className="text-teal-500 fill-teal-500" />
-            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare â€“ Digital Marketing Portal</span>
+            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare  Digital Marketing Portal</span>
           </div>
           <span className={`text-[13px] ${subtl} uppercase tracking-wider`}>Powered by DMD &middot; Destiny Springs Healthcare</span>
         </div>
 
         </main>
 
-        {/* â•â• CAPTAIN KPI CHATBOT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/*  CAPTAIN KPI CHATBOT  */}
         {/* Floating toggle button */}
         <button
           onClick={() => setChatOpen(o => !o)}
           className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-br from-purple-700 to-indigo-700 shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform no-print"
-          title="Captain KPI â€” AI Marketing Assistant"
+          title="Captain KPI  AI Marketing Assistant"
         >
           {chatOpen ? <X size={22} /> : <CaptainKPI size={30} />}
         </button>
@@ -7492,8 +7492,8 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 <CaptainKPI size={32} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-white leading-tight">Captain KPI ðŸ«¡</p>
-                <p className="text-[10px] text-purple-200">AI Marketing Officer Â· Powered by Gemini</p>
+                <p className="text-sm font-black text-white leading-tight">Captain KPI </p>
+                <p className="text-[10px] text-purple-200">AI Marketing Officer  Powered by Gemini</p>
               </div>
               <button onClick={() => setChatOpen(false)} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><X size={16} /></button>
             </div>
@@ -7522,7 +7522,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                     <CaptainKPI size={22} />
                   </div>
                   <div className={`rounded-2xl rounded-tl-sm px-3 py-2 ${darkMode ? 'bg-white/10 text-purple-300' : 'bg-white text-slate-500 shadow-sm'} text-[13px]`}>
-                    Typingâ€¦ âœï¸
+                    Typing 
                   </div>
                 </div>
               )}
@@ -7549,7 +7549,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
             <div className={`flex gap-2 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/10 bg-indigo-950/80' : 'border-t border-purple-100 bg-white'}`}>
               <input
                 className={`flex-1 rounded-xl px-3 py-2 text-[13px] outline-none border ${darkMode ? 'bg-white/10 border-white/20 text-white placeholder-white/40 focus:border-purple-400' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-purple-400'} transition-colors`}
-                placeholder="Ask Captain KPIâ€¦"
+                placeholder="Ask Captain KPI"
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
@@ -7566,7 +7566,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
         )}
       </div>
 
-      {/* â•â• CONNECT MODAL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/*  CONNECT MODAL  */}
       {connectModal && (() => {
         const intg   = integrations.find(i => i.name === connectModal);
         const fields = integrationFields[connectModal] || [];
@@ -7707,7 +7707,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 <div className="mb-4">
                   <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
                     Paste your SurveyMonkey personal access token below. Find it at{' '}
-                    <span className="font-black text-teal-400">developer.surveymonkey.com</span> â†’ My Apps â†’ your app â†’ Access Token.
+                    <span className="font-black text-teal-400">developer.surveymonkey.com</span>  My Apps  your app  Access Token.
                   </p>
                   {fields.map(field => (
                     <div key={field.key} className="mb-3">
@@ -7740,7 +7740,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                 <div className="mb-4">
                   <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
                     Paste your Wix API key below. Get it at{' '}
-                    <span className="font-black text-teal-400">manage.wix.com</span> â†’ select your site â†’ Settings â†’ Advanced â†’ API Keys â†’ Generate Key (enable Analytics permission).
+                    <span className="font-black text-teal-400">manage.wix.com</span>  select your site  Settings  Advanced  API Keys  Generate Key (enable Analytics permission).
                   </p>
                   {fields.map(field => (
                     <div key={field.key} className="mb-3">
@@ -7772,7 +7772,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               ) : connectModal === 'TikTok for Business' ? (
                 <div className="mb-4">
                   <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
-                    Click below to log in with your TikTok account. Youâ€™ll be redirected to TikTok and back automatically â€” no credentials to copy.
+                    Click below to log in with your TikTok account. Youll be redirected to TikTok and back automatically  no credentials to copy.
                   </p>
                   <a
                     href="/api/tiktok?action=login"
@@ -7810,7 +7810,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
               {/* Error / Warning */}
               {connectError && (
                 <div className={`mb-4 p-3 rounded-xl text-sm border ${
-                  connectError.startsWith('âš ï¸')
+                  connectError.startsWith('')
                     ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400'
                     : 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400'
                 }`}>{connectError}</div>
@@ -7821,7 +7821,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   Credentials are saved locally. Live data sync for this platform requires the backend API proxy to be configured by your developer.
                 </div>
               )}
-              {/* Actions â€” hidden for TikTok and Meta Business Suite (OAuth handles them) */}
+              {/* Actions  hidden for TikTok and Meta Business Suite (OAuth handles them) */}
               {!['TikTok for Business', 'Meta Business Suite', 'Google Analytics', 'Mailchimp', 'SurveyMonkey', 'Wix Analytics'].includes(connectModal) && (
               <div className="flex gap-3 mt-2">
                 <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
@@ -7831,7 +7831,7 @@ Always give actionable, specific suggestions. You HAVE the data above â€” u
                   className="flex-1 py-2.5 rounded-xl text-sm font-black bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2"
                 >
                   {connectTesting
-                    ? <><RefreshCw size={14} className="animate-spin" /> Testingâ€¦</>
+                    ? <><RefreshCw size={14} className="animate-spin" /> Testing</>
                     : connections[connectModal]?.connected
                       ? <><Pencil size={14} /> Save Changes</>
                       : <><Plug size={14} /> Save & Connect</>}
