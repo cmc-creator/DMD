@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
@@ -3250,7 +3250,10 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                   <a href="https://www.instagram.com/destinyspringshealthcare/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400 mt-1"><ExternalLink size={9}/> Open on Instagram</a>
                                 </div>
                               ) : !destinyLoading ? (
-                                <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>
+                                <div>
+                                  <p className={`text-[11px] ${subtl} mb-1`}>Click Sync Now</p>
+                                  <a href="https://www.instagram.com/destinyspringshealthcare/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400"><ExternalLink size={9}/> Open on Instagram</a>
+                                </div>
                               ) : null}
                             </div>
                           );
