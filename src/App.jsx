@@ -3531,6 +3531,51 @@ Other rules:
 
 {activeTab === 'overview' && (
           <>
+            {/* ── News & Insights ─────────────────────────────────────────── */}
+            <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-sky-600 flex items-center justify-center flex-shrink-0">
+                    <Newspaper className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className={`font-black text-lg ${txt}`}>News &amp; Insights</h3>
+                    <p className={`text-xs ${subtl}`}>Key findings saved by Captain KPI from your reports and uploads</p>
+                  </div>
+                </div>
+                {dmdInsights.length > 0 && (
+                  <button onClick={() => { setDmdInsights([]); localStorage.removeItem('dmd_insights'); }} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear all</button>
+                )}
+              </div>
+              {dmdInsights.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-3">
+                  <Newspaper className={`w-10 h-10 ${subtl} opacity-30`} />
+                  <p className={`text-sm ${subtl} text-center max-w-sm`}>No insights saved yet. Upload a report or document to Captain KPI and key findings will appear here automatically.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {dmdInsights.map(item => {
+                    const tagColors = { seo: 'bg-blue-500/15 text-blue-400', social: 'bg-pink-500/15 text-pink-400', ads: 'bg-orange-500/15 text-orange-400', reputation: 'bg-amber-500/15 text-amber-400', content: 'bg-emerald-500/15 text-emerald-400', strategy: 'bg-purple-500/15 text-purple-400', 'patient-experience': 'bg-teal-500/15 text-teal-400' };
+                    const tagColor = tagColors[item.tag] || 'bg-slate-500/15 text-slate-400';
+                    return (
+                      <div key={item.id} className="flex gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            {item.tag && <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${tagColor}`}>{item.tag}</span>}
+                            {item.source && <span className={`text-[10px] ${subtl}`}>{item.source}</span>}
+                            <span className={`text-[10px] ${subtl} ml-auto`}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : ''}</span>
+                          </div>
+                          {item.title && <p className={`text-sm font-bold ${txt} mb-0.5`}>{item.title}</p>}
+                          {item.body && <p className={`text-sm ${subtl} leading-relaxed`}>{item.body}</p>}
+                        </div>
+                        <button onClick={() => { const u = dmdInsights.filter(i => i.id !== item.id); setDmdInsights(u); localStorage.setItem('dmd_insights', JSON.stringify(u)); }} className={`${subtl} hover:text-rose-400 flex-shrink-0 transition-colors`}><X className="w-4 h-4" /></button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* ── Destiny Springs Live Profile ─────────────────────────────── */}
             {(() => {
               const website   = destinyData?.website;
@@ -4027,44 +4072,6 @@ Other rules:
               );
             })()}
             </>
-            )}
-
-            {/* ── News & Insights ───────────────────────────────────────── */}
-            {dmdInsights.length > 0 && (
-              <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-sky-600 flex items-center justify-center flex-shrink-0">
-                      <Newspaper className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <h3 className={`font-black text-lg ${txt}`}>News &amp; Insights</h3>
-                      <p className={`text-xs ${subtl}`}>Saved by Captain KPI from your reports and uploads</p>
-                    </div>
-                  </div>
-                  <button onClick={() => { setDmdInsights([]); localStorage.removeItem('dmd_insights'); }} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear all</button>
-                </div>
-                <div className="space-y-3">
-                  {dmdInsights.map(item => {
-                    const tagColors = { seo: 'bg-blue-500/15 text-blue-400', social: 'bg-pink-500/15 text-pink-400', ads: 'bg-orange-500/15 text-orange-400', reputation: 'bg-amber-500/15 text-amber-400', content: 'bg-emerald-500/15 text-emerald-400', strategy: 'bg-purple-500/15 text-purple-400', 'patient-experience': 'bg-teal-500/15 text-teal-400' };
-                    const tagColor = tagColors[item.tag] || 'bg-slate-500/15 text-slate-400';
-                    return (
-                      <div key={item.id} className="flex gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            {item.tag && <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${tagColor}`}>{item.tag}</span>}
-                            {item.source && <span className={`text-[10px] ${subtl}`}>{item.source}</span>}
-                            <span className={`text-[10px] ${subtl} ml-auto`}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : ''}</span>
-                          </div>
-                          {item.title && <p className={`text-sm font-bold ${txt} mb-0.5`}>{item.title}</p>}
-                          {item.body && <p className={`text-sm ${subtl} leading-relaxed`}>{item.body}</p>}
-                        </div>
-                        <button onClick={() => { const u = dmdInsights.filter(i => i.id !== item.id); setDmdInsights(u); localStorage.setItem('dmd_insights', JSON.stringify(u)); }} className={`${subtl} hover:text-rose-400 flex-shrink-0 transition-colors`}><X className="w-4 h-4" /></button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             )}
 
             {/* ── Brand Health Score ────────────────────────────────────── */}
