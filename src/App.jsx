@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer as RechartsResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
@@ -2163,14 +2164,34 @@ Rules:
     if (!fileList || fileList.length === 0) return;
     const textTypes   = ['text/plain', 'text/csv', 'text/tab-separated-values'];
     const binaryTypes = ['image/png','image/jpeg','image/webp','image/gif','application/pdf'];
+    const xlsExts     = ['.xls', '.xlsx', '.xlsm', '.xlsb'];
+    const isXls = (file) => xlsExts.some(ext => file.name.toLowerCase().endsWith(ext));
     const allowed     = [...textTypes, ...binaryTypes];
     Array.from(fileList).forEach(file => {
-      if (!allowed.includes(file.type)) {
-        setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ "${file.name}" is an unsupported type. Attach images, PDFs, or text/CSV files.` }]);
+      if (!allowed.includes(file.type) && !isXls(file)) {
+        setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ "${file.name}" is an unsupported type. Attach images, PDFs, CSV, or Excel files.` }]);
         return;
       }
       if (file.size > 15 * 1024 * 1024) {
         setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ "${file.name}" is over 15 MB — please use a smaller file.` }]);
+        return;
+      }
+      if (isXls(file)) {
+        // Parse Excel with SheetJS and convert all sheets to CSV text
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const workbook = XLSX.read(e.target.result, { type: 'array' });
+            const csvParts = workbook.SheetNames.map(name => {
+              const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[name]);
+              return workbook.SheetNames.length > 1 ? `Sheet: ${name}\n${csv}` : csv;
+            });
+            setChatAttachments(prev => [...prev, { text: csvParts.join('\n\n'), mimeType: 'text/csv', name: file.name }]);
+          } catch {
+            setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ Could not read "${file.name}" — the file may be corrupted or password-protected.` }]);
+          }
+        };
+        reader.readAsArrayBuffer(file);
         return;
       }
       const reader = new FileReader();
@@ -7890,7 +7911,7 @@ Rules:
                   ref={chatFileRef}
                   type="file"
                   multiple
-                  accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv"
+                  accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv,.xls,.xlsx,.xlsm,.xlsb"
                   className="hidden"
                   onChange={e => { handleChatFilesSelect(e.target.files); e.target.value = ''; }}
                 />
