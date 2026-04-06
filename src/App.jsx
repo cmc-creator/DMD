@@ -2060,6 +2060,9 @@ Use "email_stats" when you see: email sends, open rate, click rate, recipients, 
 Use "review" when you see: star rating, review count, average rating — for Google, Yelp, Facebook, Healthgrades, Zocdoc, etc.
   Fields → rows: [{ platform, rating, count }]
 
+Use "seo_rankings" when you see: Google Search Console exports, keyword rankings, search queries with clicks/impressions/CTR/position, page performance in search. Map GSC fields: "Top queries" or "keyword" → keyword, "Position" → rank, "Clicks" → clicks, "Impressions" → searchVol, "CTR" → ctr, "Top pages" → keyword (use the URL path).
+  Fields → rows: [{ keyword, rank, clicks, searchVol, ctr, prevRank }]
+
 Use "wix" when you see: website sessions, visits, page views, bounce rate, traffic source breakdown (organic, social, direct, referral).
   Fields → rows: [{ sessions, bounceRate, organic, social, direct, referral }]
 
@@ -2298,6 +2301,13 @@ Other rules:
               localStorage.setItem('dmd_wix', JSON.stringify(updated));
               return updated;
             });
+          } else if (type === 'seo_rankings') {
+            setManualData(prev => {
+              const stamp = { _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' };
+              const updated = { ...prev, seo_rankings: [...(prev.seo_rankings || []), ...entries.map(e => ({ ...e, ...stamp }))] };
+              localStorage.setItem('dmd_manual', JSON.stringify(updated));
+              return updated;
+            });
           } else if (type === 'custom_metric') {
             const category = (entries[0] || {}).category;
             if (!category) return;
@@ -2330,6 +2340,7 @@ Other rules:
           email_stats: 'Email Marketing',
           review: 'Review Platforms',
           wix: 'Website Traffic',
+          seo_rankings: 'SEO Rankings',
           custom_metric: 'Custom Metrics',
           goal: 'Goals',
           alert: 'Alerts',
