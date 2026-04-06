@@ -2078,6 +2078,7 @@ RULES:
 - One block per type — combine all rows of the same type into one block
 - "rows" array always, even for a single entry
 - Only include fields present in the file — omit the rest
+- If a dataset has more than 30 rows, extract the TOP 30 only (highest clicks, spend, or engagement value). Do NOT attempt to extract all rows.
 - After ALL blocks, write exactly one word: Saved.
 - No listing, no apologies, no explanation. Just blocks then: Saved.`;
 
@@ -2239,7 +2240,7 @@ Other rules:
           systemPrompt,
           messages: updatedMsgs.slice(-12),
           ...(pendingAttachments.length > 0 ? { files: pendingAttachments.map(a => ({ base64: a.base64, text: a.text, mimeType: a.mimeType, name: a.name })) } : {}),
-          maxTokens: pendingAttachments.length > 0 ? 8000 : 3000,
+          maxTokens: pendingAttachments.length > 0 ? 12000 : 3000,
         }),
       });
       const { reply, error } = await r.json();
@@ -2360,7 +2361,8 @@ Other rules:
         let displayReply;
         if (pendingAttachments.length > 0) {
           if (updateBlocks.length === 0) {
-            displayReply = '⚠️ **No data was saved.** The file was processed but no recognizable metrics were found. Try a CSV, Excel, or plain-text report.';
+            const preview = cleanReply.slice(0, 200).replace(/\n/g, ' ');
+            displayReply = `⚠️ **No data was saved.** The file was processed but no save blocks were generated.\n\n_Model said:_ "${preview}${cleanReply.length > 200 ? '…' : ''}"${cleanReply.length > 200 ? '' : ''}\n\nTry re-attaching just ONE file at a time, starting with the CSV.`;
           } else if (failedCount > 0 && savedCount === 0) {
             displayReply = '⚠️ **No data was saved.** Save blocks were found but the JSON was malformed. Please try again.';
           } else {
