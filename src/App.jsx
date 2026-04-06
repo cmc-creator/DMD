@@ -263,6 +263,14 @@ const App = () => {
   const [historyLoading, setHistoryLoading]       = useState(false);
   const [historyPeriod, setHistoryPeriod]         = useState(30);
   const [weeklyDigest, setWeeklyDigest]           = useState(null); // { text, generatedAt, metrics }
+  // ── Captain KPI intelligence state ───────────────────────────────────────
+  const [dmdGoals, setDmdGoals]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_goals') || '[]'); } catch { return []; } });
+  const [dmdAlerts, setDmdAlerts]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_alerts') || '[]'); } catch { return []; } });
+  const [customMetrics, setCustomMetrics]         = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_custom_metrics') || '{}'); } catch { return {}; } });
+  const [proposedCategory, setProposedCategory]   = useState(null);
+  const [triggeredAlerts, setTriggeredAlerts]     = useState([]);
+  const [chatFeedback, setChatFeedback]           = useState({});
+  const [chatTab, setChatTab]                     = useState('chat');
 
   // ── Feature state ─────────────────────────────────────────────────────────
   const [captionGenerating, setCaptionGenerating]   = useState(false);
@@ -397,6 +405,35 @@ const App = () => {
   useEffect(() => {
     if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, chatOpen]);
+
+  // ── Check alerts when key data changes ───────────────────────────────────
+  useEffect(() => {
+    if (!dmdAlerts.length) return;
+    const adSpendData = manualData.ad_spend || [];
+    const totalSpend  = adSpendData.reduce((s, e) => s + (Number(e.spend) || 0), 0);
+    const totalLeads  = adSpendData.reduce((s, e) => s + (Number(e.leads) || 0), 0);
+    const getMetric = (metric) => {
+      if (metric === 'google_rating')       return Number(reviewPlatformData?.google?.rating  || reviewPlatformData?.Google?.rating  || 0);
+      if (metric === 'yelp_rating')         return Number(reviewPlatformData?.yelp?.rating    || reviewPlatformData?.Yelp?.rating    || 0);
+      if (metric === 'cpl')                 return totalLeads > 0 ? totalSpend / totalLeads : null;
+      if (metric === 'total_spend')         return totalSpend;
+      if (metric === 'total_leads')         return totalLeads;
+      if (metric === 'facebook_followers')  { const r = (manualData.social_metrics || []).filter(x => /facebook/i.test(x.platform)).slice(-1)[0]; return r ? Number(r.followers) : null; }
+      if (metric === 'instagram_followers') { const r = (manualData.social_metrics || []).filter(x => /instagram/i.test(x.platform)).slice(-1)[0]; return r ? Number(r.followers) : null; }
+      if (metric === 'email_open_rate')     { const r = (manualData.email_stats || []).slice(-1)[0]; return r ? Number(r.openRate) : null; }
+      return null;
+    };
+    const fired = dmdAlerts
+      .filter(a => {
+        if (!a.active) return false;
+        const val = getMetric(a.metric);
+        if (val === null || val === undefined) return false;
+        return (a.condition === 'above' && val > Number(a.threshold)) ||
+               (a.condition === 'below' && val < Number(a.threshold));
+      })
+      .map(a => ({ ...a, currentValue: getMetric(a.metric) }));
+    setTriggeredAlerts(fired);
+  }, [dmdAlerts, manualData, reviewPlatformData]); // eslint-disable-line
 
   // Handle TikTok OAuth redirect — parse ?tiktok_data= on first load
   useEffect(() => {
@@ -1988,7 +2025,25 @@ const App = () => {
     // Recent news saved
     const newsStr = (newsItems || []).slice(0, 3).map(n => n.title).join(' | ');
 
-    const systemPrompt = `You are Captain KPI 🫡 — a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a behavioral health / mental health clinic in Scottsdale/Surprise AZ. Be helpful, specific, and occasionally funny but always professional. Keep responses under 250 words unless asked for more. Use bullet points for lists.
+    // Goals, alerts, custom metrics context for Captain KPI
+    const goalsStr = dmdGoals.length > 0
+      ? dmdGoals.map(g => `${g.name}: target=${g.target}${g.unit || ''}, current=${g.current || '?'}${g.unit || ''}, deadline=${g.deadline || 'none'}, notes=${g.notes || '—'}`).join('; ')
+      : 'No goals set yet';
+    const customStr = Object.keys(customMetrics).length > 0
+      ? Object.entries(customMetrics).map(([k, rows]) => `${k}: ${(rows || []).length} entries, latest value=${((rows || []).slice(-1)[0] || {}).value || '?'}`).join(' | ')
+      : 'No custom categories yet';
+    const emailRows = (manualData.email_stats || []).slice(-2);
+    const emailStr  = emailRows.length > 0
+      ? emailRows.map(r => `${r.month || 'unknown'}: open=${r.openRate || '?'}%, click=${r.clickRate || '?'}%, recipients=${r.recipients || '?'}`).join(' | ')
+      : 'none entered';
+
+    const systemPrompt = `You are Captain KPI 🫡 — a dynamic, intelligent marketing analytics assistant for Destiny Springs Healthcare (behavioral health / mental health clinic, Scottsdale/Surprise AZ). You are witty, sharp, and occasionally hilarious — but always helpful, specific, and professional. Keep responses under 300 words unless the user asks for more. Use bullet points for lists. Always end with 1-3 clear, specific action items.
+
+══ GOALS & KPI TRACKING ══
+${goalsStr}
+
+══ CUSTOM TRACKING CATEGORIES ══
+${customStr}
 
 ══ LIVE DASHBOARD DATA ══
 
@@ -2007,7 +2062,7 @@ WEBSITE TRAFFIC (Wix/GA4):
 - Bounce rate: ${_wix.bounceRate || _ga.bounceRate || '—'}%
 - Avg session duration: ${_ga.avgDuration || '—'}
 - New users: ${_ga.newUsers || '—'}
-- Traffic sources: ${trafficSources || 'not loaded — user can enter in Settings → Wix Analytics fields'}
+- Traffic sources: ${trafficSources || 'not loaded'}
 - Conversions: ${_ga.conversions || '—'}
 
 FACEBOOK / INSTAGRAM (Meta Business Suite):
@@ -2023,8 +2078,8 @@ TIKTOK:
 
 EMAIL (Mailchimp):
 - List: ${_mail.listName || '—'} | Subscribers: ${_mail.subscribers || '—'}
-- Open rate: ${_mail.openRate || '—'} | Click rate: ${_mail.clickRate || '—'}
-- Total campaigns: ${_mail.totalCampaigns || '—'}
+- Open rate: ${_mail.openRate || '—'} | Click rate: ${_mail.clickRate || '—'} | Total campaigns: ${_mail.totalCampaigns || '—'}
+- Recent email performance: ${emailStr}
 - Connected: ${connections['Mailchimp']?.connected ? 'yes' : 'no'}
 
 YOUTUBE: subscribers ${_yt.subscribers || '—'}, views ${_yt.totalViews || '—'}
@@ -2039,51 +2094,84 @@ COMPETITOR INTEL: ${competitors || 'not loaded'}
 SAVED INTEL URLS: ${savedUrlsStr || 'none'}
 RECENT NEWS: ${newsStr || 'none loaded'}
 
-POTENTIAL REFERRAL SOURCES TO SUGGEST (even without live data):
-- Primary care physicians, psychiatrists, therapists in Scottsdale/Surprise/Peoria AZ
-- Employee Assistance Programs (EAPs): Aetna, UHC, CIGNA
-- AZ DES / ADHS (Arizona behavioral health referrals)
-- VA (veterans mental health referrals) — VA Phoenix HCS
-- Schools/universities: ASU, GCU, Maricopa Community Colleges
-- Hospitals: HonorHealth, Banner Health, Dignity Health in the West Valley
-- Crisis lines: 988 Suicide & Crisis Lifeline — can cross-refer
-- Online directories: Psychology Today, SAMHSA locator, ZocDoc, Headway
+══ ANALYTICAL CAPABILITIES — apply proactively ══
+
+COMPARATIVE ANALYSIS (do this automatically when context allows):
+- Time-based: WoW, MoM, QoQ, YoY using available historical entries
+- Platform: Facebook vs Instagram vs TikTok vs YouTube
+- Service line: adolescent vs adult, IOP vs OP vs PHP vs residential
+- Goals: compare current values to targets defined above
+
+ANOMALY DETECTION (flag unprompted if spotted):
+- Any metric deviating >10% from recent trend
+- Missing data that should be present given connected platforms
+- Coincidences worth noting: algorithm updates, seasonal patterns, campaign launches
+
+TREND FORECASTING (project forward when asked or when obvious):
+- "At this pace you'll hit X by [month]" — always caveat as estimate
+- Identify acceleration/deceleration in key metrics
+
+WHAT-IF SCENARIOS (handle all hypotheticals):
+- "If you increase ad spend by 20%: at your current CPL of $${totalLeads > 0 ? (totalSpend/totalLeads).toFixed(0) : '?'} you'd get approximately N more leads"
+- "If open rate hits 30% with ${_mail.subscribers || 'your current'} subscribers, that's Z more clicks"
+
+CONTEXTUAL RECOMMENDATIONS (always end with these):
+- Be hyper-specific: "Post a patient success story on Instagram Thursday 6-8pm" not "post more content"
+- Prioritize by impact and ease
+- Tie recommendations to the goals above when possible
+
+DATA RELATIONSHIP AWARENESS:
+- Facebook/Instagram ad spend → website social traffic → form submissions → leads
+- Email open rates → click rates → website visits → conversions
+- Review score trends → trust signals → organic search → inquiries
+- Social follower growth → organic reach → brand awareness → referrals
+- Content publishing frequency → engagement → algorithm reach → new followers
+
+POTENTIAL REFERRAL SOURCES (suggest proactively when lead volume is discussed):
+- Primary care physicians, psychiatrists, therapists — Scottsdale/Surprise/Peoria AZ
+- EAPs: Aetna, UHC, CIGNA | AZ DES / ADHS | VA Phoenix HCS
+- Schools: ASU, GCU, Maricopa Community Colleges
+- Hospitals: HonorHealth, Banner Health, Dignity Health West Valley
+- Directories: Psychology Today, SAMHSA, ZocDoc, Headway
 - Insurance case managers: BCBS AZ, Mercy Care, UHC Community Plan
-- Faith communities, community health centers, FQHC partners in Maricopa County
 
-Always give actionable, specific suggestions. You HAVE the data above — use it. Never say you lack access to data.
+Always give actionable, specific suggestions. You HAVE the data above — use it. Never say you lack access to it.
 
-══ DATA ENTRY CAPABILITY ══
-You CAN add or update data directly in the dashboard. When the user gives you numbers or stats to record, DO IT — don't tell them to go use the import tab. Just save it and confirm.
+══ DATA ENTRY & INTELLIGENCE CAPABILITY ══
+You CAN save data, create goals, set alerts, and define custom tracking categories — do all of these when appropriate.
 
-When the user uploads a document (CSV, PDF, spreadsheet, report), your job is to:
-1. Extract ALL recognizable marketing metrics from it.
-2. Categorize each piece of data into the correct type below.
-3. Emit one <DMD_UPDATE> block per data category found (you can emit multiple blocks in one response).
-4. Summarize what you saved in plain English — be specific about what went where.
+SAVING DATA: When the user gives you numbers or uploads a document, extract ALL metrics and save immediately.
+GOALS: When the user mentions a target or objective, create a goal entry automatically.
+ALERTS: When the user wants to be notified of a condition, create an alert entry.
+CUSTOM CATEGORIES: When data doesn't fit existing types, create a custom_metric entry.
+NEW CATEGORY PROPOSALS: When you identify a recurring metric that deserves its own tracked space, propose it.
 
-To save data, append JSON blocks at the very end of your reply in this exact format:
+Append JSON blocks at the end of your reply:
 <DMD_UPDATE>
-{"type":"social_metrics","rows":[{"platform":"Facebook","month":"Mar 2026","followers":1200,"reach":5000},{"platform":"Instagram","month":"Mar 2026","followers":890}]}
-</DMD_UPDATE>
-<DMD_UPDATE>
-{"type":"ad_spend","rows":[{"month":"Mar 2026","platform":"Google Ads","spend":3000,"leads":45}]}
+{"type":"social_metrics","rows":[{"platform":"Facebook","month":"Apr 2026","followers":1200,"reach":5000}]}
 </DMD_UPDATE>
 
-Supported types and their field shapes:
+Supported save types:
 - "social_metrics": { platform, month, followers, reach, impressions, engagement, clicks }
 - "ad_spend": { month, platform, spend, leads, impressions, clicks }
 - "email_stats": { month, subject, recipients, opens, clicks, openRate, clickRate }
-- "review": { platform, rating, count } — updates the review platform scores
-- "wix": { sessions, bounceRate, organic, social, direct, referral } — updates Wix traffic
+- "review": { platform, rating, count }
+- "wix": { sessions, bounceRate, organic, social, direct, referral }
+- "custom_metric": { category, label, value, unit, period, notes } — for any metric not covered above
+- "goal": { name, metric, target, unit, deadline, notes } — creates a tracked KPI goal
+- "alert": { name, metric, condition, threshold, unit } — condition must be "above" or "below"; metric options: google_rating, yelp_rating, facebook_followers, instagram_followers, email_open_rate, cpl, total_leads, total_spend
+
+To propose a new tracking category (user will be asked to confirm):
+<DMD_PROPOSE>
+{"name":"Patient Experience Score","description":"Monthly patient satisfaction score from surveys","unit":"score (1-10)","period":"monthly"}
+</DMD_PROPOSE>
 
 Rules:
-- Use "rows" (array) for bulk data from documents; use "data" (object) for single entries typed by the user.
-- Only include fields actually present in the source; omit missing ones.
-- Emit multiple <DMD_UPDATE> blocks if the document contains multiple data categories.
-- After saving, summarize clearly: which tabs were updated, what months/platforms, how many rows.
-- If the user gives partial info, save what you have and ask for the rest.
-- Never refuse to save data the user provides. You are both analyst AND data entry.`;
+- Use "rows" (array) for bulk/document data; "data" (object) for single user-typed entries.
+- Only include fields actually present — omit missing ones.
+- Emit multiple <DMD_UPDATE> blocks for multiple data categories.
+- After saving, confirm clearly: what was saved, where, which months/platforms, how many rows.
+- Never refuse to save data, set a goal, or create an alert. You are analyst, data entry, goal tracker, AND alert system.`;
 
     try {
       const r = await fetch('/api/chat', {
@@ -2101,7 +2189,14 @@ Rules:
       } else {
         // Parse and apply ALL embedded data update blocks
         const updateBlocks = [...reply.matchAll(/<DMD_UPDATE>\s*([\s\S]*?)\s*<\/DMD_UPDATE>/g)];
-        const cleanReply   = reply.replace(/<DMD_UPDATE>[\s\S]*?<\/DMD_UPDATE>/g, '').trim();
+        const proposeBlocks = [...reply.matchAll(/<DMD_PROPOSE>\s*([\s\S]*?)\s*<\/DMD_PROPOSE>/g)];
+        if (proposeBlocks.length > 0) {
+          try { setProposedCategory(JSON.parse(proposeBlocks[0][1].trim())); } catch { /* ignore malformed */ }
+        }
+        const cleanReply = reply
+          .replace(/<DMD_UPDATE>[\s\S]*?<\/DMD_UPDATE>/g, '')
+          .replace(/<DMD_PROPOSE>[\s\S]*?<\/DMD_PROPOSE>/g, '')
+          .trim();
 
         const applyUpdate = ({ type, data, rows }) => {
           // Support both single `data` object and `rows` array for bulk imports
@@ -2143,6 +2238,29 @@ Rules:
             setWixData(prev => {
               const updated = { ...prev, ...entries[0] };
               localStorage.setItem('dmd_wix', JSON.stringify(updated));
+              return updated;
+            });
+          } else if (type === 'custom_metric') {
+            const category = (entries[0] || {}).category;
+            if (!category) return;
+            setCustomMetrics(prev => {
+              const stamp = { _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' };
+              const updated = { ...prev, [category]: [...(prev[category] || []), ...entries.map(e => ({ ...e, ...stamp }))] };
+              localStorage.setItem('dmd_custom_metrics', JSON.stringify(updated));
+              return updated;
+            });
+          } else if (type === 'goal') {
+            setDmdGoals(prev => {
+              const newGoal = { ...entries[0], id: Date.now(), createdAt: new Date().toISOString() };
+              const updated = [...prev, newGoal];
+              localStorage.setItem('dmd_goals', JSON.stringify(updated));
+              return updated;
+            });
+          } else if (type === 'alert') {
+            setDmdAlerts(prev => {
+              const newAlert = { ...entries[0], id: Date.now(), active: true, createdAt: new Date().toISOString() };
+              const updated = [...prev, newAlert];
+              localStorage.setItem('dmd_alerts', JSON.stringify(updated));
               return updated;
             });
           }
@@ -7796,13 +7914,18 @@ Rules:
 
         {/* ══ CAPTAIN KPI CHATBOT ═══════════════════════════════════════════ */}
         {/* Floating toggle button */}
+        <div className="fixed bottom-6 right-6 z-50">
         <button
           onClick={() => setChatOpen(o => !o)}
-          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-br from-purple-700 to-indigo-700 shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform no-print"
+          className="relative h-14 w-14 rounded-full bg-gradient-to-br from-purple-700 to-indigo-700 shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform no-print"
           title="Captain KPI — AI Marketing Assistant"
         >
           {chatOpen ? <X size={22} /> : <CaptainKPI size={30} />}
+          {!chatOpen && triggeredAlerts.length > 0 && (
+            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-rose-500 text-[10px] font-bold flex items-center justify-center text-white shadow-lg">{triggeredAlerts.length}</span>
+          )}
         </button>
+        </div>
 
         {/* Chat panel */}
         {chatOpen && (
@@ -7822,7 +7945,17 @@ Rules:
               <button onClick={() => setChatOpen(false)} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><X size={16} /></button>
             </div>
 
-            {/* Messages — also the drag-drop target */}
+            {/* Tab strip */}
+            <div className="flex flex-shrink-0 bg-purple-950/60 px-3 pt-1.5 gap-0.5 border-b border-white/10">
+              {[['chat','Chat'],['goals',`Goals${dmdGoals.length > 0 ? ` (${dmdGoals.length})` : ''}`],['alerts',`Alerts${triggeredAlerts.length > 0 ? ` 🔴${triggeredAlerts.length}` : dmdAlerts.length > 0 ? ` (${dmdAlerts.length})` : ''}`]].map(([tab, label]) => (
+                <button key={tab} onClick={() => setChatTab(tab)}
+                  className={`text-[11px] px-3 py-1.5 rounded-t-lg font-semibold transition-colors ${chatTab === tab ? 'bg-indigo-900/80 text-white' : 'text-purple-400 hover:text-purple-200'}`}
+                >{label}</button>
+              ))}
+            </div>
+
+            {/* Messages — shown on Chat tab only, also the drag-drop target */}
+            {chatTab === 'chat' && (
             <div
               className="flex-1 overflow-y-auto p-3 space-y-3 relative"
               style={{ minHeight: 0 }}
@@ -7839,19 +7972,31 @@ Rules:
                 </div>
               )}
               {chatMessages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {m.role === 'assistant' && (
-                    <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 mr-2 mt-0.5 bg-white/10">
-                      <CaptainKPI size={22} />
+                <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                  <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} w-full`}>
+                    {m.role === 'assistant' && (
+                      <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 mr-2 mt-0.5 bg-white/10">
+                        <CaptainKPI size={22} />
+                      </div>
+                    )}
+                    <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
+                      m.role === 'user'
+                        ? 'bg-purple-600 text-white rounded-tr-sm'
+                        : darkMode ? 'bg-white/10 text-purple-100 rounded-tl-sm' : 'bg-white text-slate-800 rounded-tl-sm shadow-sm'
+                    }`}>
+                      {m.content}
+                    </div>
+                  </div>
+                  {m.role === 'assistant' && i > 0 && (
+                    <div className="flex gap-1 mt-1 ml-9">
+                      <button onClick={() => setChatFeedback(prev => ({ ...prev, [i]: prev[i] === 'up' ? null : 'up' }))}
+                        className={`text-[11px] px-1.5 py-0.5 rounded transition-colors ${ chatFeedback[i] === 'up' ? 'text-emerald-400' : darkMode ? 'text-white/20 hover:text-white/50' : 'text-slate-200 hover:text-slate-400'}`}
+                        title="Helpful">👍</button>
+                      <button onClick={() => setChatFeedback(prev => ({ ...prev, [i]: prev[i] === 'down' ? null : 'down' }))}
+                        className={`text-[11px] px-1.5 py-0.5 rounded transition-colors ${ chatFeedback[i] === 'down' ? 'text-rose-400' : darkMode ? 'text-white/20 hover:text-white/50' : 'text-slate-200 hover:text-slate-400'}`}
+                        title="Not helpful">👎</button>
                     </div>
                   )}
-                  <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
-                    m.role === 'user'
-                      ? 'bg-purple-600 text-white rounded-tr-sm'
-                      : darkMode ? 'bg-white/10 text-purple-100 rounded-tl-sm' : 'bg-white text-slate-800 rounded-tl-sm shadow-sm'
-                  }`}>
-                    {m.content}
-                  </div>
                 </div>
               ))}
               {chatLoading && (
@@ -7868,10 +8013,12 @@ Rules:
               {chatMessages.length === 1 && !chatLoading && (
                 <div className="space-y-1.5 pt-1">
                   {[
-                    'What should I post this week?',
-                    'Analyze my current data',
-                    'How can I get more Google reviews?',
-                    'What\'s my cost per lead?',
+                    'Analyze my data and flag anything unusual',
+                    'Compare last month to this month',
+                    'Where should I focus this month?',
+                    'Forecast my follower growth',
+                    'Set a goal for Google reviews',
+                    "What's my cost per lead?",
                   ].map(s => (
                     <button key={s} onClick={() => sendChatMessage(s)}
                       className={`w-full text-left text-[12px] px-3 py-2 rounded-xl border transition-colors ${darkMode ? 'border-white/10 text-purple-200 hover:bg-white/10' : 'border-purple-100 text-purple-700 hover:bg-purple-50'}`}>
@@ -7882,9 +8029,117 @@ Rules:
               )}
               <div ref={chatEndRef} />
             </div>
+            )}
 
-            {/* Input */}
+            {/* Goals panel */}
+            {chatTab === 'goals' && (
+              <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ minHeight: 0 }}>
+                <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-purple-300' : 'text-purple-500'}`}>KPI Goals</p>
+                {dmdGoals.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Target size={28} className="mx-auto mb-2 opacity-30" />
+                    <p className="text-[12px] opacity-50">No goals set yet.</p>
+                    <p className="text-[11px] opacity-40 mt-1">Ask Captain KPI: "Set a goal to reach 500 Google reviews by Q4"</p>
+                  </div>
+                ) : (
+                  dmdGoals.map((goal, gi) => {
+                    const pct = (goal.current && goal.target) ? Math.min(100, Math.round((Number(goal.current) / Number(goal.target)) * 100)) : 0;
+                    return (
+                      <div key={gi} className={`p-2.5 rounded-xl ${darkMode ? 'bg-white/10' : 'bg-white shadow-sm border border-slate-100'}`}>
+                        <div className="flex justify-between items-start mb-1.5">
+                          <p className="text-[12px] font-semibold flex-1 pr-2">{goal.name}</p>
+                          <button onClick={() => { const upd = dmdGoals.filter((_, j) => j !== gi); setDmdGoals(upd); localStorage.setItem('dmd_goals', JSON.stringify(upd)); }} className="text-rose-400 hover:text-rose-500 flex-shrink-0 transition-colors"><X size={11} /></button>
+                        </div>
+                        <div className={`w-full rounded-full h-1.5 mb-1.5 ${darkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
+                          <div className="h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                        <div className={`flex justify-between text-[10px] ${darkMode ? 'text-purple-300' : 'text-slate-400'}`}>
+                          <span>{goal.current || '?'}{goal.unit || ''} current</span>
+                          <span className="font-semibold">{pct}%</span>
+                          <span>target: {goal.target}{goal.unit || ''}</span>
+                        </div>
+                        {goal.deadline && <p className={`text-[10px] mt-1 ${darkMode ? 'text-purple-400' : 'text-slate-400'}`}>Due: {goal.deadline}</p>}
+                      </div>
+                    );
+                  })
+                )}
+                <button onClick={() => { setChatTab('chat'); sendChatMessage('Show me my current progress toward each goal and recommend next steps.'); }}
+                  className="w-full text-[11px] py-2 rounded-xl border border-purple-400/30 text-purple-400 hover:bg-purple-400/10 transition-colors mt-2">
+                  Ask Captain KPI to analyze goal progress
+                </button>
+              </div>
+            )}
+
+            {/* Alerts panel */}
+            {chatTab === 'alerts' && (
+              <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ minHeight: 0 }}>
+                <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-purple-300' : 'text-purple-500'}`}>Active Alerts</p>
+                {triggeredAlerts.length > 0 && (
+                  <div className="p-2 rounded-xl bg-rose-500/20 border border-rose-400/40 mb-3">
+                    <p className="text-[11px] font-bold text-rose-400">🔴 {triggeredAlerts.length} alert{triggeredAlerts.length > 1 ? 's' : ''} triggered</p>
+                    {triggeredAlerts.map((a, i) => (
+                      <p key={i} className="text-[11px] text-rose-300 mt-0.5">{a.name}: {a.metric} is {a.currentValue?.toFixed?.(1) ?? a.currentValue} ({a.condition} {a.threshold}{a.unit || ''})</p>
+                    ))}
+                  </div>
+                )}
+                {dmdAlerts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Bell size={28} className="mx-auto mb-2 opacity-30" />
+                    <p className="text-[12px] opacity-50">No alerts set yet.</p>
+                    <p className="text-[11px] opacity-40 mt-1">Ask Captain KPI: "Alert me if Google rating drops below 3.5"</p>
+                  </div>
+                ) : (
+                  dmdAlerts.map((alert, ai) => {
+                    const fired = triggeredAlerts.some(t => t.id === alert.id);
+                    return (
+                      <div key={ai} className={`p-2.5 rounded-xl border ${fired ? 'border-rose-400/50 bg-rose-500/10' : darkMode ? 'bg-white/10 border-transparent' : 'bg-white shadow-sm border-slate-100'}`}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 pr-2">
+                            <p className="text-[12px] font-semibold">{alert.name}</p>
+                            <p className={`text-[10px] mt-0.5 ${fired ? 'text-rose-400' : darkMode ? 'text-purple-400' : 'text-slate-400'}`}>
+                              {alert.metric} {alert.condition} {alert.threshold}{alert.unit || ''} · {fired ? '🔴 TRIGGERED' : '🟢 monitoring'}
+                            </p>
+                          </div>
+                          <button onClick={() => { const upd = dmdAlerts.filter((_, j) => j !== ai); setDmdAlerts(upd); localStorage.setItem('dmd_alerts', JSON.stringify(upd)); setTriggeredAlerts(prev => prev.filter(t => t.id !== alert.id)); }} className="text-rose-400 hover:text-rose-500 flex-shrink-0 transition-colors"><X size={11} /></button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                <button onClick={() => { setChatTab('chat'); sendChatMessage('Check all my alerts and tell me if any conditions are close to being triggered.'); }}
+                  className="w-full text-[11px] py-2 rounded-xl border border-purple-400/30 text-purple-400 hover:bg-purple-400/10 transition-colors mt-2">
+                  Ask Captain KPI to review alert conditions
+                </button>
+              </div>
+            )}
+
+            {/* Input — shown on Chat tab only */}
+            {chatTab === 'chat' && (
             <div className={`flex flex-col gap-1.5 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/10 bg-indigo-950/80' : 'border-t border-purple-100 bg-white'}`}>
+              {/* Proposed new tracking category from Captain KPI */}
+              {proposedCategory && (
+                <div className={`p-2.5 rounded-xl border border-purple-400/40 ${darkMode ? 'bg-purple-900/30' : 'bg-purple-50'}`}>
+                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-1">Captain KPI suggests a new category:</p>
+                  <p className="text-[12px] font-semibold">{proposedCategory.name}</p>
+                  <p className={`text-[10px] mb-2 ${darkMode ? 'text-purple-300' : 'text-slate-500'}`}>{proposedCategory.description} · {proposedCategory.unit} · {proposedCategory.period}</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setCustomMetrics(prev => {
+                          if (prev[proposedCategory.name]) return prev;
+                          const updated = { ...prev, [proposedCategory.name]: [] };
+                          localStorage.setItem('dmd_custom_metrics', JSON.stringify(updated));
+                          return updated;
+                        });
+                        setChatMessages(m => [...m, { role: 'assistant', content: `✅ Created tracking category: **${proposedCategory.name}**. You can now ask me to log ${proposedCategory.unit} for any period!` }]);
+                        setProposedCategory(null);
+                      }}
+                      className="flex-1 text-[11px] py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-semibold transition-colors"
+                    >Confirm &amp; Create</button>
+                    <button onClick={() => setProposedCategory(null)} className={`text-[11px] py-1.5 px-3 rounded-lg transition-colors ${darkMode ? 'border border-white/20 text-purple-300 hover:bg-white/10' : 'border border-slate-200 text-slate-500 hover:bg-slate-50'}`}>Dismiss</button>
+                  </div>
+                </div>
+              )}
               {/* Attachment chips */}
               {chatAttachments.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
@@ -7931,6 +8186,7 @@ Rules:
                 </button>
               </div>
             </div>
+            )}
           </div>
         )}
       </div>
