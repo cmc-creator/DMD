@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer as RechartsResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
 } from 'recharts';
@@ -13,10 +13,17 @@ import {
   RefreshCw, Pencil, Send, Zap, BadgeCheck, ShieldCheck, Megaphone,
   ChevronLeft, ChevronRight, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
-  Trash2, Layers, Scale, Tag, Camera, Scan, CheckSquare, AlertTriangle,
+  Trash2, Layers, Scale, Tag, Camera, Scan, CheckSquare, AlertTriangle, Paperclip,
 } from 'lucide-react';
 
-//  Captain KPI avatar  inline SVG bot face 
+const META_AUTO_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
+
+// Guard against transient layout states where Recharts measures -1 x -1.
+const ResponsiveContainer = ({ minWidth = 0, minHeight = 1, ...props }) => (
+  <RechartsResponsiveContainer minWidth={minWidth} minHeight={minHeight} {...props} />
+);
+
+// ─── Captain KPI avatar — inline SVG bot face ──────────────────────────────
 const CaptainKPI = ({ size = 28 }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
     {/* Body / head */}
@@ -40,8 +47,8 @@ const CaptainKPI = ({ size = 28 }) => (
   </svg>
 );
 
-//  Shared style helpers 
-// Color system  maps Tailwind color prop strings to actual hex/RGB values
+// ─── Shared style helpers ───────────────────────────────────────────────────
+// Color system – maps Tailwind color prop strings to actual hex/RGB values
 const colorMap = {
   'bg-amber-500':   { hex: '#f59e0b', r: 245, g: 158, b: 11  },
   'bg-amber-600':   { hex: '#d97706', r: 217, g: 119, b: 6   },
@@ -80,129 +87,63 @@ const rowCls= 'row-hover transition-colors';
 const divdr = 'divide-slate-100 dark:divide-white/[0.05]';
 const brd   = 'border-slate-200 dark:border-white/[0.06]';
 
-//  GA CSV Import mini-component 
-const GaCsvImport = ({ onImport, card, txt, txt2, subtl, brd, muted }) => {
-  const [gacsv, setGacsv] = React.useState('');
-  const [gaError, setGaError] = React.useState('');
+const looksBinaryText = (value) => {
+  const s = String(value || '');
+  if (!s) return false;
+  const lower = s.toLowerCase();
+  if (/%pdf-|flatedecode|endstream|startxref|\bobj\b|\bstream\b/.test(lower)) return true;
+  if (lower.includes('pk\x03\x04') || lower.includes('pk\x05\x06') || lower.includes('pk\x07\x08')) return true;
+  if (/\.xlsx|\.xls|\.docx|\.pptx/.test(lower) && /\uFFFD|��/.test(s)) return true;
+  const len = Math.max(s.length, 1);
+  const controls = Array.from(s).filter(ch => {
+    const code = ch.charCodeAt(0);
+    return code !== 9 && code !== 10 && code !== 13 && (code < 32 || code === 127);
+  }).length;
+  const replacement = (s.match(/\uFFFD/g) || []).length;
+  const mojibake = (s.match(/Ã.|Â.|â.|ðŸ|�/g) || []).length;
+  return (controls / len) > 0.01 || (replacement / len) > 0.01 || (mojibake / len) > 0.02;
+};
 
-  const parseGaCsv = () => {
-    setGaError('');
-    const text = gacsv.trim();
-    if (!text) { setGaError('Paste your GA4 CSV export first.'); return; }
-
-    const lines = text.split(/\r?\n/).filter(l => l.trim());
-    // GA4 exports have metadata rows at the top starting with '#'
-    const dataLines = lines.filter(l => !l.startsWith('#'));
-    if (dataLines.length < 2) { setGaError('Could not find data rows. Make sure to export the full CSV from GA4.'); return; }
-
-    // Parse header row
-    const header = dataLines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
-
-    const findCol = (keys) => {
-      for (const k of keys) {
-        const idx = header.findIndex(h => h.includes(k.toLowerCase()));
-        if (idx >= 0) return idx;
-      }
-      return -1;
-    };
-
-    const getVal = (row, keys) => {
-      const idx = findCol(keys);
-      if (idx < 0) return null;
-      const raw = (row[idx] || '').replace(/^"|"$/g, '').trim();
-      return raw || null;
-    };
-
-    const sessionsCols    = ['sessions', 'sessions_total', 'total sessions'];
-    const bounceRateCols  = ['bounce rate', 'bounce_rate', 'bouncerate'];
-    const usersCols       = ['total users', 'users', 'active users'];
-    const pageViewsCols   = ['views', 'page views', 'pageviews', 'screen page views'];
-    const pagePathCols    = ['page path', 'page path and screen class', 'pagepath', 'page title and screen class'];
-    const avgDurCols      = ['average session duration', 'avg session duration', 'session duration'];
-
-    let totalSessions = 0, totalUsers = 0, totalViews = 0;
-    let bounceRateSum = 0, bounceRateCount = 0;
-    let avgDurSum = 0, avgDurCount = 0;
-    const pageMap = {};
-
-    const dataRows = dataLines.slice(1);
-    dataRows.forEach(line => {
-      const row = line.split(',');
-      const s  = parseFloat((getVal(row, sessionsCols)  || '0').replace(/,/g,'')) || 0;
-      const u  = parseFloat((getVal(row, usersCols)     || '0').replace(/,/g,'')) || 0;
-      const v  = parseFloat((getVal(row, pageViewsCols) || '0').replace(/,/g,'')) || 0;
-      const br = parseFloat((getVal(row, bounceRateCols) || '').replace(/%/g,''));
-      const dur = parseFloat((getVal(row, avgDurCols)   || '').replace(/,/g,''));
-      const path = getVal(row, pagePathCols);
-
-      totalSessions += s;
-      totalUsers    += u;
-      totalViews    += v;
-      if (!isNaN(br))  { bounceRateSum  += br;  bounceRateCount++;  }
-      if (!isNaN(dur)) { avgDurSum      += dur; avgDurCount++; }
-      if (path && path !== '(not set)') {
-        if (!pageMap[path]) pageMap[path] = { path, views: 0 };
-        pageMap[path].views += v || s;
-      }
-    });
-
-    const topPages = Object.values(pageMap)
-      .sort((a, b) => b.views - a.views)
-      .slice(0, 10)
-      .map(p => ({ page: p.path, views: Math.round(p.views) }));
-
-    const bounceRate = bounceRateCount > 0
-      ? (bounceRateSum / bounceRateCount).toFixed(1) + '%'
-      : null;
-
-    const avgSessionDuration = avgDurCount > 0
-      ? (() => {
-          const secs = Math.round(avgDurSum / avgDurCount);
-          return `${Math.floor(secs/60)}m ${secs%60}s`;
-        })()
-      : null;
-
-    if (!totalSessions && !totalUsers) {
-      setGaError('Could not read sessions data. Make sure the CSV is a GA4 export with a Sessions or Users column.');
-      return;
-    }
-
-    onImport({
-      sessions:           totalSessions > 0 ? totalSessions.toLocaleString() : null,
-      users:              totalUsers    > 0 ? totalUsers.toLocaleString()    : null,
-      pageViews:          totalViews    > 0 ? totalViews.toLocaleString()    : null,
-      bounceRate,
-      avgSessionDuration,
-      topPages,
-      propertyName:       'CSV Import',
-      source:             'csv',
-    });
+const sanitizeManualDataForSurvey = (rawManual) => {
+  const manual = rawManual && typeof rawManual === 'object' ? { ...rawManual } : {};
+  const surveys = Array.isArray(manual.survey_results) ? manual.survey_results : [];
+  const surveyStamp = (entry) => {
+    const raw = entry?._savedAt || entry?.importedAt || entry?.date || '';
+    const ts = Date.parse(raw);
+    return Number.isNaN(ts) ? 0 : ts;
   };
+  const cleaned = surveys.filter(entry => {
+    if (!entry || typeof entry !== 'object') return false;
+    const breakdown = entry.npsBreakdown || {};
+    const breakdownTotal = Number(breakdown.promoters || 0) + Number(breakdown.passives || 0) + Number(breakdown.detractors || 0);
+    const rawRows = Array.isArray(entry._raw) ? entry._raw : [];
+    const rawNpsCount = rawRows.filter(r => r?.npsScore != null && Number.isFinite(Number(r.npsScore))).length;
+    const hasRealSurveyRows = rawRows.some(r => Object.keys(r || {}).some(k => String(k).startsWith('_q')));
+    const nps = entry.npsScore != null && Number.isFinite(Number(entry.npsScore)) ? Number(entry.npsScore) : null;
+    if (nps != null && (nps < -100 || nps > 100)) return false;
 
-  return (
-    <div>
-      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-1.5`}>
-        Import GA4 CSV Export
-      </p>
-      <textarea
-        value={gacsv}
-        onChange={e => setGacsv(e.target.value)}
-        placeholder={"Paste CSV content here (from GA4 \u2192 Reports \u2192 Export CSV)"}
-        rows={5}
-        className={`w-full px-3 py-2.5 rounded-xl text-xs font-mono ${txt} bg-slate-50 dark:bg-slate-800 border ${brd} focus:outline-none focus:ring-2 focus:ring-orange-400/40 resize-none`}
-      />
-      {gaError && <p className="text-[11px] text-rose-500 mt-1">{gaError}</p>}
-      <button
-        onClick={parseGaCsv}
-        className="mt-2 w-full py-2 rounded-xl text-sm font-black bg-orange-500 hover:bg-orange-400 text-white transition-colors"
-      >
-        Import CSV Data
-      </button>
-      <p className={`text-[10px] ${subtl} mt-1.5 leading-relaxed`}>
-        In GA4: Reports \u2192 any report \u2192 top-right share icon \u2192 Download CSV
-      </p>
-    </div>
-  );
+    const sampledRows = rawRows.slice(0, 40);
+    const binaryHits = sampledRows.filter(r =>
+      Object.entries(r || {})
+        .filter(([k, v]) => String(k).startsWith('_q') && typeof v === 'string' && String(v).trim().length >= 12)
+        .some(([, v]) => looksBinaryText(v))
+    ).length;
+
+    if (binaryHits >= 2) return false;
+    if (nps != null && (!hasRealSurveyRows || rawNpsCount < 10 || breakdownTotal < 10)) return false;
+    return true;
+  });
+
+  const changed = cleaned.length !== surveys.length;
+  const latestOnly = cleaned
+    .slice()
+    .sort((a, b) => surveyStamp(b) - surveyStamp(a))
+    .slice(0, 1);
+  const reordered = latestOnly.length === 1 && surveys.length > 0 && latestOnly[0] !== surveys[0];
+  return {
+    manual: (changed || reordered) ? { ...manual, survey_results: latestOnly } : manual,
+    changed: changed || reordered,
+  };
 };
 
 const App = () => {
@@ -222,10 +163,16 @@ const App = () => {
   const [connectFormData, setConnectFormData]   = useState({});
   const [connectTesting, setConnectTesting]     = useState(false);
   const [connectError, setConnectError]         = useState(null);
-  const [oauthBannerError, setOauthBannerError] = useState(null);
   const [syncStatus, setSyncStatus]             = useState({});
   const [liveData, setLiveData]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_livedata') || '{}'); } catch { return {}; } });
-  const [manualData, setManualData]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_manual') || '{}'); } catch { return {}; } });
+  const [manualData, setManualData]             = useState(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('dmd_manual') || '{}');
+      return sanitizeManualDataForSurvey(parsed).manual;
+    } catch {
+      return {};
+    }
+  });
   const [wixData, setWixData]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_wix') || 'null') || {}; } catch { return {}; } });
   const [manualForm, setManualForm]             = useState({});
   const [showQuickAdd, setShowQuickAdd]         = useState(false);
@@ -233,7 +180,6 @@ const App = () => {
   const wixFileRef                               = useRef(null);
   const cloudLoadedRef                           = useRef(false);
   const skipNextPushRef                          = useRef(false);
-  const urlParamsHandledRef                      = useRef(false);
   const pushTimerRef                             = useRef(null);
   const chatEndRef                               = useRef(null);
   const [cloudSynced, setCloudSynced]            = useState('loading'); // 'loading'|'ok'|'syncing'|'error'|'offline'
@@ -249,21 +195,23 @@ const App = () => {
   const [aiOutput, setAiOutput]                 = useState('');
   const [aiGenerating, setAiGenerating]         = useState(false);
   const [fileImportLog, setFileImportLog]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_import_log') || '[]'); } catch { return []; } });
-  
-  const [surveySearch, setSurveySearch]         = useState('');
+  const [surveyParsed, setSurveyParsed]         = useState(null);  // parsed SM preview before confirm
   const surveyFileRef                            = useRef(null);
   const [aiInsights, setAiInsights]             = useState('');
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [chatOpen, setChatOpen]                 = useState(false);
-  const [chatMessages, setChatMessages]         = useState([{ role: 'assistant', content: "Reporting for duty!  I'm **Captain KPI**, your marketing analytics officer. Fire away  ask me about the data, what to post, how to get more reviews, or why your bounce rate looks like a trampoline." }]);
+  const [chatMessages, setChatMessages]         = useState([{ role: 'assistant', content: "Reporting for duty! 🫡 I'm **Captain KPI**, your marketing analytics officer. Fire away — ask me about the data, what to post, how to get more reviews, or why your bounce rate looks like a trampoline." }]);
   const [chatInput, setChatInput]               = useState('');
   const [chatLoading, setChatLoading]           = useState(false);
+  const [chatAttachment, setChatAttachment]     = useState(null); // { base64, mimeType, name }
+  const chatFileRef                             = useRef(null);
   const [importNotice, setImportNotice]         = useState('');
   const [wixFormVals, setWixFormVals]           = useState({});
   const [reviewPlatformData, setReviewPlatformData] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_platforms') || '{}'); } catch { return {}; } });
   const [reviewPlatformForm, setReviewPlatformForm]   = useState({ editingPlatform: null, rating: '', count: '', url: '' });
   const [reviewFetchingPlatform, setReviewFetchingPlatform] = useState(null);
-  //  Intel tab state 
+  const [surveySearch, setSurveySearch]           = useState('');
+  // ── Intel tab state ──────────────────────────────────────────────────────────
   const [intelSubTab, setIntelSubTab]           = useState('news');
   const [newsQuery, setNewsQuery]               = useState('mental health Arizona');
   const [newsItems, setNewsItems]               = useState([]);
@@ -285,14 +233,14 @@ const App = () => {
   const [compareIdxB, setCompareIdxB]           = useState(1);
   const [compareReport, setCompareReport]       = useState('');
   const [compareReportLoading, setCompareReportLoading] = useState(false);
-  //  Destiny Springs auto-profile state 
+  // ── Destiny Springs auto-profile state ──────────────────────────────────────
   const [destinyData, setDestinyData]           = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_destiny') || 'null'); } catch { return null; } });
   const [destinyLoading, setDestinyLoading]     = useState(false);
   const [destinyError, setDestinyError]         = useState('');
-  //  Competitor Intelligence state 
+  // ── Competitor Intelligence state ──────────────────────────────────────────────
   const [competitorData, setCompetitorData]      = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_competitors') || 'null'); } catch { return null; } });
   const [competitorLoading, setCompetitorLoading] = useState(false);
-  //  Overview layout customization 
+  // ── Overview layout customization ────────────────────────────────────────────
   const [overviewHidden, setOverviewHidden]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_overview_hidden') || '[]'); } catch { return []; } });
   const [showOverviewCustomizer, setShowOverviewCustomizer] = useState(false);
   const [reviewOverrides, setReviewOverrides]     = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_review_overrides') || '{}'); } catch { return {}; } });
@@ -300,7 +248,7 @@ const App = () => {
   const [ratingEditVal, setRatingEditVal]         = useState('');
   const [ratingCountVal, setRatingCountVal]       = useState('');
 
-  //  AI Screenshot Scanner state 
+  // ── AI Screenshot Scanner state ───────────────────────────────────────────
   const [scanImage, setScanImage]                 = useState(null);   // { base64, mimeType, name }
   const [scanLoading, setScanLoading]             = useState(false);
   const [scanResult, setScanResult]               = useState(null);   // extracted fields from AI
@@ -308,13 +256,13 @@ const App = () => {
   const [scanApplied, setScanApplied]             = useState(false);
   const scanFileRef                               = useRef(null);
 
-  //  Historical metrics state 
+  // ── Historical metrics state ──────────────────────────────────────────────
   const [metricsHistory, setMetricsHistory]       = useState([]);
   const [historyLoading, setHistoryLoading]       = useState(false);
   const [historyPeriod, setHistoryPeriod]         = useState(30);
   const [weeklyDigest, setWeeklyDigest]           = useState(null); // { text, generatedAt, metrics }
 
-  //  Feature state 
+  // ── Feature state ─────────────────────────────────────────────────────────
   const [captionGenerating, setCaptionGenerating]   = useState(false);
   const [reviewDrafts, setReviewDrafts]             = useState({});
   const [reviewDraftLoading, setReviewDraftLoading] = useState({});
@@ -329,8 +277,8 @@ const App = () => {
     return [
       { title: 'Mental Health Awareness Post',       platform: 'Facebook, Instagram', date: '2026-03-03', type: 'Social', status: 'scheduled', notes: 'Focus on stigma reduction'          },
       { title: '5 Signs You Need Support (TikTok)',  platform: 'TikTok',              date: '2026-03-04', type: 'TikTok', status: 'filming',   notes: 'Short-form, 60s max'                },
-      { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: '2026-03-05', type: 'Blog',   status: 'draft',     notes: '1,200 words  SEO optimized'        },
-      { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: '2026-03-06', type: 'Email',  status: 'scheduled', notes: 'All subscribers  3pm send time'    },
+      { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: '2026-03-05', type: 'Blog',   status: 'draft',     notes: '1,200 words – SEO optimized'        },
+      { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: '2026-03-06', type: 'Email',  status: 'scheduled', notes: 'All subscribers – 3pm send time'    },
       { title: 'Success Story Spotlight',            platform: 'LinkedIn',            date: '2026-03-07', type: 'Social', status: 'idea',      notes: 'Patient testimonial (anonymized)'   },
       { title: 'Weekend Wellness Tip',               platform: 'Instagram',           date: '2026-03-08', type: 'Social', status: 'scheduled', notes: '5 breathing exercises for calm'     },
       { title: 'Staff Introduction Video',           platform: 'TikTok, Instagram',   date: '2026-03-10', type: 'TikTok', status: 'filming',   notes: 'Behind the scenes series'           },
@@ -357,7 +305,7 @@ const App = () => {
     localStorage.setItem('dmd_content', JSON.stringify(contentItems));
   }, [contentItems]);
 
-  //  Cloud sync: pull shared data from Vercel KV 
+  // ── Cloud sync: pull shared data from Vercel KV ──────────────────────────────
   const pullFromCloud = () => {
     setCloudSynced('loading');
     return fetch('/api/data')
@@ -369,13 +317,17 @@ const App = () => {
         const ls = (k, v) => localStorage.setItem(k, JSON.stringify(v));
         if (data.dmd_destiny)          { setDestinyData(data.dmd_destiny);                 ls('dmd_destiny',          data.dmd_destiny); }
         if (data.dmd_review_platforms) { setReviewPlatformData(data.dmd_review_platforms); ls('dmd_review_platforms',  data.dmd_review_platforms); }
-        if (data.dmd_manual)           { setManualData(data.dmd_manual);                   ls('dmd_manual',            data.dmd_manual); }
+        if (data.dmd_manual)           {
+          const sanitized = sanitizeManualDataForSurvey(data.dmd_manual).manual;
+          setManualData(sanitized);
+          ls('dmd_manual', sanitized);
+        }
         if (data.dmd_wix)              { setWixData(data.dmd_wix);                         ls('dmd_wix',               data.dmd_wix); }
-        if (data.dmd_livedata)         { if (!urlParamsHandledRef.current) { setLiveData(data.dmd_livedata); ls('dmd_livedata', data.dmd_livedata); } }
+        if (data.dmd_livedata)         { setLiveData(data.dmd_livedata);                   ls('dmd_livedata',          data.dmd_livedata); }
         if (data.dmd_competitors)      { setCompetitorData(data.dmd_competitors);           ls('dmd_competitors',       data.dmd_competitors); }
         if (data.dmd_overview_hidden)  { setOverviewHidden(data.dmd_overview_hidden);       ls('dmd_overview_hidden',   data.dmd_overview_hidden); }
         if (data.dmd_review_overrides) { setReviewOverrides(data.dmd_review_overrides);     ls('dmd_review_overrides',  data.dmd_review_overrides); }
-        if (data.dmd_connections)      { if (!urlParamsHandledRef.current) { setConnections(data.dmd_connections); ls('dmd_connections', data.dmd_connections); } }
+        if (data.dmd_connections)      { setConnections(data.dmd_connections);              ls('dmd_connections',        data.dmd_connections); }
         if (data.dmd_saved_urls)       { setSavedUrls(data.dmd_saved_urls);                 ls('dmd_saved_urls',        data.dmd_saved_urls); }
         if (data.dmd_facility_profiles){ setFacilityProfiles(data.dmd_facility_profiles);   ls('dmd_facility_profiles', data.dmd_facility_profiles); }
         if (data.dmd_content)          { setContentItems(data.dmd_content);                   ls('dmd_content',           data.dmd_content); }
@@ -390,15 +342,16 @@ const App = () => {
 
   useEffect(() => { pullFromCloud(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  //  Cloud sync: auto-push whenever data changes (debounced 3 s) 
+  // ── Cloud sync: auto-push whenever data changes (debounced 3 s) ─────────────
   useEffect(() => {
     if (!cloudLoadedRef.current || skipNextPushRef.current) return;
+    const cleanedManual = sanitizeManualDataForSurvey(manualData).manual;
     clearTimeout(pushTimerRef.current);
     pushTimerRef.current = setTimeout(() => {
       const payload = {
         dmd_destiny:           destinyData,
         dmd_review_platforms:  reviewPlatformData,
-        dmd_manual:            manualData,
+        dmd_manual:            cleanedManual,
         dmd_wix:               wixData,
         dmd_livedata:          liveData,
         dmd_competitors:       competitorData,
@@ -419,10 +372,19 @@ const App = () => {
     return () => clearTimeout(pushTimerRef.current);
   }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Enforce survey sanitization after any local manual data mutation.
+  useEffect(() => {
+    const { manual: sanitized, changed } = sanitizeManualDataForSurvey(manualData);
+    if (!changed) return;
+    setManualData(sanitized);
+    localStorage.setItem('dmd_manual', JSON.stringify(sanitized));
+  }, [manualData]);
+
   useEffect(() => { setShowQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
 
-  // Safety reset: hidden overview sections can get persisted, but there is no
-  // active UI for un-hiding them. Reset so KPI cards (including NPS) stay visible.
+  // Safety reset: overview section hiding exists in persisted state, but there
+  // is currently no UI to unhide sections. Clear stale hidden config so cards
+  // like NPS are always visible.
   useEffect(() => {
     if (!Array.isArray(overviewHidden) || overviewHidden.length === 0) return;
     setOverviewHidden([]);
@@ -434,7 +396,7 @@ const App = () => {
     if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, chatOpen]);
 
-  // Handle TikTok OAuth redirect  parse ?tiktok_data= on first load
+  // Handle TikTok OAuth redirect — parse ?tiktok_data= on first load
   useEffect(() => {
     const params   = new URLSearchParams(window.location.search);
     const rawData  = params.get('tiktok_data');
@@ -465,14 +427,11 @@ const App = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const platforms = [
-      { key: 'google_data',       names: ['Google Analytics', 'Google Business']     },
-      { key: 'mailchimp_data',    names: ['Mailchimp']                               },
-      { key: 'meta_data',         names: ['Meta Business Suite', 'Meta Ads Manager'] },
-      { key: 'surveymonkey_data', names: ['SurveyMonkey']                               },
-      { key: 'wix_data',          names: ['Wix Analytics']                             },
+      { key: 'google_data',    names: ['Google Analytics', 'Google Business']     },
+      { key: 'mailchimp_data', names: ['Mailchimp']                               },
+      { key: 'meta_data',      names: ['Meta Business Suite', 'Meta Ads Manager'] },
     ];
     let handled = false;
-    let oauthError = null;
     platforms.forEach(({ key, names }) => {
       const raw = params.get(key);
       if (raw) {
@@ -480,7 +439,6 @@ const App = () => {
           const b64      = raw.replace(/-/g, '+').replace(/_/g, '/');
           const data     = JSON.parse(atob(b64));
           const syncTime = new Date().toLocaleString();
-          urlParamsHandledRef.current = true;
           names.forEach(name => {
             setConnections(c => {
               const updated = { ...c, [name]: { ...data, connected: true, lastSync: syncTime } };
@@ -491,101 +449,92 @@ const App = () => {
             setSyncStatus(s => ({ ...s, [name]: 'ok' }));
           });
           setActiveTab('integrations');
-        } catch (e) {
-          oauthError = 'Failed to decode OAuth response: ' + e.message;
-        }
+        } catch {}
         handled = true;
       }
       const errKey = key.replace('_data', '_error');
-      const errVal = params.get(errKey);
-      if (errVal) {
-        oauthError = decodeURIComponent(errVal).replace(/\+/g, ' ');
-        setActiveTab('integrations');
-        handled = true;
-      }
+      if (params.get(errKey)) { setActiveTab('integrations'); handled = true; }
     });
-    if (oauthError) {
-      setOauthBannerError(oauthError);
-      setConnectModal(null);
-    }
     if (handled) window.history.replaceState({}, '', window.location.pathname);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  //  Integration fields config (per-service credential forms) 
+  // ── Integration fields config (per-service credential forms) ─────────────────
   const integrationFields = {
     'Google Analytics':    [
-      { key: 'propertyId', label: 'GA4 Property ID',             placeholder: 'G-XXXXXXXXXX or numeric ID',   hint: 'GA Admin  Property Settings  Property ID'                                        },
-      { key: 'apiSecret',  label: 'Measurement Protocol Secret', placeholder: 'Your API secret', type: 'password', hint: 'GA Admin  Data Streams  Measurement Protocol  API Secrets'              },
+      { key: 'propertyId', label: 'GA4 Property ID',             placeholder: 'G-XXXXXXXXXX or numeric ID',   hint: 'GA Admin → Property Settings → Property ID'                                        },
+      { key: 'apiSecret',  label: 'Measurement Protocol Secret', placeholder: 'Your API secret', type: 'password', hint: 'GA Admin → Data Streams → Measurement Protocol → API Secrets'              },
     ],
     'Google Business': [
-      { key: 'placeId', label: 'Google Place ID (optional)', placeholder: 'ChIJxxxxxxxxxxxxxxxx',  hint: 'Leave blank to auto-find by name. Or: Google Maps  your listing  Share  copy place_id from the URL'             },
-      { key: 'apiKey',  label: 'Places API Key',             placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'Enables auto-sync of live Google Rating, Review Count & Reviews on the Overview tab. console.cloud.google.com  Enable "Places API"  Credentials  API Key (free up to $200/mo credit)' },
+      { key: 'placeId', label: 'Google Place ID (optional)', placeholder: 'ChIJxxxxxxxxxxxxxxxx',  hint: 'Leave blank to auto-find by name. Or: Google Maps → your listing → Share → copy place_id from the URL'             },
+      { key: 'apiKey',  label: 'Places API Key',             placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'Enables auto-sync of live Google Rating, Review Count & Reviews on the Overview tab. console.cloud.google.com → Enable "Places API" → Credentials → API Key (free up to $200/mo credit)' },
     ],
     'Meta Business Suite': [
-      { key: 'accessToken', label: 'Page Access Token', placeholder: 'EAAxxxxxxxx', type: 'password', hint: 'developers.facebook.com  Graph API Explorer  Generate Token' },
-      { key: 'pageId',      label: 'Facebook Page ID',  placeholder: '123456789012345',                hint: 'Facebook Page  About  Page ID'                                },
+      { key: 'accessToken', label: 'Page Access Token', placeholder: 'EAAxxxxxxxx…', type: 'password', hint: 'developers.facebook.com → Graph API Explorer → Generate Token' },
+      { key: 'pageId',      label: 'Facebook Page ID',  placeholder: '123456789012345',                hint: 'Facebook Page → About → Page ID'                                },
     ],
     'Wix Analytics': [
-      { key: 'apiKey', label: 'Wix API Key', placeholder: 'IST2.xxxxxxxx...', type: 'password', hint: 'manage.wix.com  select your site  Settings  Advanced  API Keys  Generate Key (enable Analytics permission)' },
+      { key: 'sessions',   label: 'Monthly Sessions',          placeholder: 'e.g. 1250',  hint: 'Wix Dashboard → Analytics → Reports → Traffic Overview → Sessions this month'   },
+      { key: 'bounceRate', label: 'Bounce Rate % (optional)',  placeholder: 'e.g. 42',    hint: 'Wix Analytics → Overview → Bounce Rate — enter the number only, no % sign'       },
+      { key: 'organic',    label: 'Organic Search % (optional)', placeholder: 'e.g. 45', hint: 'Wix Analytics → Traffic Sources → percentage from Organic Search'                 },
+      { key: 'social',     label: 'Social Media % (optional)', placeholder: 'e.g. 20',   hint: 'Wix Analytics → Traffic Sources → percentage from Social Media'                   },
+      { key: 'direct',     label: 'Direct % (optional)',       placeholder: 'e.g. 25',    hint: 'Wix Analytics → Traffic Sources → percentage from Direct visits'                  },
+      { key: 'referral',   label: 'Referral % (optional)',     placeholder: 'e.g. 10',    hint: 'Wix Analytics → Traffic Sources → percentage from Referral links'                 },
     ],
     'Mailchimp': [
-      { key: 'apiKey',  label: 'API Key',     placeholder: 'xxxxxxxxxxxxxxxx-us1', type: 'password', hint: 'Mailchimp  Account  Extras  API Keys' },
-      { key: 'listId',  label: 'Audience ID', placeholder: 'xxxxxxxxxx',                             hint: 'Audience  Settings  Audience ID'        },
+      { key: 'apiKey',  label: 'API Key',     placeholder: 'xxxxxxxxxxxxxxxx-us1', type: 'password', hint: 'Mailchimp → Account → Extras → API Keys' },
+      { key: 'listId',  label: 'Audience ID', placeholder: 'xxxxxxxxxx',                             hint: 'Audience → Settings → Audience ID'        },
     ],
     'Google Ads': [
       { key: 'customerId', label: 'Customer ID',     placeholder: 'xxx-xxx-xxxx',   hint: 'Top-right corner of Google Ads dashboard'                           },
-      { key: 'devToken',   label: 'Developer Token', placeholder: 'Your dev token', hint: 'Tools  API Center  Developer Token', type: 'password'            },
+      { key: 'devToken',   label: 'Developer Token', placeholder: 'Your dev token', hint: 'Tools → API Center → Developer Token', type: 'password'            },
     ],
     'Meta Ads Manager': [
-      { key: 'accessToken', label: 'Access Token',  placeholder: 'EAAxxxxxxxx',  type: 'password', hint: 'developers.facebook.com  Access Token Tool'                },
-      { key: 'adAccountId', label: 'Ad Account ID', placeholder: 'act_123456789',                   hint: 'Ads Manager  Account Settings  prepend "act_" to your ID' },
+      { key: 'accessToken', label: 'Access Token',  placeholder: 'EAAxxxxxxxx…',  type: 'password', hint: 'developers.facebook.com → Access Token Tool'                },
+      { key: 'adAccountId', label: 'Ad Account ID', placeholder: 'act_123456789',                   hint: 'Ads Manager → Account Settings → prepend "act_" to your ID' },
     ],
-    'TikTok for Business': [], // OAuth flow  no manual fields
+    'TikTok for Business': [], // OAuth flow — no manual fields
     'Sintra AI': [
-      { key: 'apiKey',      label: 'API Key',       placeholder: 'Your Sintra API key',  type: 'password', hint: 'Sintra Dashboard  Settings  API Keys'    },
-      { key: 'workspaceId', label: 'Workspace ID',  placeholder: 'ws_xxxxxxxxxx',                          hint: 'Sintra  Workspace  Settings  ID'         },
+      { key: 'apiKey',      label: 'API Key',       placeholder: 'Your Sintra API key',  type: 'password', hint: 'Sintra Dashboard → Settings → API Keys'    },
+      { key: 'workspaceId', label: 'Workspace ID',  placeholder: 'ws_xxxxxxxxxx',                          hint: 'Sintra → Workspace → Settings → ID'         },
     ],
     'MarkyAI': [
-      { key: 'apiKey',  label: 'API Key',  placeholder: 'Your MarkyAI API key',  type: 'password', hint: 'MarkyAI  Account  API Access'         },
-      { key: 'brandId', label: 'Brand ID', placeholder: 'Your brand ID',                           hint: 'MarkyAI  Brand  Settings  Brand ID'  },
+      { key: 'apiKey',  label: 'API Key',  placeholder: 'Your MarkyAI API key',  type: 'password', hint: 'MarkyAI → Account → API Access'         },
+      { key: 'brandId', label: 'Brand ID', placeholder: 'Your brand ID',                           hint: 'MarkyAI → Brand → Settings → Brand ID'  },
     ],
     'YouTube Analytics': [
-      { key: 'channelId', label: 'Channel ID',              placeholder: 'UCxxxxxxxxxxxxxxxxxxxxxxxx',    hint: 'YouTube Studio  Customization  Basic info  scroll to bottom for Channel ID' },
-      { key: 'apiKey',    label: 'YouTube Data API v3 Key', placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'console.cloud.google.com  Enable YouTube Data API v3  Credentials  API Key' },
+      { key: 'channelId', label: 'Channel ID',              placeholder: 'UCxxxxxxxxxxxxxxxxxxxxxxxx',    hint: 'YouTube Studio → Customization → Basic info → scroll to bottom for Channel ID' },
+      { key: 'apiKey',    label: 'YouTube Data API v3 Key', placeholder: 'AIzaSyxxxxxxxxxx', type: 'password', hint: 'console.cloud.google.com → Enable YouTube Data API v3 → Credentials → API Key' },
     ],
     'Yelp Reviews': [
       { key: 'businessId', label: 'Yelp Business ID',  placeholder: 'destiny-springs-healthcare-surprise', hint: 'From the Yelp business URL: yelp.com/biz/YOUR-BUSINESS-ID' },
-      { key: 'apiKey',     label: 'Yelp API Key',      placeholder: 'your-yelp-api-key', type: 'password',   hint: 'Register at api.yelp.com  Create App  API Key (500 free calls/day)' },
+      { key: 'apiKey',     label: 'Yelp API Key',      placeholder: 'your-yelp-api-key', type: 'password',   hint: 'Register at api.yelp.com → Create App → API Key (500 free calls/day)' },
     ],
     'News API': [
-      { key: 'apiKey',       label: 'API Key',             placeholder: 'your-newsapi.org-key', type: 'password', hint: 'Register free at newsapi.org  Account  API Key (100 req/day free)' },
+      { key: 'apiKey',       label: 'API Key',             placeholder: 'your-newsapi.org-key', type: 'password', hint: 'Register free at newsapi.org → Account → API Key (100 req/day free)' },
       { key: 'defaultQuery', label: 'Default Search Query (optional)', placeholder: 'mental health Arizona',         hint: 'Keywords auto-loaded on the Intel tab. Leave blank for default.' },
-    ],
-    'SurveyMonkey': [
-      { key: 'accessToken', label: 'Access Token', placeholder: 'your-access-token', type: 'password', hint: 'developer.surveymonkey.com  My Apps  your app  Access Token' },
     ],
   };
 
-  //  Live data fetch helpers 
+  // ── Live data fetch helpers ───────────────────────────────────────────────────
   const fetchWixData = async (creds) => {
-    const apiKey = creds.apiKey || creds.api_key;
-    if (!apiKey) return { success: false, error: 'No API key  enter your Wix API key in the connect form' };
-    try {
-      const res  = await fetch(`/api/wix?action=sync&token=${encodeURIComponent(apiKey)}`);
-      const data = await res.json();
-      if (!data.ok) return { success: false, error: data.error || 'Wix sync failed' };
-      // Mirror into wixData state for legacy consumers
-      if (data.sessions != null) {
-        const wd = { sessions: data.sessions, bounceRate: data.bounceRate, organic: data.organic, social: data.social, direct: data.direct, referral: data.referral, pageViews: data.pageViews, visitors: data.visitors, savedAt: new Date().toISOString() };
-        setWixData(wd);
-        localStorage.setItem('dmd_wix', JSON.stringify(wd));
-      }
-      return { success: true, data };
-    } catch (e) { return { success: false, error: e.message }; }
+    const { sessions } = creds;
+    if (!sessions) return { success: false, error: 'Please enter Monthly Sessions (required)' };
+    const data = {
+      sessions:   Number(sessions)        || 0,
+      bounceRate: Number(creds.bounceRate) || 0,
+      organic:    Number(creds.organic)    || 0,
+      social:     Number(creds.social)     || 0,
+      direct:     Number(creds.direct)     || 0,
+      referral:   Number(creds.referral)   || 0,
+      savedAt:    new Date().toISOString(),
+    };
+    setWixData(data);
+    localStorage.setItem('dmd_wix', JSON.stringify(data));
+    return { success: true, data };
   };
 
   const fetchTikTokData = async (creds) => {
-    if (!creds?.accessToken) return { success: false, error: 'Not connected  use the OAuth login button' };
+    if (!creds?.accessToken) return { success: false, error: 'Not connected — use the OAuth login button' };
     try {
       const res  = await fetch(`/api/tiktok?action=refresh&token=${encodeURIComponent(creds.accessToken)}`);
       const data = await res.json();
@@ -619,7 +568,7 @@ const App = () => {
 
   const fetchMailchimpDirect = async (creds) => {
     const { apiKey, listId } = creds;
-    if (!apiKey) return { success: false, error: 'Enter your Mailchimp API key in Integrations  Mailchimp  Connect' };
+    if (!apiKey) return { success: false, error: 'Enter your Mailchimp API key in Integrations → Mailchimp → Connect' };
     try {
       const params = new URLSearchParams({ action: 'data', apiKey, ...(listId && { listId }) });
       const res  = await fetch(`/api/mailchimp?${params}`);
@@ -629,21 +578,9 @@ const App = () => {
     } catch (e) { return { success: false, error: e.message }; }
   };
 
-  const fetchSurveyMonkeyDirect = async (creds) => {
-    const { accessToken } = creds;
-    if (!accessToken) return { success: false, error: 'Enter your SurveyMonkey Access Token' };
-    try {
-      const res  = await fetch(`/api/surveymonkey?action=sync&token=${encodeURIComponent(accessToken)}`);
-      const data = await res.json();
-      if (!data.ok) return { success: false, error: data.error || 'SurveyMonkey sync failed' };
-      return { success: true, data };
-    } catch (e) { return { success: false, error: e.message }; }
-  };
-
   const fetchGoogleAnalyticsData = async (creds) => {
-    const refresh_token = creds.refresh_token || creds.refreshToken;
-    const { propertyId } = creds;
-    if (!refresh_token) return { success: false, error: 'Not connected  click the Google OAuth login button to authorize' };
+    const { refresh_token, propertyId } = creds;
+    if (!refresh_token) return { success: false, error: 'Not connected — click the Google OAuth login button to authorize' };
     try {
       const params = new URLSearchParams({ action: 'refresh', refresh_token, ...(propertyId && { propertyId }) });
       const res  = await fetch(`/api/google?${params}`);
@@ -653,19 +590,8 @@ const App = () => {
     } catch (e) { return { success: false, error: e.message }; }
   };
 
-  const fetchGoogleBusinessData = async (creds) => {
-    const refresh_token = creds.refresh_token || creds.refreshToken;
-    if (!refresh_token) return { success: false, error: 'Not connected  reconnect via Google OAuth' };
-    try {
-      const params = new URLSearchParams({ action: 'refresh', refresh_token });
-      const res  = await fetch(`/api/google?${params}`);
-      const data = await res.json();
-      if (!data.ok) return { success: false, error: data.error || 'Google Business refresh failed' };
-      return { success: true, data };
-    } catch (e) { return { success: false, error: e.message }; }
-  };
 
-  //  AI caption generation 
+  // ── AI caption generation ─────────────────────────────────────────────────────
   const generateCaption = async (title, platform, type) => {
     if (!title) return;
     setCaptionGenerating(true);
@@ -684,7 +610,7 @@ const App = () => {
     setCaptionGenerating(false);
   };
 
-  //  AI review response draft 
+  // ── AI review response draft ─────────────────────────────────────────────────
   const generateReviewResponse = async (review, idx) => {
     setReviewDraftLoading(l => ({ ...l, [idx]: true }));
     try {
@@ -702,11 +628,11 @@ const App = () => {
     setReviewDraftLoading(l => ({ ...l, [idx]: false }));
   };
 
-  //  Auto-post to Facebook/Instagram via Graph API 
+  // ── Auto-post to Facebook/Instagram via Graph API ────────────────────────
   const publishPost = async (item, idx) => {
     const metaCreds = connections['Meta Business Suite'];
     if (!metaCreds?.connected || !metaCreds?.accessToken || !metaCreds?.pageId) {
-      alert('Connect Meta Business Suite with a Page Access Token first (Settings  Integrations).');
+      alert('Connect Meta Business Suite with a Page Access Token first (Settings → Integrations).');
       return;
     }
     setAutoPostLoading(l => ({ ...l, [idx]: true }));
@@ -723,19 +649,19 @@ const App = () => {
       const d = await res.json();
       if (d.ok) {
         setContentItems(prev => prev.map((c, i) => i === idx ? { ...c, status: 'published', postId: d.postId } : c));
-        alert(` Published! Post ID: ${d.postId}`);
+        alert(`✅ Published! Post ID: ${d.postId}`);
       } else {
-        alert(` Publish failed: ${d.error}`);
+        alert(`❌ Publish failed: ${d.error}`);
       }
-    } catch (e) { alert(` Error: ${e.message}`); }
+    } catch (e) { alert(`❌ Error: ${e.message}`); }
     setAutoPostLoading(l => ({ ...l, [idx]: false }));
   };
 
-  //  Send weekly digest via Mailchimp 
+  // ── Send weekly digest via Mailchimp ─────────────────────────────────────
   const sendWeeklyDigest = async () => {
     const mc = connections['Mailchimp'];
     if (!mc?.connected || !mc?.apiKey) {
-      alert('Connect Mailchimp with an API Key first (Settings  Integrations).');
+      alert('Connect Mailchimp with an API Key first (Settings → Integrations).');
       return;
     }
     setDigestSending(true); setDigestResult('');
@@ -754,14 +680,14 @@ const App = () => {
         }),
       });
       const d = await res.json();
-      setDigestResult(d.ok ? ` Digest campaign created! ${d.campaignId ? 'ID: ' + d.campaignId : ''}` : ` ${d.error || 'Failed to create digest'}`);
-    } catch (e) { setDigestResult(` Error: ${e.message}`); }
+      setDigestResult(d.ok ? `✅ Digest campaign created! ${d.campaignId ? 'ID: ' + d.campaignId : ''}` : `❌ ${d.error || 'Failed to create digest'}`);
+    } catch (e) { setDigestResult(`❌ Error: ${e.message}`); }
     setDigestSending(false);
   };
 
   const fetchMetaAdsData = async (creds) => {
     const { accessToken, adAccountId } = creds || {};
-    if (!accessToken || !adAccountId) return { success: false, error: 'Missing Access Token or Ad Account ID  check Integrations  Meta Ads Manager' };
+    if (!accessToken || !adAccountId) return { success: false, error: 'Missing Access Token or Ad Account ID — check Integrations → Meta Ads Manager' };
     try {
       const res  = await fetch(`https://graph.facebook.com/v18.0/${adAccountId}?fields=name,currency,account_status&access_token=${encodeURIComponent(accessToken)}`);
       const data = await res.json();
@@ -888,7 +814,7 @@ const App = () => {
     setCompareReportLoading(false);
   };
 
-  //  Destiny Springs: one-click auto-profile fetch 
+  // ── Destiny Springs: one-click auto-profile fetch ────────────────────────────
   const fetchDestinyProfile = async () => {
     const gBizCreds = connections['Google Business'] || {};
     const apiKey  = gBizCreds.apiKey  || '';
@@ -908,16 +834,16 @@ const App = () => {
       if (!data.ok) { setDestinyError(data.error || 'Sync failed'); setDestinyLoading(false); return; }
       setDestinyData(data);
       localStorage.setItem('dmd_destiny', JSON.stringify(data));
-      //  Auto-populate best available rating into overrides 
+      // ── Auto-populate best available rating into overrides ─────────────────
       // Uses Google Places if key is set, otherwise falls back to Google search
-      // scrape / website JSON-LD schema / Healthgrades  whichever has data first.
+      // scrape / website JSON-LD schema / Healthgrades — whichever has data first.
       const best = data.bestRating || data.google || null;
       if (best?.rating) {
         const overrides = { rating: String(best.rating), totalReviews: String(best.reviewCount || '') };
         setReviewOverrides(overrides);
         localStorage.setItem('dmd_review_overrides', JSON.stringify(overrides));
       }
-      //  Push Google Places reviews into manualData (only when API key set) 
+      // ── Push Google Places reviews into manualData (only when API key set) ──
       if (data.google?.reviews?.length) {
         const autoReviews = data.google.reviews.map(rv => ({
           name:     rv.author || 'Anonymous',
@@ -934,7 +860,7 @@ const App = () => {
           return updated;
         });
       }
-      //  Auto-populate reviewPlatformData from destiny sync 
+      // ── Auto-populate reviewPlatformData from destiny sync ─────────────────
       // This makes metrics.googleScore (Overview KPI card) show real data
       // without requiring manual entry in the Integrations tab.
       setReviewPlatformData(prev => {
@@ -960,7 +886,7 @@ const App = () => {
         localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
         return updated;
       });
-//  Feed Google Business liveData (uses best available rating source) 
+// ── Feed Google Business liveData (uses best available rating source) ───
       const liveRating = data.google?.rating || best?.rating || null;
       if (liveRating || data.google) {
         setLiveData(d => ({ ...d, 'Google Business': {
@@ -980,7 +906,7 @@ const App = () => {
         });
         setSyncStatus(s => ({ ...s, 'Google Business': 'ok' }));
       }
-      //  Feed social media liveData (feeds Social tab with real follower counts) 
+      // ── Feed social media liveData (feeds Social tab with real follower counts) ──
       if (data.instagram || data.facebook || data.tiktok) {
         setLiveData(d => {
           const prev = d['_social'] || {};
@@ -1017,7 +943,7 @@ const App = () => {
           };
         });
       }
-      //  Bridge Graph API posts  Meta Business Suite so Social tab shows real content 
+      // ── Bridge Graph API posts ⇒ Meta Business Suite so Social tab shows real content ──
       if ((data.facebook?.posts?.length) || (data.instagram?.recentMedia?.length)) {
         setLiveData(d => ({
           ...d,
@@ -1042,21 +968,11 @@ const App = () => {
     setDestinyLoading(false);
   };
 
-  //  Competitor Intelligence fetch 
+  // ── Competitor Intelligence fetch ─────────────────────────────────────────────
   const fetchCompetitors = async () => {
     setCompetitorLoading(true);
     try {
-      let res;
-      if (facilityProfiles.length > 0) {
-        // Use the user's saved competitor library instead of the hardcoded list
-        res = await fetch('/api/competitors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ competitors: facilityProfiles }),
-        });
-      } else {
-        res = await fetch('/api/competitors');
-      }
+      const res  = await fetch('/api/competitors');
       const data = await res.json();
       if (data.ok) {
         setCompetitorData(data);
@@ -1074,28 +990,61 @@ const App = () => {
       if (name === 'Meta Business Suite') result = await fetchMetaPageData(creds);
       else if (name === 'Meta Ads Manager') result = await fetchMetaAdsData(creds);
       else if (name === 'Wix Analytics') result = await fetchWixData(creds);
-      else if (name === 'Google Business') result = await fetchGoogleBusinessData(creds);
       else if (name === 'TikTok for Business') result = await fetchTikTokData(creds);
       else if (name === 'YouTube Analytics') result = await fetchYouTubeData(creds);
       else if (name === 'Yelp Reviews') result = await fetchYelpData(creds);
       else if (name === 'Mailchimp') result = await fetchMailchimpDirect(creds);
       else if (name === 'Google Analytics') result = await fetchGoogleAnalyticsData(creds);
-      else if (name === 'Google Business') result = await fetchGoogleBusinessData(creds);
-      else if (name === 'SurveyMonkey') result = await fetchSurveyMonkeyDirect(creds);
-      // Other platforms require a server-side proxy  mark synced but no live payload
+      // Other platforms require a server-side proxy — mark synced but no live payload
       if (result.success) {
         if (result.data && Object.keys(result.data).length > 0) setLiveData(d => ({ ...d, [name]: result.data }));
         const syncTime = new Date().toLocaleString();
         setSyncStatus(s => ({ ...s, [name]: 'ok' }));
         setConnections(c => {
-          const updated = { ...c, [name]: { ...c[name], lastSync: syncTime } };
+          const updated = {
+            ...c,
+            [name]: {
+              ...c[name],
+              lastSync: syncTime,
+              lastError: null,
+              lastErrorAt: null,
+            },
+          };
           localStorage.setItem('dmd_connections', JSON.stringify(updated));
           return updated;
         });
       } else {
         setSyncStatus(s => ({ ...s, [name]: 'error' }));
+        const nowIso = new Date().toISOString();
+        setConnections(c => {
+          const updated = {
+            ...c,
+            [name]: {
+              ...c[name],
+              lastError: result.error || 'Sync failed',
+              lastErrorAt: nowIso,
+            },
+          };
+          localStorage.setItem('dmd_connections', JSON.stringify(updated));
+          return updated;
+        });
       }
-    } catch { setSyncStatus(s => ({ ...s, [name]: 'error' })); }
+    } catch (e) {
+      setSyncStatus(s => ({ ...s, [name]: 'error' }));
+      const nowIso = new Date().toISOString();
+      setConnections(c => {
+        const updated = {
+          ...c,
+          [name]: {
+            ...c[name],
+            lastError: e?.message || 'Sync failed',
+            lastErrorAt: nowIso,
+          },
+        };
+        localStorage.setItem('dmd_connections', JSON.stringify(updated));
+        return updated;
+      });
+    }
   };
 
   const saveConnection = async (name, formData) => {
@@ -1114,10 +1063,9 @@ const App = () => {
     else if (name === 'Yelp Reviews') testResult = await fetchYelpData(formData);
     else if (name === 'Mailchimp') testResult = await fetchMailchimpDirect(formData);
     else if (name === 'Google Analytics') testResult = await fetchGoogleAnalyticsData(formData);
-    else if (name === 'SurveyMonkey') testResult = await fetchSurveyMonkeyDirect(formData);
     setConnectTesting(false);
     if (!testResult.success) { setConnectError(`Connection failed: ${testResult.error}`); return; }
-    if (testResult.warning) { setConnectError(` ${testResult.warning}`); }
+    if (testResult.warning) { setConnectError(`⚠️ ${testResult.warning}`); }
     const syncTime = new Date().toLocaleString();
     const updated  = { ...connections, [name]: { ...formData, connected: true, lastSync: syncTime } };
     setConnections(updated);
@@ -1153,7 +1101,7 @@ const App = () => {
     setManualForm({});
   };
 
-  //  Import helpers 
+  // ── Import helpers ──────────────────────────────────────────────────────
   const detectTypeFromHeaders = (headers) => {
     const h = headers.map(x => x.toLowerCase().trim());
     if (h.some(x => x.includes('respondent') || x.includes('collector id'))) return 'Survey Results';
@@ -1166,55 +1114,65 @@ const App = () => {
 
   const batchSaveToManualData = (type, rows) => {
     const key = type.replace(/\s+/g, '_').toLowerCase();
-    const norm = (k = '') => String(k).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const normalizeKey = (k = '') => String(k).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
     const normalizeRowForType = (row, k) => {
       const src = {};
-      Object.entries(row || {}).forEach(([rk, rv]) => { src[norm(rk)] = rv; });
-      if (k === 'ad_spend') return {
-        platform: src.platform || src.channel || src.source || 'Platform',
-        month: src.month || src.period || src.date || '',
-        spend: src.spend || src.ad_spend || src.cost || src.amount || 0,
-        leads: src.leads || src.conversions || src.conv || 0,
-        clicks: src.clicks || 0,
-        impressions: src.impressions || 0,
-        cpl: src.cpl || src.cost_per_lead || 0,
-        roas: src.roas || 0,
-      };
-      if (k === 'email_stats') return {
-        campaign: src.campaign || src.campaign_name || 'Campaign',
-        date: src.date || src.month || src.period || '',
-        sent: src.sent || src.delivered || 0,
-        opened: src.opened || src.opens || 0,
-        clicked: src.clicked || src.clicks || 0,
-        subscribers: src.subscribers || src.list_size || 0,
-        open_rate: src.open_rate || src.openrate || 0,
-        click_rate: src.click_rate || src.ctr || 0,
-        conversions: src.conversions || src.leads || 0,
-      };
-      if (k === 'social_metrics') return {
-        platform: src.platform || src.network || 'Social',
-        month: src.month || src.period || src.date || '',
-        posts: src.posts || src.post_count || 0,
-        reach: src.reach || src.views || 0,
-        engagement: src.engagement || src.engagements || 0,
-        clicks: src.clicks || 0,
-        followers: src.followers || src.fans || 0,
-      };
-      if (k === 'reviews') return {
-        name: src.name || src.author || src.reviewer || 'Anonymous',
-        rating: src.rating || src.stars || 0,
-        text: src.text || src.review || src.comment || '',
-        date: src.date || src.created_at || '',
-        platform: src.platform || src.source || 'Google',
-      };
-      if (k === 'seo_rankings') return {
-        keyword: src.keyword || src.query || '',
-        rank: src.rank || src.position || 0,
-        prevRank: src.prev_rank || src.previous_rank || src.last_rank || 0,
-        searchVol: src.search_vol || src.search_volume || src.volume || 0,
-        clicks: src.clicks || 0,
-        month: src.month || src.period || src.date || '',
-      };
+      Object.entries(row || {}).forEach(([rk, rv]) => { src[normalizeKey(rk)] = rv; });
+      if (k === 'ad_spend') {
+        return {
+          platform:    src.platform || src.channel || src.source || 'Platform',
+          month:       src.month || src.period || src.date || '',
+          spend:       src.spend || src.ad_spend || src.cost || src.amount || 0,
+          leads:       src.leads || src.conversions || src.conv || 0,
+          clicks:      src.clicks || 0,
+          impressions: src.impressions || 0,
+          cpl:         src.cpl || src.cost_per_lead || 0,
+          roas:        src.roas || 0,
+        };
+      }
+      if (k === 'email_stats') {
+        return {
+          campaign:    src.campaign || src.campaign_name || 'Campaign',
+          date:        src.date || src.month || src.period || '',
+          sent:        src.sent || src.delivered || 0,
+          opened:      src.opened || src.opens || 0,
+          clicked:     src.clicked || src.clicks || 0,
+          subscribers: src.subscribers || src.list_size || 0,
+          open_rate:   src.open_rate || src.openrate || 0,
+          click_rate:  src.click_rate || src.ctr || 0,
+          conversions: src.conversions || src.leads || 0,
+        };
+      }
+      if (k === 'social_metrics') {
+        return {
+          platform:   src.platform || src.network || 'Social',
+          month:      src.month || src.period || src.date || '',
+          posts:      src.posts || src.post_count || 0,
+          reach:      src.reach || src.views || 0,
+          engagement: src.engagement || src.engagements || 0,
+          clicks:     src.clicks || 0,
+          followers:  src.followers || src.fans || 0,
+        };
+      }
+      if (k === 'reviews') {
+        return {
+          name:     src.name || src.author || src.reviewer || 'Anonymous',
+          rating:   src.rating || src.stars || 0,
+          text:     src.text || src.review || src.comment || '',
+          date:     src.date || src.created_at || '',
+          platform: src.platform || src.source || 'Google',
+        };
+      }
+      if (k === 'seo_rankings') {
+        return {
+          keyword:   src.keyword || src.query || '',
+          rank:      src.rank || src.position || 0,
+          prevRank:  src.prev_rank || src.previous_rank || src.last_rank || 0,
+          searchVol: src.search_vol || src.search_volume || src.volume || 0,
+          clicks:    src.clicks || 0,
+          month:     src.month || src.period || src.date || '',
+        };
+      }
       return row;
     };
     const timestamped = rows.map(r => ({ ...normalizeRowForType(r, key), _savedAt: new Date().toLocaleString() }));
@@ -1255,7 +1213,86 @@ const App = () => {
     setPasteCSV('');
   };
 
-  //  AI Screenshot Scanner 
+  // One-time migration: normalize previously imported CSV rows so existing data
+  // becomes usable by current KPI calculations.
+  useEffect(() => {
+    setManualData(prev => {
+      if (!prev || typeof prev !== 'object') return prev;
+      const norm = (k = '') => String(k).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+      const mapRow = (row, key) => {
+        const src = {};
+        Object.entries(row || {}).forEach(([rk, rv]) => { src[norm(rk)] = rv; });
+        if (key === 'ad_spend') return {
+          ...row,
+          platform: src.platform || src.channel || src.source || row.platform || 'Platform',
+          month: src.month || src.period || src.date || row.month || '',
+          spend: src.spend || src.ad_spend || src.cost || src.amount || row.spend || 0,
+          leads: src.leads || src.conversions || src.conv || row.leads || 0,
+          clicks: src.clicks || row.clicks || 0,
+          impressions: src.impressions || row.impressions || 0,
+        };
+        if (key === 'email_stats') return {
+          ...row,
+          campaign: src.campaign || src.campaign_name || row.campaign || 'Campaign',
+          date: src.date || src.month || src.period || row.date || '',
+          sent: src.sent || src.delivered || row.sent || 0,
+          opened: src.opened || src.opens || row.opened || 0,
+          clicked: src.clicked || src.clicks || row.clicked || 0,
+          subscribers: src.subscribers || src.list_size || row.subscribers || 0,
+          open_rate: src.open_rate || src.openrate || row.open_rate || 0,
+          click_rate: src.click_rate || src.ctr || row.click_rate || 0,
+          conversions: src.conversions || src.leads || row.conversions || 0,
+        };
+        if (key === 'social_metrics') return {
+          ...row,
+          platform: src.platform || src.network || row.platform || 'Social',
+          month: src.month || src.period || src.date || row.month || '',
+          posts: src.posts || src.post_count || row.posts || 0,
+          reach: src.reach || src.views || row.reach || 0,
+          engagement: src.engagement || src.engagements || row.engagement || 0,
+          clicks: src.clicks || row.clicks || 0,
+          followers: src.followers || src.fans || row.followers || 0,
+        };
+        if (key === 'reviews') return {
+          ...row,
+          name: src.name || src.author || src.reviewer || row.name || 'Anonymous',
+          rating: src.rating || src.stars || row.rating || 0,
+          text: src.text || src.review || src.comment || row.text || '',
+          date: src.date || src.created_at || row.date || '',
+          platform: src.platform || src.source || row.platform || 'Google',
+        };
+        if (key === 'seo_rankings') return {
+          ...row,
+          keyword: src.keyword || src.query || row.keyword || '',
+          rank: src.rank || src.position || row.rank || 0,
+          prevRank: src.prev_rank || src.previous_rank || src.last_rank || row.prevRank || 0,
+          searchVol: src.search_vol || src.search_volume || src.volume || row.searchVol || 0,
+          clicks: src.clicks || row.clicks || 0,
+          month: src.month || src.period || src.date || row.month || '',
+        };
+        return row;
+      };
+
+      const keys = ['ad_spend', 'email_stats', 'social_metrics', 'reviews', 'seo_rankings'];
+      let changed = false;
+      const next = { ...prev };
+      keys.forEach(k => {
+        if (!Array.isArray(prev[k])) return;
+        const mapped = prev[k].map(r => mapRow(r, k));
+        if (JSON.stringify(mapped) !== JSON.stringify(prev[k])) {
+          next[k] = mapped;
+          changed = true;
+        }
+      });
+
+      if (changed) {
+        localStorage.setItem('dmd_manual', JSON.stringify(next));
+      }
+      return changed ? next : prev;
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── AI Screenshot Scanner ─────────────────────────────────────────────────
   const handleScanFileSelect = (file) => {
     if (!file) return;
     const allowedTypes = ['image/png','image/jpeg','image/webp','image/gif'];
@@ -1400,12 +1437,12 @@ const App = () => {
 
     setScanApplied(applied > 0);
     setImportNotice(applied > 0
-      ? ` AI scan applied  ${applied} data ${applied === 1 ? 'section' : 'sections'} updated from screenshot!`
-      : ' No applicable metrics found. Try a screenshot with visible numbers.'
+      ? `✅ AI scan applied — ${applied} data ${applied === 1 ? 'section' : 'sections'} updated from screenshot!`
+      : '⚠️ No applicable metrics found. Try a screenshot with visible numbers.'
     );
   };
 
-  //  Historical metrics loader 
+  // ── Historical metrics loader ─────────────────────────────────────────────
   const loadMetricsHistory = async (days = 90) => {
     setHistoryLoading(true);
     try {
@@ -1465,33 +1502,81 @@ const App = () => {
     a.download = `dmd-backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    setImportNotice('Backup downloaded  import this file on any device to restore all your data.');
+    setImportNotice('Backup downloaded — import this file on any device to restore all your data.');
   };
 
   const handleFileUpload = (file) => {
     if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (['pdf', 'xlsx', 'xls', 'doc', 'docx', 'ppt', 'pptx'].includes(ext)) {
+      setImportNotice('Unsupported file type for this importer. Please upload a CSV export instead.');
+      return;
+    }
+
+    const decodeUploadText = (bytes) => {
+      const toArr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+      const hasPrefix = (arr) => arr.every((v, i) => toArr[i] === v);
+      const decode = (enc) => {
+        try {
+          return new TextDecoder(enc, { fatal: false }).decode(toArr);
+        } catch {
+          return '';
+        }
+      };
+      const scoreText = (txt) => {
+        if (!txt) return Number.POSITIVE_INFINITY;
+        const len = Math.max(txt.length, 1);
+        const nulls = txt.split('\u0000').length - 1;
+        const repl = (txt.match(/\uFFFD/g) || []).length;
+        const mojibake = (txt.match(/Ã.|â.|Â.|ðŸ/g) || []).length;
+        return ((nulls * 10) + (repl * 4) + (mojibake * 2)) / len;
+      };
+
+      const candidates = [];
+      if (toArr.length >= 3 && hasPrefix([0xef, 0xbb, 0xbf])) candidates.push('utf-8');
+      if (toArr.length >= 2 && hasPrefix([0xff, 0xfe])) candidates.push('utf-16le');
+      if (toArr.length >= 2 && hasPrefix([0xfe, 0xff])) candidates.push('utf-16be');
+      ['utf-8', 'utf-16le', 'utf-16be', 'windows-1252'].forEach(enc => {
+        if (!candidates.includes(enc)) candidates.push(enc);
+      });
+
+      let best = { encoding: 'utf-8', text: decode('utf-8'), score: Number.POSITIVE_INFINITY };
+      candidates.forEach(enc => {
+        const txt = decode(enc);
+        const score = scoreText(txt);
+        if (score < best.score) best = { encoding: enc, text: txt, score };
+      });
+      return best;
+    };
+
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target.result;
-      const ext = file.name.split('.').pop().toLowerCase();
+      const decoded = decodeUploadText(e.target.result);
+      const text = decoded.text;
       if (ext === 'json') {
         try {
           const parsed = JSON.parse(text);
-          //  Full backup restore 
+          // ── Full backup restore ──────────────────────────────────────
           if (parsed._dmdBackup === true) {
             const keys = ['dmd_destiny','dmd_review_platforms','dmd_manual','dmd_connections','dmd_wix','dmd_livedata'];
             keys.forEach(k => { if (parsed[k] != null) localStorage.setItem(k, JSON.stringify(parsed[k])); });
             // Reload state from restored localStorage
             try { if (parsed.dmd_review_platforms) setReviewPlatformData(parsed.dmd_review_platforms); } catch(_){}
-            try { if (parsed.dmd_manual)           setManualData(parsed.dmd_manual); } catch(_){}
+            try {
+              if (parsed.dmd_manual) {
+                const sanitized = sanitizeManualDataForSurvey(parsed.dmd_manual).manual;
+                setManualData(sanitized);
+                localStorage.setItem('dmd_manual', JSON.stringify(sanitized));
+              }
+            } catch(_){}
             try { if (parsed.dmd_connections)      setConnections(parsed.dmd_connections); } catch(_){}
             try { if (parsed.dmd_wix)              setWixData(parsed.dmd_wix); } catch(_){}
             try { if (parsed.dmd_destiny)          setDestinyData(parsed.dmd_destiny); } catch(_){}
             try { if (parsed.dmd_livedata)         setLiveData(parsed.dmd_livedata); } catch(_){}
-            setImportNotice(` Backup restored from ${file.name}  all data synced across device!`);
+            setImportNotice(`✅ Backup restored from ${file.name} — all data synced across device!`);
             return;
           }
-          //  Regular JSON import 
+          // ── Regular JSON import ──────────────────────────────────────
           const rows = Array.isArray(parsed) ? parsed : [parsed];
           const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
           const type = detectTypeFromHeaders(headers);
@@ -1502,18 +1587,26 @@ const App = () => {
           setImportNotice('Invalid JSON file.');
         }
       } else {
-        // CSV / plain text  check for SurveyMonkey 2-row header format
+        // CSV / plain text — check for SurveyMonkey 2-row header format
         const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
         if (lines.length < 2) { setImportNotice('File needs at least a header row and one data row.'); return; }
         const firstCols = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
         const isSurveyMonkey = firstCols[0]?.includes('respondent') || firstCols[1]?.includes('collector');
         if (isSurveyMonkey) {
-          // Route to the SM parser  switch to survey mode and pre-fill paste area
+          // Auto-ingest SurveyMonkey uploads so users don't need extra clicks.
           setImportMode('survey');
-          setSurveyParsed(null);
           setPasteCSV(text);
-          setImportNotice('SurveyMonkey file detected  click "Parse Survey" to review results before saving.');
-          setFileImportLog(prev => { const upd = [{ name: file.name, date: new Date().toLocaleString(), rows: lines.length - 2, type: 'SurveyMonkey' }, ...prev].slice(0, 100); localStorage.setItem('dmd_import_log', JSON.stringify(upd)); return upd; });
+          const parsed = parseSurveyMonkeyCSV(text, { autoSave: true });
+          if (parsed) {
+            if (decoded.encoding !== 'utf-8') {
+              setImportNotice(`✅ Survey auto-imported — detected ${decoded.encoding.toUpperCase()} text encoding.`);
+            }
+            setFileImportLog(prev => {
+              const upd = [{ name: file.name, date: new Date().toLocaleString(), rows: parsed.totalResponses || (lines.length - 2), type: 'SurveyMonkey' }, ...prev].slice(0, 100);
+              localStorage.setItem('dmd_import_log', JSON.stringify(upd));
+              return upd;
+            });
+          }
           return;
         }
         const headers = firstCols.map(h => h.replace(/^"|"$/g, ''));
@@ -1531,10 +1624,10 @@ const App = () => {
       }
     };
     reader.onerror = () => setImportNotice('Error reading file.');
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
-  //  Wix Analytics CSV import parser 
+  // ── Wix Analytics CSV import parser ────────────────────────────────────────
   const handleWixCsvUpload = (file) => {
     if (!file) return;
     const reader = new FileReader();
@@ -1587,9 +1680,14 @@ const App = () => {
     reader.readAsText(file);
   };
 
-  //  SurveyMonkey CSV Parser 
-  const parseSurveyMonkeyCSV = (text) => {
+  // ── SurveyMonkey CSV Parser ─────────────────────────────────────────────────
+  const parseSurveyMonkeyCSV = (text, options = {}) => {
+    const { autoSave = false } = options;
     if (!text.trim()) { setImportNotice('Paste your SurveyMonkey CSV export first.'); return; }
+    if (isLikelyBinaryText(text)) {
+      setImportNotice('This file does not look like a plain SurveyMonkey CSV. Please export as CSV UTF-8 from SurveyMonkey and import again.');
+      return;
+    }
 
     // Robust CSV line splitter (handles quoted commas)
     const splitLine = (line) => {
@@ -1678,12 +1776,13 @@ const App = () => {
         const avg     = numVals.length > 0 ? (numVals.reduce((s, v) => s + v, 0) / numVals.length).toFixed(1) : null;
         // Top text answers (open-ended)
         const textMap = {};
-        vals.filter(v => isNaN(parseFloat(v))).forEach(v => { textMap[v] = (textMap[v] || 0) + 1; });
+        vals.filter(v => isNaN(parseFloat(v)) && !isLikelyBinaryText(v)).forEach(v => { textMap[v] = (textMap[v] || 0) + 1; });
         const topAnswers = Object.entries(textMap).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([answer, count]) => ({ answer, count }));
-        return { question: (c.q + (c.sub ? '  ' + c.sub : '')).slice(0, 100), responseCount: vals.length, avg, topAnswers };
-      });
+        return { question: (c.q + (c.sub ? ' — ' + c.sub : '')).slice(0, 100), responseCount: vals.length, avg, topAnswers };
+      })
+      .filter(q => !isLikelyBinaryText(q.question || ''));
 
-    setSurveyParsed({
+    const parsedSurvey = {
       importedAt:      new Date().toISOString(),
       totalResponses:  responses.length,
       npsScore,
@@ -1691,23 +1790,38 @@ const App = () => {
       avgSatisfaction,
       questionBreakdown,
       _raw: responses.slice(0, 100),
-    });
+    };
+
+    if (autoSave) {
+      const entry = { ...parsedSurvey, _savedAt: new Date().toLocaleString() };
+      setManualData(prev => {
+        const updated = { ...prev, survey_results: [entry] };
+        localStorage.setItem('dmd_manual', JSON.stringify(updated));
+        return updated;
+      });
+      setSurveyParsed(null);
+      setImportNotice(`✅ Survey auto-imported — ${parsedSurvey.totalResponses} responses, NPS ${parsedSurvey.npsScore ?? 'n/a'}`);
+      return parsedSurvey;
+    }
+
+    setSurveyParsed(parsedSurvey);
+    return parsedSurvey;
   };
 
   const confirmSaveSurvey = () => {
     if (!surveyParsed) return;
     const entry = { ...surveyParsed, _savedAt: new Date().toLocaleString() };
     setManualData(prev => {
-      const updated = { ...prev, survey_results: [entry, ...(prev.survey_results || [])] };
+      const updated = { ...prev, survey_results: [entry] };
       localStorage.setItem('dmd_manual', JSON.stringify(updated));
       return updated;
     });
-    setImportNotice(`\u2705 Survey imported  ${surveyParsed.totalResponses} responses, NPS ${surveyParsed.npsScore ?? 'n/a'}`);
+    setImportNotice(`\u2705 Survey imported — ${surveyParsed.totalResponses} responses, NPS ${surveyParsed.npsScore ?? 'n/a'}`);
     setSurveyParsed(null);
     setPasteCSV('');
   };
 
-  //  AI Content Generator 
+  // ── AI Content Generator ────────────────────────────────────────────────────
   const generateAIContent = () => {
     if (!aiTopic.trim()) { setAiOutput('Please enter a topic or brief before generating.'); return; }
     setAiGenerating(true);
@@ -1722,17 +1836,17 @@ const App = () => {
       'Empathetic':      ['We understand how difficult it can be', 'Your mental health matters deeply to us', 'Healing begins with compassionate care'],
       'Informational':   ['Did you know that', 'Research shows that', 'Understanding your mental health is the first step'],
       'Motivational':    ['You have the strength to heal', 'Every step toward wellness counts', "Recovery is a journey, and you're not alone"],
-      'Conversational':  ["Let's talk about", "Here's something we think you should know", 'We get it  life gets hard'],
-      'Urgent':          ["Don't wait to get the help you deserve", 'Appointments are filling fast  act now', 'Today is the day to prioritize your mental health'],
+      'Conversational':  ["Let's talk about", "Here's something we think you should know", 'We get it — life gets hard'],
+      'Urgent':          ["Don't wait to get the help you deserve", 'Appointments are filling fast — act now', 'Today is the day to prioritize your mental health'],
     };
     const opens = toneMap[tone] || toneMap['Empathetic'];
     const opener = opens[Math.floor(Math.random() * opens.length)];
 
     const platformHints = {
-      'Facebook':      ' Share this with someone who needs to hear it. #MentalHealth #DestinySprings',
-      'Instagram':     ' Save this post & tag a friend who needs support \n#MentalHealthAwareness #HealingJourney #ArizonaHealthcare',
+      'Facebook':      '👇 Share this with someone who needs to hear it. #MentalHealth #DestinySprings',
+      'Instagram':     '✨ Save this post & tag a friend who needs support 💙\n#MentalHealthAwareness #HealingJourney #ArizonaHealthcare',
       'LinkedIn':      'At Destiny Springs Healthcare, we believe mental wellness drives personal and professional success.',
-      'TikTok':        ' Drop a  if this resonates! Follow for more mental health tips from our team. #MentalHealthTok #DestinySpringsDMD',
+      'TikTok':        '🎵 Drop a ❤️ if this resonates! Follow for more mental health tips from our team. #MentalHealthTok #DestinySpringsDMD',
       'Email':         'As a valued member of the Destiny Springs community, we want to share something important with you.',
       'Website Blog':  'At Destiny Springs Healthcare, our multidisciplinary team is dedicated to providing evidence-based mental health treatment in Arizona.',
     };
@@ -1740,17 +1854,17 @@ const App = () => {
 
     let output = '';
     if (type === 'Social Post') {
-      output = `${opener} ${topic}.\n\nAt Destiny Springs Healthcare, our compassionate team provides personalized mental health care for individuals and families across Arizona.\n\n Scottsdale, AZ |  destinyspringshealthcare.com |  Call to schedule\n\n${platformLine}`;
+      output = `${opener} ${topic}.\n\nAt Destiny Springs Healthcare, our compassionate team provides personalized mental health care for individuals and families across Arizona.\n\n📍 Scottsdale, AZ | 🌐 destinyspringshealthcare.com | 📞 Call to schedule\n\n${platformLine}`;
     } else if (type === 'Blog Brief') {
-      output = `BLOG TITLE: "${topic}: What You Need to Know"\n\nINTRO: ${opener} ${topic}. This post explores key insights for patients and families seeking mental health support.\n\nH2 SECTIONS:\n1. Understanding ${topic}\n2. How Destiny Springs Healthcare approaches ${topic}\n3. Treatment options and what to expect\n4. Resources and next steps\n\nCTA: Schedule a consultation at destinyspringshealthcare.com\nWORD COUNT TARGET: 8001,200 words\nSEO TAGS: mental health Arizona, ${topic.toLowerCase()}, Scottsdale psychiatry`;
+      output = `BLOG TITLE: "${topic}: What You Need to Know"\n\nINTRO: ${opener} ${topic}. This post explores key insights for patients and families seeking mental health support.\n\nH2 SECTIONS:\n1. Understanding ${topic}\n2. How Destiny Springs Healthcare approaches ${topic}\n3. Treatment options and what to expect\n4. Resources and next steps\n\nCTA: Schedule a consultation at destinyspringshealthcare.com\nWORD COUNT TARGET: 800–1,200 words\nSEO TAGS: mental health Arizona, ${topic.toLowerCase()}, Scottsdale psychiatry`;
     } else if (type === 'Email Subject Line') {
-      output = `Subject Line Options for "${topic}":\n\n1. "${opener.replace(/,$/,'')}: ${topic}"\n2. "Your guide to ${topic}  from Destiny Springs Healthcare"\n3. "Ready to take the next step? Let's talk about ${topic}"\n4. "New resources available: ${topic} support at Destiny Springs"\n5. "You deserve this  ${topic} care tailored for you"\n\nPreheader: Compassionate, evidence-based mental health care in Arizona.`;
+      output = `Subject Line Options for "${topic}":\n\n1. "${opener.replace(/,$/,'')}: ${topic}"\n2. "Your guide to ${topic} — from Destiny Springs Healthcare"\n3. "Ready to take the next step? Let's talk about ${topic}"\n4. "New resources available: ${topic} support at Destiny Springs"\n5. "You deserve this — ${topic} care tailored for you"\n\nPreheader: Compassionate, evidence-based mental health care in Arizona.`;
     } else if (type === 'Ad Copy') {
-      output = `HEADLINE: ${topic}  Expert Care in Scottsdale, AZ\n\nBODY: ${opener} ${topic}. Destiny Springs Healthcare offers personalized, evidence-based treatment from a team that truly cares. New patients welcome. Most insurance accepted.\n\nCTA: Book Your Free Consultation\nURLslug: destinyspringshealthcare.com/appointments\n\nCHARACTER COUNT (approx): Headline 60 | Body 145\nPLATFORM: ${platform}`;
+      output = `HEADLINE: ${topic} — Expert Care in Scottsdale, AZ\n\nBODY: ${opener} ${topic}. Destiny Springs Healthcare offers personalized, evidence-based treatment from a team that truly cares. New patients welcome. Most insurance accepted.\n\nCTA: Book Your Free Consultation\nURLslug: destinyspringshealthcare.com/appointments\n\nCHARACTER COUNT (approx): Headline 60 | Body 145\nPLATFORM: ${platform}`;
     } else if (type === 'TikTok Script') {
-      output = ` TIKTOK SCRIPT  "${topic}"\nDURATION: 3060 seconds | TONE: ${tone}\n\n[HOOK - 0-3s]\n"${toneMap['Urgent'][0]}  especially when it comes to ${topic}."\n\n[CONTENT - 3-25s]\n"${opener} ${topic}. At Destiny Springs Healthcare in Scottsdale, AZ, our team specializes in helping people [benefit related to ${topic}]. Here are 3 things to know: [Point 1], [Point 2], [Point 3]."\n\n[CTA - 25-30s]\n"Follow us for more mental health tips, and drop a  if this helped. Book at the link in bio."\n\n#MentalHealth #DestinySprings #${topic.replace(/\s+/g,'')} #AZHealthcare`;
+      output = `🎬 TIKTOK SCRIPT — "${topic}"\nDURATION: 30–60 seconds | TONE: ${tone}\n\n[HOOK - 0-3s]\n"${toneMap['Urgent'][0]} — especially when it comes to ${topic}."\n\n[CONTENT - 3-25s]\n"${opener} ${topic}. At Destiny Springs Healthcare in Scottsdale, AZ, our team specializes in helping people [benefit related to ${topic}]. Here are 3 things to know: [Point 1], [Point 2], [Point 3]."\n\n[CTA - 25-30s]\n"Follow us for more mental health tips, and drop a ❤️ if this helped. Book at the link in bio."\n\n#MentalHealth #DestinySprings #${topic.replace(/\s+/g,'')} #AZHealthcare`;
     } else if (type === 'Caption + Hashtags') {
-      output = `CAPTION:\n${opener} ${topic}.\n\nDestiny Springs Healthcare is here to support your mental health journey every step of the way. Whether you're seeking help for the first time or continuing your wellness path  you belong here. \n\n Scottsdale, AZ | Link in bio to schedule\n\nHASHTAGS:\n#DestinySprings #MentalHealthAwareness #${topic.replace(/\s+/g,'')} #ArizonaMentalHealth #HealingJourney #PsychiatryScottsdale #MindfulRecovery #MentalWellness #BreakTheStigma #YouAreNotAlone`;
+      output = `CAPTION:\n${opener} ${topic}.\n\nDestiny Springs Healthcare is here to support your mental health journey every step of the way. Whether you're seeking help for the first time or continuing your wellness path — you belong here. 💙\n\n📍 Scottsdale, AZ | Link in bio to schedule\n\nHASHTAGS:\n#DestinySprings #MentalHealthAwareness #${topic.replace(/\s+/g,'')} #ArizonaMentalHealth #HealingJourney #PsychiatryScottsdale #MindfulRecovery #MentalWellness #BreakTheStigma #YouAreNotAlone`;
     }
 
     setTimeout(() => {
@@ -1759,7 +1873,7 @@ const App = () => {
     }, 600);
   };
 
-  //  AI data analysis  Sir Clicks-a-Lot reads your imported data 
+  // ── AI data analysis — Sir Clicks-a-Lot reads your imported data ────────────
   const analyzeData = async () => {
     setAiInsightsLoading(true);
     setAiInsights('');
@@ -1774,13 +1888,13 @@ const App = () => {
     const cpl = totalLeads > 0 ? (totalSpend / totalLeads).toFixed(2) : 'N/A';
     const platformRatings = Object.entries(reviewPlatformData)
       .filter(([, p]) => p.rating && Number(p.rating) > 0)
-      .map(([k, p]) => `${k}: ${p.rating} (${p.count || '?'} reviews)`)
+      .map(([k, p]) => `${k}: ${p.rating}★ (${p.count || '?'} reviews)`)
       .join(', ') || 'none entered';
-    const wixSess   = wixData?.sessions   || '';
-    const wixBounce = wixData?.bounceRate ? wixData.bounceRate + '%' : '';
+    const wixSess   = wixData?.sessions   || '—';
+    const wixBounce = wixData?.bounceRate ? wixData.bounceRate + '%' : '—';
     const googleRating = destinyData?.bestRating?.rating || destinyData?.googleSearch?.rating || destinyData?.google?.rating || 'not yet fetched';
     const summary = [
-      `Business: Destiny Springs Healthcare  mental health clinic, Scottsdale AZ`,
+      `Business: Destiny Springs Healthcare — mental health clinic, Scottsdale AZ`,
       `Google/auto rating: ${googleRating}`,
       `Platform ratings: ${platformRatings}`,
       `Ad spend records: ${adSpend.length} entries | total spend: $${totalSpend.toFixed(0)} | total leads: ${totalLeads} | cost per lead: $${cpl}`,
@@ -1797,29 +1911,31 @@ const App = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          systemPrompt: 'You are Captain KPI   a witty but sharp marketing analytics assistant for Destiny Springs Healthcare (mental health clinic, Scottsdale AZ). Analyze the dashboard data and provide 5-7 concise bullet-point insights with specific, actionable recommendations. Be direct and occasionally funny but genuinely useful. Use bullet points () for each insight.',
+          systemPrompt: 'You are Captain KPI 🫡 — a witty but sharp marketing analytics assistant for Destiny Springs Healthcare (mental health clinic, Scottsdale AZ). Analyze the dashboard data and provide 5-7 concise bullet-point insights with specific, actionable recommendations. Be direct and occasionally funny but genuinely useful. Use bullet points (•) for each insight.',
           messages: [{ role: 'user', content: `Here is the current Destiny Springs Healthcare marketing dashboard data:\n\n${summary}\n\nProvide your analysis of what's working, what needs attention, and your top action items.` }],
         }),
       });
       const { reply, error } = await r.json();
-      setAiInsights(error ? ` ${error}` : reply);
+      setAiInsights(error ? `⚠️ ${error}` : reply);
     } catch {
-      setAiInsights(' Could not reach AI. Make sure GEMINI_API_KEY is set in Vercel environment variables. Get a free key at aistudio.google.com');
+      setAiInsights('⚠️ Could not reach AI. Make sure GEMINI_API_KEY is set in Vercel environment variables. Get a free key at aistudio.google.com');
     }
     setAiInsightsLoading(false);
   };
 
-  //  Sir Clicks-a-Lot chat message sender 
+  // ── Sir Clicks-a-Lot chat message sender ────────────────────────────────────
   const sendChatMessage = async (prefill) => {
-    const text = (prefill || chatInput).trim();
+    const text = (prefill || chatInput).trim() || (chatAttachment ? `I've attached a file: ${chatAttachment.name}. Please analyze it.` : '');
     if (!text || chatLoading) return;
+    const pendingAttachment = chatAttachment;
     const userMsg = { role: 'user', content: text };
     const updatedMsgs = [...chatMessages, userMsg];
     setChatMessages(updatedMsgs);
     setChatInput('');
+    setChatAttachment(null);
     setChatLoading(true);
 
-    //  Build rich context snapshot for Captain KPI 
+    // ── Build rich context snapshot for Captain KPI ──────────────────────────
     const adSpend    = manualData.ad_spend || [];
     const totalSpend = adSpend.reduce((s, e) => s + (Number(e.spend) || 0), 0);
     const totalLeads = adSpend.reduce((s, e) => s + (Number(e.leads) || 0), 0);
@@ -1853,7 +1969,7 @@ const App = () => {
     // Reviews breakdown
     const platformReviewStr = Object.entries(reviewPlatformData)
       .filter(([, v]) => v?.rating)
-      .map(([k, v]) => `${k} ${v.rating} (${v.count || '?'} reviews)`)
+      .map(([k, v]) => `${k} ${v.rating}★ (${v.count || '?'} reviews)`)
       .join(', ');
 
     // Destiny Springs auto-profile data
@@ -1867,9 +1983,9 @@ const App = () => {
     // Recent news saved
     const newsStr = (newsItems || []).slice(0, 3).map(n => n.title).join(' | ');
 
-    const systemPrompt = `You are Captain KPI   a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a behavioral health / mental health clinic in Scottsdale/Surprise AZ. Be helpful, specific, and occasionally funny but always professional. Keep responses under 250 words unless asked for more. Use bullet points for lists.
+    const systemPrompt = `You are Captain KPI 🫡 — a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a behavioral health / mental health clinic in Scottsdale/Surprise AZ. Be helpful, specific, and occasionally funny but always professional. Keep responses under 250 words unless asked for more. Use bullet points for lists.
 
- LIVE DASHBOARD DATA 
+══ LIVE DASHBOARD DATA ══
 
 BUSINESS PROFILE:
 - Phone: ${dsPhone} | Address: ${dsAddr}
@@ -1879,41 +1995,41 @@ BUSINESS PROFILE:
 - Social profiles: ${dsSocials}
 
 REVIEW PLATFORM SCORES:
-${platformReviewStr || 'No platform review data loaded yet  user can fetch from Reviews tab.'}
+${platformReviewStr || 'No platform review data loaded yet — user can fetch from Reviews tab.'}
 
 WEBSITE TRAFFIC (Wix/GA4):
-- Sessions: ${_wix.sessions || _ga.sessions || ''}
-- Bounce rate: ${_wix.bounceRate || _ga.bounceRate || ''}%
-- Avg session duration: ${_ga.avgDuration || ''}
-- New users: ${_ga.newUsers || ''}
-- Traffic sources: ${trafficSources || 'not loaded  user can enter in Settings  Wix Analytics fields'}
-- Conversions: ${_ga.conversions || ''}
+- Sessions: ${_wix.sessions || _ga.sessions || '—'}
+- Bounce rate: ${_wix.bounceRate || _ga.bounceRate || '—'}%
+- Avg session duration: ${_ga.avgDuration || '—'}
+- New users: ${_ga.newUsers || '—'}
+- Traffic sources: ${trafficSources || 'not loaded — user can enter in Settings → Wix Analytics fields'}
+- Conversions: ${_ga.conversions || '—'}
 
 FACEBOOK / INSTAGRAM (Meta Business Suite):
-- Page fans/likes: ${_meta.fanCount || _meta.fans || ''}
-- Instagram followers: ${_meta.instagramFollowers || ''}
+- Page fans/likes: ${_meta.fanCount || _meta.fans || '—'}
+- Instagram followers: ${_meta.instagramFollowers || '—'}
 - Recent FB posts: ${(_meta.fbPosts || []).length > 0 ? `${_meta.fbPosts.length} loaded, top post ${_meta.fbPosts[0]?.likes || 0} likes` : 'not loaded'}
 - Recent IG posts: ${(_meta.igPosts || []).length > 0 ? `${_meta.igPosts.length} loaded` : 'not loaded'}
 - Connected: ${connections['Meta Business Suite']?.connected ? 'yes' : 'no'}
 
 TIKTOK:
-- Followers: ${_tik.followers || ''} | Videos: ${_tik.videoCount || ''} | Total views: ${_tik.totalViews || ''}
+- Followers: ${_tik.followers || '—'} | Videos: ${_tik.videoCount || '—'} | Total views: ${_tik.totalViews || '—'}
 - Connected: ${connections['TikTok for Business']?.connected ? 'yes' : 'no'}
 
 EMAIL (Mailchimp):
-- List: ${_mail.listName || ''} | Subscribers: ${_mail.subscribers || ''}
-- Open rate: ${_mail.openRate || ''} | Click rate: ${_mail.clickRate || ''}
-- Total campaigns: ${_mail.totalCampaigns || ''}
+- List: ${_mail.listName || '—'} | Subscribers: ${_mail.subscribers || '—'}
+- Open rate: ${_mail.openRate || '—'} | Click rate: ${_mail.clickRate || '—'}
+- Total campaigns: ${_mail.totalCampaigns || '—'}
 - Connected: ${connections['Mailchimp']?.connected ? 'yes' : 'no'}
 
-YOUTUBE: subscribers ${_yt.subscribers || ''}, views ${_yt.totalViews || ''}
-YELP: ${_yelp.rating ? `${_yelp.rating} (${_yelp.reviewCount || '?'} reviews)` : 'not connected'}
-GOOGLE BUSINESS: searches ${_gb.searches || ''}, direction requests ${_gb.directionRequests || ''}
+YOUTUBE: subscribers ${_yt.subscribers || '—'}, views ${_yt.totalViews || '—'}
+YELP: ${_yelp.rating ? `${_yelp.rating}★ (${_yelp.reviewCount || '?'} reviews)` : 'not connected'}
+GOOGLE BUSINESS: searches ${_gb.searches || '—'}, direction requests ${_gb.directionRequests || '—'}
 
 PAID ADS: ${adSpend.length} records, total $${totalSpend.toFixed(0)} spend, ${totalLeads} leads${totalLeads > 0 ? `, CPL $${(totalSpend/totalLeads).toFixed(0)}` : ''}
 
 CONTENT CALENDAR: ${contentItems?.length || 0} items scheduled
-SOCIAL METRICS (last 3 entries): ${socialRows.length > 0 ? socialRows.map(r => `${r.platform || ''} ${r.month || ''}: followers ${r.followers || ''}, reach ${r.reach || ''}`).join(' | ') : 'none entered'}
+SOCIAL METRICS (last 3 entries): ${socialRows.length > 0 ? socialRows.map(r => `${r.platform || ''} ${r.month || ''}: followers ${r.followers || '—'}, reach ${r.reach || '—'}`).join(' | ') : 'none entered'}
 COMPETITOR INTEL: ${competitors || 'not loaded'}
 SAVED INTEL URLS: ${savedUrlsStr || 'none'}
 RECENT NEWS: ${newsStr || 'none loaded'}
@@ -1922,15 +2038,15 @@ POTENTIAL REFERRAL SOURCES TO SUGGEST (even without live data):
 - Primary care physicians, psychiatrists, therapists in Scottsdale/Surprise/Peoria AZ
 - Employee Assistance Programs (EAPs): Aetna, UHC, CIGNA
 - AZ DES / ADHS (Arizona behavioral health referrals)
-- VA (veterans mental health referrals)  VA Phoenix HCS
+- VA (veterans mental health referrals) — VA Phoenix HCS
 - Schools/universities: ASU, GCU, Maricopa Community Colleges
 - Hospitals: HonorHealth, Banner Health, Dignity Health in the West Valley
-- Crisis lines: 988 Suicide & Crisis Lifeline  can cross-refer
+- Crisis lines: 988 Suicide & Crisis Lifeline — can cross-refer
 - Online directories: Psychology Today, SAMHSA locator, ZocDoc, Headway
 - Insurance case managers: BCBS AZ, Mercy Care, UHC Community Plan
 - Faith communities, community health centers, FQHC partners in Maricopa County
 
-Always give actionable, specific suggestions. You HAVE the data above  use it. Never say you lack access to data.`;
+Always give actionable, specific suggestions. You HAVE the data above — use it. Never say you lack access to data.`;
 
     try {
       const r = await fetch('/api/chat', {
@@ -1939,14 +2055,34 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
         body: JSON.stringify({
           systemPrompt,
           messages: updatedMsgs.slice(-12),
+          ...(pendingAttachment ? { imageBase64: pendingAttachment.base64, imageMimeType: pendingAttachment.mimeType } : {}),
         }),
       });
       const { reply, error } = await r.json();
       setChatMessages(m => [...m, { role: 'assistant', content: error ? `Oops: ${error}` : reply }]);
     } catch {
-      setChatMessages(m => [...m, { role: 'assistant', content: "My circuits are jammed!  Make sure GEMINI_API_KEY is set in your Vercel project. Get a free key at aistudio.google.com  I'll be back once fed." }]);
+      setChatMessages(m => [...m, { role: 'assistant', content: "My circuits are jammed! 🔧 Make sure GEMINI_API_KEY is set in your Vercel project. Get a free key at aistudio.google.com — I'll be back once fed." }]);
     }
     setChatLoading(false);
+  };
+
+  const handleChatFileSelect = (file) => {
+    if (!file) return;
+    const allowed = ['image/png','image/jpeg','image/webp','image/gif','application/pdf','text/plain','text/csv'];
+    if (!allowed.includes(file.type)) {
+      setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ Unsupported file type. You can attach images (PNG, JPG, WebP, GIF), PDFs, or plain text/CSV files.` }]);
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setChatMessages(m => [...m, { role: 'assistant', content: '⚠️ File too large. Please attach a file under 15 MB.' }]);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target.result.split(',')[1];
+      setChatAttachment({ base64, mimeType: file.type, name: file.name });
+    };
+    reader.readAsDataURL(file);
   };
 
   const savePlatformData = (platformKey) => {
@@ -2044,11 +2180,24 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
 
   // Auto-sync all connected integrations on load, then every 5 min
   useEffect(() => {
+    const shouldAutoSync = (name, creds) => {
+      if (!creds?.connected) return false;
+      const isMeta = name === 'Meta Business Suite' || name === 'Meta Ads Manager';
+      if (!isMeta) return true;
+      const lastErrorAt = creds?.lastErrorAt ? new Date(creds.lastErrorAt).getTime() : 0;
+      if (!lastErrorAt || Number.isNaN(lastErrorAt)) return true;
+      return (Date.now() - lastErrorAt) > META_AUTO_RETRY_COOLDOWN_MS;
+    };
+
     const saved = (() => { try { return JSON.parse(localStorage.getItem('dmd_connections') || '{}'); } catch { return {}; } })();
-    Object.entries(saved).filter(([, v]) => v?.connected).forEach(([n, creds]) => syncIntegrationWithCreds(n, creds));
+    Object.entries(saved).forEach(([n, creds]) => {
+      if (shouldAutoSync(n, creds)) syncIntegrationWithCreds(n, creds);
+    });
     const interval = setInterval(() => {
       const cur = (() => { try { return JSON.parse(localStorage.getItem('dmd_connections') || '{}'); } catch { return {}; } })();
-      Object.entries(cur).filter(([, v]) => v?.connected).forEach(([n, creds]) => syncIntegrationWithCreds(n, creds));
+      Object.entries(cur).forEach(([n, creds]) => {
+        if (shouldAutoSync(n, creds)) syncIntegrationWithCreds(n, creds);
+      });
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2074,7 +2223,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     if (!fetchedAt || (Date.now() - fetchedAt) > STALE_MS) fetchCompetitors();
     const timer = setInterval(fetchCompetitors, STALE_MS);
     return () => clearInterval(timer);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps 
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps ─────────────────────────────────────────────────────────────
   const grid     = darkMode ? '#1e293b' : '#f1f5f9';
   const tick     = darkMode ? '#94a3b8' : '#64748b';
   const tipStyle = {
@@ -2084,24 +2233,24 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
   };
 
-  //  Core KPI Metrics 
+  // ── Core KPI Metrics ────────────────────────────────────────────────────────
   const metrics = {
-    googleScore: '',
+    googleScore: '—',
     googleTrend: null,
-    nps: '',
-    promoters: '',
-    socialPostsMonthly: '',
-    blogVelocity: '',
-    tiktokVelocity: '',
-    videoViews: '',
-    seoStatewideGrowth: '',
-    avgReadTime: '',
-    siteConversion: '',
-    wixSessions: '',
-    wixBounceRate: '',
-    emailOpenRate: '',
-    costPerLead: '',
-    totalLeads: '',
+    nps: '—',
+    promoters: '—',
+    socialPostsMonthly: '—',
+    blogVelocity: '—',
+    tiktokVelocity: '—',
+    videoViews: '—',
+    seoStatewideGrowth: '—',
+    avgReadTime: '—',
+    siteConversion: '—',
+    wixSessions: '—',
+    wixBounceRate: '—',
+    emailOpenRate: '—',
+    costPerLead: '—',
+    totalLeads: '—',
     leadsGrowth: null,
   };
   const toNum = (v) => {
@@ -2109,7 +2258,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     return Number.isFinite(n) ? n : 0;
   };
 
-  //  Derived data from manual entries & live integrations 
+  // ── Derived data from manual entries & live integrations ─────────────────────
   const _reviews    = manualData.reviews       || [];
   const _socialMet  = manualData.social_metrics || [];
   const _adSpend    = manualData.ad_spend       || [];
@@ -2125,7 +2274,6 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
   const _fbLive     = _socialLive.facebook            || {};
   const _igLive     = _socialLive.instagram           || {};
   const _ttLive     = _socialLive.tiktok              || {};
-  const _smLive     = liveData['SurveyMonkey']        || {};
   const _liLive     = _socialLive.linkedin            || {};
   const _platformEntries = Object.values(reviewPlatformData).filter(p => p.count && Number(p.count) > 0);
   const _totalReviewCount = _platformEntries.length
@@ -2143,11 +2291,258 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     : null;
   const _totalLeads = _adSpend.reduce((s, e) => s + toNum(e.leads), 0);
   const _totalSpend = _adSpend.reduce((s, e) => s + toNum(e.spend), 0);
+  const _latestSocialMonth = _socialMet
+    .map(e => String(e.month || '').slice(0, 7))
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const _monthlySocialPosts = (() => {
+    if (_latestSocialMonth) {
+      const monthTotal = _socialMet
+        .filter(e => String(e.month || '').slice(0, 7) === _latestSocialMonth)
+        .filter(e => !String(e.platform || '').toLowerCase().includes('tik'))
+        .reduce((s, e) => s + toNum(e.posts), 0);
+      if (monthTotal > 0) return monthTotal;
+    }
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const calTotal = contentItems
+      .filter(c => String(c.type || '').toLowerCase() === 'social')
+      .filter(c => String(c.date || '').slice(0, 7) === thisMonth)
+      .length;
+    return calTotal;
+  })();
+  const _blogCount = contentItems.filter(c => String(c.type || '').toLowerCase() === 'blog').length;
+  const _igPostCount = toNum(_metaLive.igMediaCount || _igLive.posts);
+  const _fbPostCount = toNum(_metaLive.fbPosts?.length || _fbLive.posts);
+  const _ttVideoCount = toNum(_ttLive.videos || _tikLive.videos || _tiktokPosts.length);
+  const _liPostCount = toNum(_liLive.posts);
+  const _manualSocialPosts = _socialMet.reduce((s, e) => s + toNum(e.posts), 0);
+  const _liveSocialPosts = _igPostCount + _fbPostCount + _ttVideoCount + _liPostCount;
+  const _totalSocialPosts = _liveSocialPosts > 0 ? _liveSocialPosts : _manualSocialPosts;
+  const isLikelyBinaryText = (value) => {
+    const s = String(value || '');
+    if (!s) return false;
+    const lower = s.toLowerCase();
+    if (/%pdf-|flatedecode|endstream|startxref|\bobj\b|\bstream\b/.test(lower)) return true;
+    if (lower.includes('pk\x03\x04') || lower.includes('pk\x05\x06') || lower.includes('pk\x07\x08')) return true;
+    const len = Math.max(s.length, 1);
+    const controls = Array.from(s).filter(ch => {
+      const code = ch.charCodeAt(0);
+      return code !== 9 && code !== 10 && code !== 13 && (code < 32 || code === 127);
+    }).length;
+    const replacement = (s.match(/\uFFFD/g) || []).length;
+    const mojibake = (s.match(/Ã.|Â.|â.|ðŸ|�/g) || []).length;
+    return (controls / len) > 0.01 || (replacement / len) > 0.01 || (mojibake / len) > 0.02;
+  };
   const _latestSocial = {};
   _socialMet.forEach(e => { if (!_latestSocial[e.platform] || (e.month || '') > (_latestSocial[e.platform].month || '')) _latestSocial[e.platform] = e; });
-  const _latestSurvey = (manualData.survey_results || [])[0] || null;
-  // SurveyMonkey dedicated analytics
-  const surveyEntries = (manualData.survey_results || []).slice();
+    const _surveyEntries = (() => {
+      const rows = Array.isArray(manualData.survey_results) ? manualData.survey_results : [];
+      const stamp = (entry) => {
+        const raw = entry?._savedAt || entry?.importedAt || entry?.date || '';
+        const ts = Date.parse(raw);
+        return Number.isNaN(ts) ? 0 : ts;
+      };
+      return rows.slice().sort((a, b) => stamp(b) - stamp(a)).slice(0, 1);
+    })();
+    const _surveyOverview = _surveyEntries.reduce((acc, survey) => {
+      const responses = toNum(survey.totalResponses);
+      const nps = survey.npsScore != null && Number.isFinite(Number(survey.npsScore)) ? Number(survey.npsScore) : null;
+      const breakdownPromoters = toNum(survey?.npsBreakdown?.promoters);
+      const breakdownPassives = toNum(survey?.npsBreakdown?.passives);
+      const breakdownDetractors = toNum(survey?.npsBreakdown?.detractors);
+      const breakdownTotal = breakdownPromoters + breakdownPassives + breakdownDetractors;
+      const hasRealSurveyRows = Array.isArray(survey?._raw) && survey._raw.some(r => Object.keys(r || {}).some(k => String(k).startsWith('_q')));
+      const rawNpsCount = Array.isArray(survey?._raw)
+        ? survey._raw.filter(r => r?.npsScore != null && Number.isFinite(Number(r.npsScore))).length
+        : 0;
+      const hasStrongNpsEvidence = hasRealSurveyRows && breakdownTotal >= 10 && rawNpsCount >= 10;
+      const weight = responses > 0 ? responses : 1;
+      if (nps != null && nps >= -100 && nps <= 100 && hasStrongNpsEvidence) {
+        acc.npsWeighted += nps * weight;
+        acc.npsWeight += weight;
+        acc.hasTrustedNps = true;
+      }
+      if (survey.npsBreakdown) {
+        acc.promoters += breakdownPromoters;
+        acc.passives += breakdownPassives;
+        acc.detractors += breakdownDetractors;
+        acc.hasBreakdown = true;
+      }
+      return acc;
+    }, {
+      npsWeighted: 0,
+      npsWeight: 0,
+      promoters: 0,
+      passives: 0,
+      detractors: 0,
+      hasBreakdown: false,
+      hasTrustedNps: false,
+    });
+    const _surveyNpsScore = _surveyOverview.hasTrustedNps && _surveyOverview.npsWeight > 0
+      ? Math.round(_surveyOverview.npsWeighted / _surveyOverview.npsWeight)
+      : null;
+    const _latestSurveyNps = (() => {
+      const latest = _surveyEntries[0];
+      if (!latest) return null;
+      const n = Number(latest.npsScore);
+      return Number.isFinite(n) && n >= -100 && n <= 100 ? Math.round(n) : null;
+    })();
+    const _surveyNpsBreakdown = _surveyOverview.hasBreakdown ? {
+      promoters: _surveyOverview.promoters,
+      passives: _surveyOverview.passives,
+      detractors: _surveyOverview.detractors,
+    } : null;
+  const _reviewNpsBreakdown = (() => {
+    if (!_reviews.length) return null;
+    const promoters = _reviews.filter(r => Number(r.rating) >= 4).length;
+    const passives = _reviews.filter(r => Number(r.rating) === 3).length;
+    const detractors = _reviews.filter(r => Number(r.rating) <= 2).length;
+    const total = promoters + passives + detractors;
+    if (!total) return null;
+    return { promoters, passives, detractors, score: Math.round(((promoters - detractors) / total) * 100) };
+  })();
+  // Patch placeholder metrics with computed values
+  Object.assign(metrics, {
+    googleScore:        _avgRating ? _avgRating + ' ★' : '—',
+    nps:                _latestSurveyNps != null ? String(_latestSurveyNps) : (_surveyNpsScore != null ? String(_surveyNpsScore) : '—'),
+    videoViews:         (_tikLive.recentViews || _ttLive.recentViews) ? Number(_tikLive.recentViews || _ttLive.recentViews).toLocaleString() : '—',
+    tiktokVelocity:     _ttVideoCount ? String(_ttVideoCount) : '—',
+    blogVelocity:       _blogCount ? String(_blogCount) : '—',
+    socialPostsMonthly: _monthlySocialPosts || '—',
+    wixSessions:        toNum(_gaLive.sessions) > 0 ? String(Math.round(toNum(_gaLive.sessions)).toLocaleString())
+              : toNum(_wixLive.sessions) > 0 ? String(Math.round(toNum(_wixLive.sessions)).toLocaleString()) : '—',
+    wixBounceRate:      toNum(_gaLive.bounceRate) > 0 ? `${toNum(_gaLive.bounceRate).toFixed(1)}%`
+              : toNum(_wixLive.bounceRate) > 0 ? `${toNum(_wixLive.bounceRate).toFixed(1)}%` : '—',
+    emailOpenRate:      toNum(_mailLive.openRate) > 0 ? `${toNum(_mailLive.openRate).toFixed(1)}%`
+              : _emailStats.length  ? (_emailStats.reduce((s, e) => s + (toNum(e.sent) ? toNum(e.opened) / toNum(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : '—',
+    costPerLead:        (_totalSpend && _totalLeads) ? '$' + (_totalSpend / _totalLeads).toFixed(0) : '—',
+    totalLeads:         _totalLeads || '—',
+    siteConversion:     (() => {
+      const sessions = Number((_gaLive.sessions || _wixLive.sessions || '').toString().replace(/,/g, ''));
+      return (sessions > 0 && _totalLeads > 0)
+        ? (_totalLeads / sessions * 100).toFixed(2) + '%'
+        : '—';
+    })(),
+  });
+
+  // ── Monthly Trend (from ad spend + social manual entries) ────────────────────
+  const _trendMap = {};
+  _socialMet.forEach(e => { if (!e.month) return; if (!_trendMap[e.month]) _trendMap[e.month] = { month: e.month, sessions: 0, reach: 0, leads: 0 }; _trendMap[e.month].reach += Number(e.reach || 0); });
+  _adSpend.forEach(e  => { if (!e.month) return; if (!_trendMap[e.month]) _trendMap[e.month] = { month: e.month, sessions: 0, reach: 0, leads: 0 }; _trendMap[e.month].leads += Number(e.leads || 0); });
+  const monthlyTrend = Object.values(_trendMap).sort((a, b) => a.month.localeCompare(b.month)).slice(-6);
+
+  // ── Social Analytics ─────────────────────────────────────────────────────────
+  const socialAnalytics = [
+    { platform: 'Facebook',  color: '#1877F2', reach: toNum(_latestSocial['Facebook']?.reach  || _metaLive.reach), engagement: toNum(_latestSocial['Facebook']?.engagement), clicks: toNum(_latestSocial['Facebook']?.clicks), followers: toNum(_fbLive.followers || _latestSocial['Facebook']?.followers || _metaLive.fanCount), posts: null,  videos: null, totalLikes: toNum(_fbLive.likes) },
+    { platform: 'Instagram', color: '#E4405F', reach: toNum(_latestSocial['Instagram']?.reach), engagement: toNum(_latestSocial['Instagram']?.engagement), clicks: toNum(_latestSocial['Instagram']?.clicks), followers: toNum(_igLive.followers || _metaLive.instagramFollowers || _latestSocial['Instagram']?.followers), posts: toNum(_igLive.posts || _metaLive.instagramPosts), videos: null, totalLikes: null },
+    { platform: 'LinkedIn',  color: '#0A66C2', reach: toNum(_latestSocial['LinkedIn']?.reach), engagement: toNum(_latestSocial['LinkedIn']?.engagement), clicks: toNum(_latestSocial['LinkedIn']?.clicks), followers: toNum(_liLive.followers || _latestSocial['LinkedIn']?.followers), posts: null, videos: null, totalLikes: null },
+    { platform: 'TikTok',    color: '#00f2ea', reach: toNum(_latestSocial['TikTok']?.reach || _tikLive.recentViews), engagement: 0, clicks: 0, followers: toNum(_ttLive.followers || _tikLive.followers || _latestSocial['TikTok']?.followers), posts: null, videos: toNum(_ttLive.videos || _tikLive.videos), totalLikes: toNum(_ttLive.likes || _tikLive.totalLikes) },
+  ];
+
+  // ── Weekly Engagement Trend ──────────────────────────────────────────────────
+  const weeklyEngagement = (() => {
+    const m = {};
+    _socialMet.forEach(e => {
+      const p = String(e.platform || '').toLowerCase();
+      const wk = String(e.month || e.date || '').slice(0, 7);
+      if (!wk || !p) return;
+      if (!m[wk]) m[wk] = { week: wk, facebook: 0, instagram: 0, linkedin: 0, tiktok: 0 };
+      const val = Number(e.engagement || e.reach || 0);
+      if (p.includes('face')) m[wk].facebook += val;
+      else if (p.includes('insta')) m[wk].instagram += val;
+      else if (p.includes('linked')) m[wk].linkedin += val;
+      else if (p.includes('tik')) m[wk].tiktok += val;
+    });
+    return Object.values(m)
+      .sort((a, b) => a.week.localeCompare(b.week))
+      .slice(-4)
+      .map(w => ({ ...w, week: w.week.slice(5) }));
+  })();
+
+  // ── Wix Traffic Sources ──────────────────────────────────────────────────────
+  const wixSources = [
+    { name: 'Organic Search', value: Number(_wixLive.organic)  || 0, color: '#0d9488' },
+    { name: 'Social Media',   value: Number(_wixLive.social)   || 0, color: '#8b5cf6' },
+    { name: 'Direct',         value: Number(_wixLive.direct)   || 0, color: '#10b981' },
+    { name: 'Referral',       value: Number(_wixLive.referral) || 0, color: '#f59e0b' },
+  ];
+
+  // ── AZ Regional Traffic ──────────────────────────────────────────────────────
+  const regionalTraffic = [
+    { city: 'Phoenix',        traffic: 0 },
+    { city: 'Tucson',         traffic: 0 },
+    { city: 'Mesa / Gilbert', traffic: 0 },
+    { city: 'Scottsdale',     traffic: 0 },
+    { city: 'Rest of AZ',     traffic: 0 },
+  ];
+
+  // ── Website Video Tracing / UX Depth ─────────────────────────────────────────
+  const pathData = [];
+
+  // ── SEO Keyword Rankings ─────────────────────────────────────────────────────
+  const seoKeywords = _seoData.map(e => ({
+    keyword: e.keyword  || '—',
+    pos:     Number(e.rank      || 0),
+    change:  Number(e.prevRank  || 0) - Number(e.rank || 0),
+    volume:  Number(e.searchVol || 0),
+    clicks:  Number(e.clicks    || 0),
+  }));
+
+  // ── Blog Performance ─────────────────────────────────────────────────────────
+  const blogPosts = contentItems
+    .filter(c => String(c.type || '').toLowerCase() === 'blog')
+    .slice()
+    .reverse()
+    .slice(0, 5)
+    .map((c, i) => ({
+      title: c.title || `Blog Post ${i + 1}`,
+      views: Number(c.views || c.impressions || 0),
+      readTime: c.readTime || c.read_time || 'N/A',
+      shares: Number(c.shares || 0),
+    }));
+
+  // ── Email Campaign Metrics ────────────────────────────────────────────────────
+  const emailCampaigns = _emailStats.map(e => ({
+    campaign:  e.campaign || 'Campaign',
+    sent:      Number(e.sent     || 0),
+    opened:    Number(e.opened   || 0),
+    clicked:   Number(e.clicked  || 0),
+    openRate:  e.sent ? (Number(e.opened  || 0) / Number(e.sent) * 100).toFixed(1) + '%' : '0%',
+    clickRate: e.sent ? (Number(e.clicked || 0) / Number(e.sent) * 100).toFixed(1) + '%' : '0%',
+    date:      e.date || '',
+  }));
+
+  // ── Ad Performance ───────────────────────────────────────────────────────────
+  const adPerformance = _adSpend.map(e => ({
+    platform:    e.platform || 'Platform',
+    spend:       Number(e.spend  || 0),
+    leads:       Number(e.leads  || 0),
+    clicks:      Number(e.clicks || 0),
+    impressions: Number(e.impressions || 0),
+    cpl:         e.cpl ? '$' + Number(e.cpl).toFixed(0) : (e.spend && e.leads ? '$' + (Number(e.spend) / Number(e.leads)).toFixed(0) : '---'),
+    roas:        e.roas ? Number(e.roas).toFixed(1) + 'x' : '---',
+    month:       e.month || '',
+  }));
+  const _totalImpressions = _adSpend.reduce((s,e)=>s+Number(e.impressions||0),0);
+
+  // ── NPS Breakdown — pulls from latest imported survey if available ───────────
+  const _npsBreakdown = _surveyNpsBreakdown;
+  const _npsTotal = _npsBreakdown
+    ? (Number(_npsBreakdown.promoters || 0) + Number(_npsBreakdown.passives || 0) + Number(_npsBreakdown.detractors || 0))
+    : 0;
+  const npsData = _npsBreakdown ? [
+    { name: 'Promoters',  value: _npsTotal > 0 ? Math.round((Number(_npsBreakdown.promoters || 0) / _npsTotal) * 100) : 0, color: '#10b981' },
+    { name: 'Passives',   value: _npsTotal > 0 ? Math.round((Number(_npsBreakdown.passives || 0) / _npsTotal) * 100) : 0, color: '#f59e0b' },
+    { name: 'Detractors', value: _npsTotal > 0 ? Math.round((Number(_npsBreakdown.detractors || 0) / _npsTotal) * 100) : 0, color: '#ef4444' },
+  ] : [
+    { name: 'Promoters',  value: 0, color: '#10b981' },
+    { name: 'Passives',   value: 0, color: '#f59e0b' },
+    { name: 'Detractors', value: 0, color: '#ef4444' },
+  ];
+
+  // ── SurveyMonkey Dedicated Analytics ───────────────────────────────────────
+  const surveyEntries = _surveyEntries;
   const surveyTotals = surveyEntries.reduce((acc, s, idx) => {
     const responses = toNum(s.totalResponses);
     const nps = s.npsScore != null && Number.isFinite(Number(s.npsScore)) ? Number(s.npsScore) : null;
@@ -2158,7 +2553,6 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     const label = Number.isNaN(stamp)
       ? `Import ${surveyEntries.length - idx}`
       : new Date(stamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
     acc.totalResponses += responses;
     if (nps != null) {
       acc.npsWeighted += nps * weight;
@@ -2173,32 +2567,28 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
       acc.passives += toNum(s.npsBreakdown.passives);
       acc.detractors += toNum(s.npsBreakdown.detractors);
     }
-
     acc.timeline.push({
       label,
       responses,
       nps: nps != null ? nps : 0,
       satisfaction: sat != null ? Number(sat.toFixed(2)) : 0,
     });
-
     (s.questionBreakdown || []).forEach(q => {
       const key = String(q.question || '').trim();
       const avg = Number(q.avg);
-      if (!key || !Number.isFinite(avg)) return;
+      if (!key || !Number.isFinite(avg) || isLikelyBinaryText(key)) return;
       if (!acc.questions[key]) acc.questions[key] = { question: key, scoreWeighted: 0, weight: 0, mentions: 0 };
       acc.questions[key].scoreWeighted += avg * weight;
       acc.questions[key].weight += weight;
       acc.questions[key].mentions += 1;
     });
-
     (s._raw || []).forEach((row, rIdx) => {
       const npsVal = row.npsScore != null && Number.isFinite(Number(row.npsScore)) ? Number(row.npsScore) : null;
       const satVal = row.satisfaction != null && Number.isFinite(Number(row.satisfaction)) ? Number(row.satisfaction) : null;
       const textSnippet = Object.entries(row || {})
         .filter(([k, v]) => String(k).startsWith('_q') && typeof v === 'string')
         .map(([, v]) => String(v).trim())
-        .find(v => v.length >= 12 && !/^\d+(\.\d+)?$/.test(v));
-
+        .find(v => v.length >= 12 && !/^\d+(\.\d+)?$/.test(v) && !isLikelyBinaryText(v));
       acc.rawRows.push({
         id: `${idx}-${rIdx}`,
         survey: label,
@@ -2220,7 +2610,6 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
         });
       }
     });
-
     return acc;
   }, {
     totalResponses: 0,
@@ -2236,7 +2625,6 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     themes: {},
     rawRows: [],
   });
-
   const surveyAvgNps = surveyTotals.npsWeight > 0 ? Math.round(surveyTotals.npsWeighted / surveyTotals.npsWeight) : null;
   const surveyAvgSatisfaction = surveyTotals.satWeight > 0 ? (surveyTotals.satWeighted / surveyTotals.satWeight).toFixed(2) : null;
   const surveyTimeline = surveyTotals.timeline.slice().reverse();
@@ -2261,173 +2649,18 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
   const surveyVisibleRows = surveySearch.trim()
     ? surveyRawRows.filter(r => (`${r.response} ${r.survey}`).toLowerCase().includes(surveySearch.toLowerCase()))
     : surveyRawRows;
-  const _reviewNpsBreakdown = (() => {
-    if (!_reviews.length) return null;
-    const promoters = _reviews.filter(r => toNum(r.rating) >= 4).length;
-    const passives = _reviews.filter(r => toNum(r.rating) === 3).length;
-    const detractors = _reviews.filter(r => toNum(r.rating) <= 2).length;
-    const total = promoters + passives + detractors;
-    if (!total) return null;
-    return { promoters, passives, detractors, score: Math.round(((promoters - detractors) / total) * 100) };
-  })();
-  // Patch placeholder metrics with computed values
-  Object.assign(metrics, {
-    googleScore:        _avgRating ? _avgRating + ' ' : '',
-    nps:                _latestSurvey?.npsScore != null ? String(_latestSurvey.npsScore) : (_smLive?.npsScore != null ? String(_smLive.npsScore) : (_reviewNpsBreakdown ? String(_reviewNpsBreakdown.score) : '')),
-    videoViews:         toNum(_tikLive.recentViews || _ttLive.recentViews) > 0 ? Math.round(toNum(_tikLive.recentViews || _ttLive.recentViews)).toLocaleString() : '',
-    tiktokVelocity:     (_tiktokPosts.length || toNum(_tikLive.recentPosts) || toNum(_ttLive.videos)) ? String(_tiktokPosts.length || toNum(_tikLive.recentPosts) || toNum(_ttLive.videos)) : '',
-    socialPostsMonthly: _socialMet.reduce((s, e) => s + toNum(e.posts), 0) || '',
-    blogVelocity:       contentItems.filter(c => String(c.type || '').toLowerCase() === 'blog').length || '',
-    wixSessions:        toNum(_gaLive.sessions) > 0 ? Math.round(toNum(_gaLive.sessions)).toLocaleString()
-              : toNum(_wixLive.sessions) > 0 ? Math.round(toNum(_wixLive.sessions)).toLocaleString() : '',
-    wixBounceRate:      toNum(_gaLive.bounceRate) > 0 ? `${toNum(_gaLive.bounceRate).toFixed(1)}%`
-              : toNum(_wixLive.bounceRate) > 0 ? `${toNum(_wixLive.bounceRate).toFixed(1)}%` : '',
-    emailOpenRate:      toNum(_mailLive.openRate) > 0 ? `${toNum(_mailLive.openRate).toFixed(1)}%`
-              : _emailStats.length ? (_emailStats.reduce((s, e) => s + (toNum(e.sent) ? toNum(e.opened) / toNum(e.sent) : 0), 0) / _emailStats.length * 100).toFixed(1) + '%' : '',
-    costPerLead:        (_totalSpend && _totalLeads) ? '$' + (_totalSpend / _totalLeads).toFixed(0) : '',
-    totalLeads:         _totalLeads || '',
-    siteConversion:     (() => {
-      const sessions = Number((_gaLive.sessions || _wixLive.sessions || '').toString().replace(/,/g, ''));
-      return (sessions > 0 && _totalLeads > 0)
-        ? (_totalLeads / sessions * 100).toFixed(2) + '%'
-        : '';
-    })(),
-  });
 
-  //  Monthly Trend (from ad spend + social manual entries) 
-  const _trendMap = {};
-  _socialMet.forEach(e => { if (!e.month) return; if (!_trendMap[e.month]) _trendMap[e.month] = { month: e.month, sessions: 0, reach: 0, leads: 0 }; _trendMap[e.month].reach += Number(e.reach || 0); });
-  _adSpend.forEach(e  => { if (!e.month) return; if (!_trendMap[e.month]) _trendMap[e.month] = { month: e.month, sessions: 0, reach: 0, leads: 0 }; _trendMap[e.month].leads += Number(e.leads || 0); });
-  const monthlyTrend = Object.values(_trendMap).sort((a, b) => a.month.localeCompare(b.month)).slice(-6);
-
-  //  Social Analytics 
-  const socialAnalytics = [
-    { platform: 'Facebook',  color: '#1877F2', reach: Number(_latestSocial['Facebook']?.reach  || _metaLive.reach   || 0), engagement: Number(_latestSocial['Facebook']?.engagement  || 0), clicks: Number(_latestSocial['Facebook']?.clicks  || 0), followers: Number(_fbLive.followers || _latestSocial['Facebook']?.followers  || _metaLive.fanCount || 0), posts: null,  videos: null, totalLikes: Number(_fbLive.likes     || 0) },
-    { platform: 'Instagram', color: '#E4405F', reach: Number(_latestSocial['Instagram']?.reach || 0),                      engagement: Number(_latestSocial['Instagram']?.engagement || 0), clicks: Number(_latestSocial['Instagram']?.clicks || 0), followers: Number(_igLive.followers || _metaLive.igFollowers || _latestSocial['Instagram']?.followers || 0), posts: Number(_igLive.posts || _metaLive.igMediaCount || 0), videos: null, totalLikes: null },
-    { platform: 'LinkedIn',  color: '#0A66C2', reach: Number(_latestSocial['LinkedIn']?.reach  || 0),                      engagement: Number(_latestSocial['LinkedIn']?.engagement  || 0), clicks: Number(_latestSocial['LinkedIn']?.clicks  || 0), followers: Number(_liLive.followers || _latestSocial['LinkedIn']?.followers  || 0), posts: null, videos: null, totalLikes: null },
-    { platform: 'TikTok',    color: '#00f2ea', reach: Number(_latestSocial['TikTok']?.reach    || _tikLive.recentViews || 0), engagement: 0, clicks: 0, followers: Number(_ttLive.followers || _tikLive.followers || _latestSocial['TikTok']?.followers || 0), posts: null, videos: Number(_ttLive.videos || _tikLive.videos || 0), totalLikes: Number(_ttLive.likes || _tikLive.totalLikes || 0) },
-  ];
-
-  //  Weekly Engagement Trend 
-  const weeklyEngagement = (() => {
-    const map = {};
-    _socialMet.forEach(e => {
-      const p = String(e.platform || '').toLowerCase();
-      const wk = String(e.month || e.date || '').slice(0, 7);
-      if (!wk || !p) return;
-      if (!map[wk]) map[wk] = { week: wk.slice(5), facebook: 0, instagram: 0, linkedin: 0, tiktok: 0 };
-      const val = toNum(e.engagement || e.reach);
-      if (p.includes('face')) map[wk].facebook += val;
-      else if (p.includes('insta')) map[wk].instagram += val;
-      else if (p.includes('linked')) map[wk].linkedin += val;
-      else if (p.includes('tik')) map[wk].tiktok += val;
-    });
-    return Object.values(map).slice(-4);
-  })();
-
-  //  Wix Traffic Sources 
-  const wixSources = [
-    { name: 'Organic Search', value: Number(_wixLive.organic)  || 0, color: '#0d9488' },
-    { name: 'Social Media',   value: Number(_wixLive.social)   || 0, color: '#8b5cf6' },
-    { name: 'Direct',         value: Number(_wixLive.direct)   || 0, color: '#10b981' },
-    { name: 'Referral',       value: Number(_wixLive.referral) || 0, color: '#f59e0b' },
-  ];
-
-  //  AZ Regional Traffic 
-  const regionalTraffic = [
-    { city: 'Phoenix',        traffic: 0 },
-    { city: 'Tucson',         traffic: 0 },
-    { city: 'Mesa / Gilbert', traffic: 0 },
-    { city: 'Scottsdale',     traffic: 0 },
-    { city: 'Rest of AZ',     traffic: 0 },
-  ];
-
-  //  Website Video Tracing / UX Depth 
-  const pathData = [];
-
-  //  SEO Keyword Rankings 
-  const seoKeywords = _seoData.map(e => ({
-    keyword: e.keyword  || '',
-    pos:     Number(e.rank      || 0),
-    change:  Number(e.prevRank  || 0) - Number(e.rank || 0),
-    volume:  Number(e.searchVol || 0),
-    clicks:  Number(e.clicks    || 0),
-  }));
-
-  //  Blog Performance 
-  const blogPosts = contentItems
-    .filter(c => String(c.type || '').toLowerCase() === 'blog')
-    .slice()
-    .reverse()
-    .slice(0, 5)
-    .map((c, i) => ({
-      title: c.title || `Blog Post ${i + 1}`,
-      views: toNum(c.views || c.impressions),
-      readTime: c.readTime || c.read_time || 'N/A',
-      shares: toNum(c.shares),
-    }));
-
-  //  Email Campaign Metrics 
-  const emailCampaigns = _emailStats.map(e => ({
-    campaign:  e.campaign || 'Campaign',
-    sent:      Number(e.sent     || 0),
-    opened:    Number(e.opened   || 0),
-    clicked:   Number(e.clicked  || 0),
-    openRate:  e.sent ? (Number(e.opened  || 0) / Number(e.sent) * 100).toFixed(1) + '%' : '0%',
-    clickRate: e.sent ? (Number(e.clicked || 0) / Number(e.sent) * 100).toFixed(1) + '%' : '0%',
-    date:      e.date || '',
-  }));
-
-  //  Ad Performance 
-  const adPerformance = _adSpend.map(e => ({
-    platform:    e.platform || 'Platform',
-    spend:       Number(e.spend  || 0),
-    leads:       Number(e.leads  || 0),
-    clicks:      Number(e.clicks || 0),
-    impressions: Number(e.impressions || 0),
-    cpl:         e.cpl ? '$' + Number(e.cpl).toFixed(0) : (e.spend && e.leads ? '$' + (Number(e.spend) / Number(e.leads)).toFixed(0) : '---'),
-    roas:        e.roas ? Number(e.roas).toFixed(1) + 'x' : '---',
-    month:       e.month || '',
-  }));
-  const _totalImpressions = _adSpend.reduce((s,e)=>s+Number(e.impressions||0),0);
-
-  //  NPS Breakdown  pulls from latest imported survey or SurveyMonkey live data 
-  const _npsSource = _latestSurvey?.npsBreakdown ? _latestSurvey : (_smLive?.npsBreakdown ? _smLive : (_reviewNpsBreakdown ? { npsBreakdown: _reviewNpsBreakdown } : null));
-  const npsData = _npsSource?.npsBreakdown ? [
-    { name: 'Promoters',  value: _npsSource.npsBreakdown.promoters,  color: '#10b981' },
-    { name: 'Passives',   value: _npsSource.npsBreakdown.passives,   color: '#f59e0b' },
-    { name: 'Detractors', value: _npsSource.npsBreakdown.detractors, color: '#ef4444' },
-  ] : [
-    { name: 'Promoters',  value: 0, color: '#10b981' },
-    { name: 'Passives',   value: 0, color: '#f59e0b' },
-    { name: 'Detractors', value: 0, color: '#ef4444' },
-  ];
-
-  //  Upcoming Tasks 
+  // ── Upcoming Tasks ────────────────────────────────────────────────────────────
   const pipeline = [];
 
-  //  My Achievements data 
-  // Social Posts: sum of ALL platform post/video counts for Destiny Springs
-  const _igPostCount   = Number(_metaLive.igMediaCount || destinyData?.instagram?.posts || _igLive.posts || 0);
-  const _fbPostCount   = Number(destinyData?.facebook?.posts || (_metaLive.fbPosts?.length > 0 ? _metaLive.fbPosts.length : 0));
-  const _ttVideoCount  = Number(_tikLive.videos || destinyData?.tiktok?.videos || 0) || _tiktokPosts.length;
-  const _liPostCount   = Number(_socialLive?.linkedin?.posts || 0);
-  const _manualPostSum = _socialMet.reduce((s, e) => s + (Number(e.posts) || 0), 0);
-  // Add up all platform counts; fall back to manual entries if no live data at all
-  const _livePlatformTotal = _igPostCount + _fbPostCount + _ttVideoCount + _liPostCount;
-  const _totalSocialPosts  = _livePlatformTotal > 0 ? _livePlatformTotal : _manualPostSum;
-  // TikTok video count for its own stat card
-  const _tiktokVideoCount = _ttVideoCount;
-  // Blog count from manual entries
-  const _blogCount = contentItems.filter(c => String(c.type || '').toLowerCase() === 'blog').length || (manualData.blog_posts || []).length;
-
+  // ── My Achievements data ────────────────────────────────────────────────────
   const myStats = [
-    { label: 'Blogs Written',    value: _blogCount,           icon: FileText,  color: 'text-purple-500', target: 12  },
-    { label: 'TikToks Produced', value: _tiktokVideoCount,    icon: PlayCircle,color: 'text-pink-500',   target: 50  },
-    { label: 'Social Posts',     value: _totalSocialPosts,    icon: Share2,    color: 'text-blue-500',   target: 200 },
-    { label: 'Email Campaigns',  value: _emailStats.length,   icon: Mail,      color: 'text-teal-500',   target: 12  },
-    { label: 'Website Updates',  value: 0,                    icon: Globe,     color: 'text-emerald-500',target: 20  },
-    { label: 'Reviews Managed',  value: _reviews.length,      icon: Star,      color: 'text-amber-500',  target: 50  },
+    { label: 'Blogs Written',    value: _blogCount,                                                icon: FileText,  color: 'text-purple-500', target: 12 },
+    { label: 'TikToks Produced', value: _ttVideoCount,                                             icon: PlayCircle,color: 'text-pink-500',   target: 50 },
+    { label: 'Social Posts',     value: _totalSocialPosts,                                         icon: Share2,    color: 'text-blue-500',   target: 200 },
+    { label: 'Email Campaigns',  value: _emailStats.length,                                        icon: Mail,      color: 'text-teal-500',   target: 12 },
+    { label: 'Website Updates',  value: contentItems.filter(c => String(c.type || '').toLowerCase() === 'website').length, icon: Globe, color: 'text-emerald-500', target: 20 },
+    { label: 'Reviews Managed',  value: _reviews.length || _totalReviewCount || 0,                icon: Star,      color: 'text-amber-500',  target: 50 },
   ];
 
   const _ratingNum = _avgRating ? Number(_avgRating) : null;
@@ -2453,7 +2686,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     { skill: 'Video',        score: 0 },
   ];
 
-  //  Client ROI data 
+  // ── Client ROI data ─────────────────────────────────────────────────────────
   const _roiSettings    = manualData.roi_settings || {};
   const _avgLeadValue   = Number(_roiSettings.avg_lead_value  || 0);
   const _agencyRetainer = Number(_roiSettings.agency_retainer || 0);
@@ -2482,11 +2715,11 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     }));
 
   // Per-channel CPL / ROI helpers
-  const _calcCpl = (spend, leads) => leads > 0 ? (spend > 0 ? '$' + (spend / leads).toFixed(0) : '$0') : '';
+  const _calcCpl = (spend, leads) => leads > 0 ? (spend > 0 ? '$' + (spend / leads).toFixed(0) : '$0') : '—';
   const _calcRoi = (leads, spend) =>
     _avgLeadValue > 0 && leads > 0
-      ? spend > 0 ? ((leads * _avgLeadValue / spend) * 100).toFixed(0) + '%' : ''
-      : '';
+      ? spend > 0 ? ((leads * _avgLeadValue / spend) * 100).toFixed(0) + '%' : '∞'
+      : '—';
 
   const _gaLeads    = _adSpend.filter(e => e.platform === 'Google Ads').reduce((s, e) => s + Number(e.leads || 0), 0);
   const _gaSpend    = _adSpend.filter(e => e.platform === 'Google Ads').reduce((s, e) => s + Number(e.spend || 0), 0);
@@ -2504,14 +2737,14 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
 
   // Top-level ROI summary
   const _revenuePotential = _totalLeads > 0 && _avgLeadValue > 0 ? _totalLeads * _avgLeadValue : 0;
-  const _blendedRoi       = _totalSpend > 0 && _revenuePotential > 0 ? ((_revenuePotential / _totalSpend) * 100).toFixed(0) + '%' : '';
-  const _agencySavings    = _agencyRetainer > 0 && _totalSpend > 0 ? '$' + (_agencyRetainer - _totalSpend).toLocaleString() : '';
+  const _blendedRoi       = _totalSpend > 0 && _revenuePotential > 0 ? ((_revenuePotential / _totalSpend) * 100).toFixed(0) + '%' : '—';
+  const _agencySavings    = _agencyRetainer > 0 && _totalSpend > 0 ? '$' + (_agencyRetainer - _totalSpend).toLocaleString() : '—';
 
-  //  Content Calendar data 
+  // ── Content Calendar data ────────────────────────────────────────────────────
   const calendarTypes = ['All', 'Blog', 'Social', 'TikTok', 'Email'];
   const filteredContent = calFilter === 'All' ? contentItems : contentItems.filter(c => c.type === calFilter);
 
-  //  Calendar view helpers 
+  // ── Calendar view helpers ─────────────────────────────────────────────────
   const parseItemDate = (dateStr) => {
     if (!dateStr) return null;
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return new Date(dateStr + 'T12:00:00');
@@ -2532,7 +2765,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
   const _calWeekDays   = Array.from({ length: 7 }, (_, i) => { const d = new Date(_calWeekStart); d.setDate(_calWeekStart.getDate() + i); return d; });
   const _calToday      = (() => { const d = new Date(); d.setHours(12, 0, 0, 0); return d; })();
   const _calNavLabel   = calView === 'week'
-    ? `${_calWeekDays[0].toLocaleDateString('default', { month: 'short', day: 'numeric' })}  ${_calWeekDays[6].toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    ? `${_calWeekDays[0].toLocaleDateString('default', { month: 'short', day: 'numeric' })} – ${_calWeekDays[6].toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}`
     : _calAnchor.toLocaleString('default', { month: 'long', year: 'numeric' });
   const navigateCal = (dir) => {
     const d = new Date(calViewDate + 'T12:00:00');
@@ -2556,7 +2789,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     idea:      'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
   };
 
-  //  Review Management data 
+  // ── Review Management data ──────────────────────────────────────────────────
   const recentReviews = _reviews.slice().reverse().slice(0, 8).map(r => ({
     author:    r.name || 'Anonymous',
     rating:    Number(r.rating) || 5,
@@ -2576,13 +2809,16 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
   const reviewTrend = Object.values(_revTrendMap)
     .sort((a, b) => a.month.localeCompare(b.month)).slice(-6)
     .map(m => ({ ...m, rating: m.reviews ? +(m.total / m.reviews).toFixed(1) : 0 }));
-  const promoters = _reviews.filter(r => Number(r.rating) >= 4).slice(0, 8).map(r => ({
-    name:   r.name || 'Anonymous Client',
-    nps:    Number(r.rating) || 5,
-    status: 'pending',
-  }));
+  const promoters = surveyTotals.rawRows
+    .filter(r => r.nps != null && Number(r.nps) >= 9)
+    .slice(0, 8)
+    .map((r, idx) => ({
+      name: r.response ? `Promoter ${idx + 1}: ${r.response.slice(0, 34)}${r.response.length > 34 ? '...' : ''}` : `Promoter ${idx + 1}`,
+      nps: Number(r.nps),
+      status: 'pending',
+    }));
 
-  //  Integrations data 
+  // ── Integrations data ───────────────────────────────────────────────────────
   const integrationsBase = [
     { name: 'Google Analytics',    sub: 'GA4 + Search Console',    icon: BarChart3,  color: 'text-orange-500', metrics: ['Sessions', 'Bounce Rate', 'Conversions', 'Keywords']       },
     { name: 'Google Business',     sub: 'Reviews & Rating Feed',   icon: Star,       color: 'text-amber-500',  metrics: ['Rating', 'Reviews', 'Searches', 'Direction Requests']     },
@@ -2592,7 +2828,6 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     { name: 'Google Ads',          sub: 'Paid Search Campaigns',   icon: Target,     color: 'text-indigo-500', metrics: ['Impressions', 'Clicks', 'CPC', 'Conversions']             },
     { name: 'Meta Ads Manager',    sub: 'FB & IG Paid Campaigns',  icon: Megaphone,  color: 'text-blue-400',   metrics: ['Ad Spend', 'Reach', 'CPM', 'ROAS']                        },
     { name: 'TikTok for Business', sub: 'Organic Posts & Content',  icon: PlayCircle, color: 'text-pink-400',   metrics: ['Video Views', 'Followers', 'Likes', 'Comments']           },
-    { name: 'SurveyMonkey',        sub: 'Patient Satisfaction Surveys', icon: ThumbsUp, color: 'text-amber-500', metrics: ['Total Surveys', 'Total Responses', 'Active Survey', 'Completion Rate'] },
     { name: 'Sintra AI',           sub: 'AI Marketing Automation', icon: Bot,        color: 'text-purple-500', metrics: ['Campaigns', 'Reports', 'Insights', 'Automations']         },
     { name: 'MarkyAI',             sub: 'AI Content & Scheduling', icon: Zap,        color: 'text-pink-500',   metrics: ['Content Posts', 'Scheduling', 'Analytics', 'AI Writes']  },
     { name: 'YouTube Analytics',   sub: 'Channel Stats & Videos',  icon: Youtube,    color: 'text-rose-500',   metrics: ['Subscribers', 'Total Views', 'Video Count', 'Recent Videos'] },
@@ -2612,7 +2847,15 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     setShowAddPost(false);
   };
 
-  //  Helper Components 
+  const hasMetricValue = (value) => {
+    if (value == null) return false;
+    const s = String(value).trim();
+    if (!s || s === '---' || s === ' ' || s === '-' || s === '') return false;
+    if (s === '0' || s === '0%' || s === '$0' || s === '+0.00') return false;
+    return true;
+  };
+
+  // ── Helper Components ─────────────────────────────────────────────────────────
   const StatCard = ({ title, value, trend, icon: Icon, color, sub, trendPositive, onClick }) => {
     const isPositive = trend && (trendPositive !== undefined ? trendPositive : trend.startsWith('+'));
     const isNeutral  = trend && trend === '0%';
@@ -2683,13 +2926,12 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
     { id: 'calendar',     label: 'Calendar',      icon: Calendar    },
     { id: 'reviews',      label: 'Reviews',       icon: Star        },
     { id: 'survey',       label: 'SurveyMonkey',  icon: ThumbsUp    },
-    { id: 'intel',        label: 'Intel',         icon: Newspaper   },
     { id: 'integrations', label: 'Integrations',  icon: Plug        },
     { id: 'import',       label: 'Data Import',   icon: Upload      },
     { id: 'ai-tools',     label: 'AI Tools',      icon: Bot         },
   ];
 
-  //  Render 
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="dashboard-shell font-sans">
 
@@ -2707,7 +2949,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           {!sidebarCollapsed && (
             <div className="sidebar-brand-text">
               <div className="gradient-title sidebar-title">Destiny Springs</div>
-              <div className="sidebar-subtitle">Healthcare  DMD</div>
+              <div className="sidebar-subtitle">Healthcare – DMD</div>
             </div>
           )}
         </div>
@@ -2784,8 +3026,8 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
             </button>
             {cloudSynced === 'loading'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Connecting</span></div>}
-            {cloudSynced === 'ok'       && <button onClick={pullFromCloud} className="topbar-live cursor-pointer hover:opacity-80 transition-opacity" title="Pull latest data from database"><div className="live-dot" /><span>Synced  click to pull</span></button>}
-            {cloudSynced === 'syncing'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Saving</span></div>}
+            {cloudSynced === 'ok'       && <button onClick={pullFromCloud} className="topbar-live cursor-pointer hover:opacity-80 transition-opacity" title="Pull latest data from database"><div className="live-dot" /><span>Synced — click to pull</span></button>}
+            {cloudSynced === 'syncing'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Saving…</span></div>}
             {(cloudSynced === 'error' || cloudSynced === 'offline') && (
               <button
                 onClick={async () => {
@@ -2808,7 +3050,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 title="Click to diagnose database connection"
               >
                 <WifiOff size={10} />
-                <span>{cloudSynced === 'offline' ? 'Local only' : 'Sync error'}  tap to fix</span>
+                <span>{cloudSynced === 'offline' ? 'Local only' : 'Sync error'} — tap to fix</span>
               </button>
             )}
             {/* DB Diagnostic Modal */}
@@ -2819,7 +3061,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                     <h2 className="text-white font-black text-lg">Database Connection</h2>
                     <button onClick={() => setShowDbDiag(false)} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
                   </div>
-                  {dbDiagLoading && <p className="text-slate-400 text-sm">Running diagnostics</p>}
+                  {dbDiagLoading && <p className="text-slate-400 text-sm">Running diagnostics…</p>}
                   {dbDiag && (() => {
                     const connected = dbDiag.envCheck?.connected;
                     const hasKvUrl  = dbDiag.envCheck?.KV_REST_API_URL || dbDiag.envCheck?.UPSTASH_REDIS_REST_URL;
@@ -2829,7 +3071,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                         <div className={`p-4 rounded-2xl text-sm font-bold ${
                           connected ? 'bg-teal-900/40 text-teal-300 border border-teal-700/40'
                                     : 'bg-red-900/40 text-red-300 border border-red-700/40'}`}>
-                          {connected ? ' Connected to Upstash Redis' : ' Not connected  env vars missing'}
+                          {connected ? '✅ Connected to Upstash Redis' : '❌ Not connected — env vars missing'}
                         </div>
                         <div className="space-y-2">
                           {[['KV_REST_API_URL', dbDiag.envCheck?.KV_REST_API_URL], ['KV_REST_API_TOKEN', dbDiag.envCheck?.KV_REST_API_TOKEN],
@@ -2837,7 +3079,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                             .map(([name, val]) => (
                               <div key={name} className="flex items-center justify-between text-xs">
                                 <span className="text-slate-400 font-mono">{name}</span>
-                                <span className={val ? 'text-teal-400 font-bold' : 'text-red-400 font-bold'}>{val ? ' set' : ' missing'}</span>
+                                <span className={val ? 'text-teal-400 font-bold' : 'text-red-400 font-bold'}>{val ? '✅ set' : '✗ missing'}</span>
                               </div>
                             ))}
                         </div>
@@ -2845,9 +3087,9 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                           <div className="p-4 rounded-2xl bg-amber-900/30 border border-amber-700/40 text-amber-200 text-sm space-y-2">
                             <p className="font-black">How to fix:</p>
                             <ol className="list-decimal list-inside space-y-1 text-xs leading-relaxed">
-                              <li>Go to <strong>vercel.com</strong>  your project</li>
-                              <li>Click <strong>Storage</strong> tab  connect your KV database</li>
-                              <li>If already connected, go to <strong>Settings  Environment Variables</strong> and confirm <code>KV_REST_API_URL</code> and <code>KV_REST_API_TOKEN</code> are listed</li>
+                              <li>Go to <strong>vercel.com</strong> → your project</li>
+                              <li>Click <strong>Storage</strong> tab → connect your KV database</li>
+                              <li>If already connected, go to <strong>Settings → Environment Variables</strong> and confirm <code>KV_REST_API_URL</code> and <code>KV_REST_API_TOKEN</code> are listed</li>
                               <li><strong>Redeploy</strong> the project so the new vars are picked up</li>
                             </ol>
                           </div>
@@ -2881,7 +3123,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
 
 {activeTab === 'overview' && (
           <>
-            {/*  Destiny Springs Live Profile  */}
+            {/* ── Destiny Springs Live Profile ─────────────────────────────── */}
             {(() => {
               const website   = destinyData?.website;
               const google    = destinyData?.google;         // Places API (needs key)
@@ -2916,14 +3158,14 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
                     <SectionHeader icon={Heart} color="text-teal-500" title="Destiny Springs Live Snapshot"
-                      subtitle={fetchedAt ? `Auto-syncs hourly  last synced ${new Date(fetchedAt).toLocaleString()}` : 'Syncing automatically every hour  no setup needed'} />
+                      subtitle={fetchedAt ? `Auto-syncs hourly · last synced ${new Date(fetchedAt).toLocaleString()}` : 'Syncing automatically every hour — no setup needed'} />
                     <button
                       onClick={fetchDestinyProfile}
                       disabled={destinyLoading}
                       className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-colors flex-shrink-0"
                     >
                       <RefreshCw size={14} className={destinyLoading ? 'animate-spin' : ''} />
-                      {destinyLoading ? 'Syncing' : 'Sync Now'}
+                      {destinyLoading ? 'Syncing…' : 'Sync Now'}
                     </button>
                   </div>
 
@@ -2935,14 +3177,14 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/*  Ratings / Google column  */}
+                    {/* ── Ratings / Google column ── */}
                     <div className="space-y-3">
                       <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider flex items-center gap-1.5`}><Star size={11} className="text-amber-500" /> Ratings & Reviews</p>
 
-                      {/* Big rating hero  shows from ANY source, no API key required */}
+                      {/* Big rating hero — shows from ANY source, no API key required */}
                       {cloudSynced === 'loading' && !displayRating ? (
                         <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center`}>
-                          <p className={`text-xs ${subtl}`}>Loading data</p>
+                          <p className={`text-xs ${subtl}`}>Loading data…</p>
                         </div>
                       ) : displayRating ? (
                         <div className="flex items-center gap-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700 relative">
@@ -2973,15 +3215,15 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                               <div className="flex-1 min-w-0">
                                 {displayReviews && <p className={`text-2xl font-black ${txt}`}>{Number(displayReviews).toLocaleString()} <span className={`text-sm font-normal ${subtl}`}>reviews</span></p>}
                                 {google?.name && <p className={`text-xs font-black ${txt} mt-0.5 truncate`}>{google.name}</p>}
-                                {(google?.vicinity || google?.address) && <p className={`text-xs ${subtl} mt-0.5`}> {google?.vicinity || google?.address}</p>}
-                                {google?.phone && <p className={`text-xs ${subtl} mt-0.5`}> {google.phone}</p>}
+                                {(google?.vicinity || google?.address) && <p className={`text-xs ${subtl} mt-0.5`}>📍 {google?.vicinity || google?.address}</p>}
+                                {google?.phone && <p className={`text-xs ${subtl} mt-0.5`}>📞 {google.phone}</p>}
                                 {displaySource && <p className={`text-[10px] ${subtl} mt-1 opacity-70`}>Source: {displaySource}</p>}
                                 {google && (
                                   <span className={`inline-flex mt-1.5 items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full ${
                                     google.isOpen === true  ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
                                     google.isOpen === false ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' :
                                     'bg-slate-100 dark:bg-slate-700 text-slate-500'
-                                  }`}>{google.isOpen === true ? ' Open Now' : google.isOpen === false ? ' Closed' : ' Status Unknown'}</span>
+                                  }`}>{google.isOpen === true ? '● Open Now' : google.isOpen === false ? '● Closed' : '● Status Unknown'}</span>
                                 )}
                               </div>
                               <button onClick={() => { setRatingEditVal(String(displayRating||'')); setRatingCountVal(String(displayReviews||'')); setEditingRating(true); }}
@@ -2994,7 +3236,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       ) : (
                         <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50`}>
                           {(destinyLoading || cloudSynced === 'loading')
-                            ? <p className={`text-xs ${subtl} text-center`}>Loading data</p>
+                            ? <p className={`text-xs ${subtl} text-center`}>Loading data…</p>
                             : (
                               <div>
                                 <p className={`text-xs font-black ${txt} mb-1 text-center`}>No rating auto-fetched</p>
@@ -3013,7 +3255,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                         </div>
                       )}
 
-                      {/* Combined platform ratings  merges auto-scraped + manually-fetched scores */}
+                      {/* Combined platform ratings — merges auto-scraped + manually-fetched scores */}
                       {(() => {
                         const fetchedScores = Object.entries(reviewPlatformData)
                           .filter(([k, p]) => k !== 'facebook' && p.rating && !isNaN(Number(p.rating)) && Number(p.rating) > 0)
@@ -3030,7 +3272,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                 <div key={i} className="flex items-center justify-between gap-2">
                                   <span className={`text-xs ${subtl} truncate`}>{r.source}</span>
                                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    <span className={`text-sm font-black text-amber-500`}>{Number(r.rating).toFixed(1)} </span>
+                                    <span className={`text-sm font-black text-amber-500`}>{Number(r.rating).toFixed(1)} ★</span>
                                     {r.reviewCount && <span className={`text-[11px] ${subtl}`}>({Number(r.reviewCount).toLocaleString()})</span>}
                                   </div>
                                 </div>
@@ -3084,7 +3326,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       )}
                     </div>
 
-                    {/*  Website + Social column  */}
+                    {/* ── Website + Social column ── */}
                     <div className="space-y-3">
                       <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider flex items-center gap-1.5`}><Globe size={11} className="text-teal-500" /> Website & Social</p>
                       {website ? (
@@ -3103,7 +3345,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                             <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
                               <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Page Sections</p>
                               <ul className="space-y-1">
-                                {website.h2s.slice(0,6).map((h, i) => <li key={i} className={`text-xs ${txt2}`}> {h}</li>)}
+                                {website.h2s.slice(0,6).map((h, i) => <li key={i} className={`text-xs ${txt2}`}>• {h}</li>)}
                               </ul>
                             </div>
                           )}
@@ -3132,8 +3374,8 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                             <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700">
                               <p className={`text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1`}>Schema Rating on Website</p>
                               <p className={`text-sm font-black text-amber-700 dark:text-amber-300`}>
-                                {Number(website.schemaRating.rating).toFixed(1)} 
-                                {website.schemaRating.reviewCount && `  ${Number(website.schemaRating.reviewCount).toLocaleString()} reviews`}
+                                {Number(website.schemaRating.rating).toFixed(1)} ★
+                                {website.schemaRating.reviewCount && ` · ${Number(website.schemaRating.reviewCount).toLocaleString()} reviews`}
                               </p>
                             </div>
                           )}
@@ -3147,40 +3389,40 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                               </div>
                             </div>
                           )}
-                          <p className={`text-[11px] ${subtl}`}>{website.wordCount?.toLocaleString()} words  scraped {website.scrapedAt ? new Date(website.scrapedAt).toLocaleString() : ''}</p>
+                          <p className={`text-[11px] ${subtl}`}>{website.wordCount?.toLocaleString()} words · scraped {website.scrapedAt ? new Date(website.scrapedAt).toLocaleString() : ''}</p>
                         </>
                       ) : (
                         <div className={`p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center ${subtl} text-xs`}>
-                          {destinyLoading ? 'Scraping website' : 'Click Sync Now to pull website data'}
+                          {destinyLoading ? 'Scraping website…' : 'Click Sync Now to pull website data'}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/*  Source Status Strip  */}
+                  {/* ── Source Status Strip ─────────────────────────────── */}
                   {destinyData && !destinyLoading && (
                     <div className="mt-4 flex flex-wrap gap-2">
                       {[
                         { label: 'Website',      ok: !!destinyData.website,                                                                      err: destinyData.websiteError },
                         { label: 'Google Search',ok: !!(destinyData.googleSearch?.rating),                                                      err: !destinyData.googleSearch ? 'No rating found' : null },
                         { label: 'Healthgrades', ok: !!(destinyData.healthgrades?.rating),                                                      err: !destinyData.healthgrades ? 'Not found' : null },
-                        { label: 'Google API',   ok: !!destinyData.google,                                                                      err: destinyData.googleSkipped ? 'No API key  add GOOGLE_PLACES_KEY in Vercel' : destinyData.googleError },
+                        { label: 'Google API',   ok: !!destinyData.google,                                                                      err: destinyData.googleSkipped ? 'No API key — add GOOGLE_PLACES_KEY in Vercel' : destinyData.googleError },
                         { label: 'Facebook',     ok: !!(destinyData.facebook?.likes ?? destinyData.facebook?.followers),                        err: destinyData.sources?.facebook?.error },
-                        { label: 'Instagram',    ok: destinyData.instagram?.followers != null,                                                  err: destinyData.instagram?.followers == null ? 'Blocked  add META_APP_ID + META_APP_SECRET in Vercel' : null },
-                        { label: 'TikTok',       ok: destinyData.tiktok?.followers != null,                                                     err: destinyData.tiktok?.followers == null ? 'Blocked by TikTok  no public API available' : null },
+                        { label: 'Instagram',    ok: destinyData.instagram?.followers != null,                                                  err: destinyData.instagram?.followers == null ? 'Blocked — add META_APP_ID + META_APP_SECRET in Vercel' : null },
+                        { label: 'TikTok',       ok: destinyData.tiktok?.followers != null,                                                     err: destinyData.tiktok?.followers == null ? 'Blocked by TikTok — no public API available' : null },
                         { label: 'LinkedIn',     ok: destinyData.linkedin?.followers != null,                                                   err: destinyData.sources?.linkedin?.error },
                       ].map(({ label, ok, err }) => (
                         <span key={label} title={err || ''} className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
                           ok  ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' :
                                 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
                         }`}>
-                          {ok ? '' : ''} {label}
+                          {ok ? '✓' : '–'} {label}
                         </span>
                       ))}
                     </div>
                   )}
 
-                  {/*  Social Media Stats Row  */}
+                  {/* ── Social Media Stats Row ───────────────────────────── */}
                   {(destinyData || destinyLoading) && (
                     <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-700">
                       <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3 flex items-center gap-1.5`}>
@@ -3198,7 +3440,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                 <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0"><span className="text-white text-[10px] font-black">f</span></div>
                                 <span className={`text-xs font-black ${hasFb ? 'text-blue-700 dark:text-blue-300' : subtl}`}>Facebook</span>
                               </div>
-                              {destinyLoading && !fb && <p className={`text-[11px] ${subtl}`}>Fetching</p>}
+                              {destinyLoading && !fb && <p className={`text-[11px] ${subtl}`}>Fetching…</p>}
                               {hasFb ? (
                                 <div className="space-y-1">
                                   {fb.name && <p className={`text-xs font-black ${txt} leading-tight`}>{fb.name}</p>}
@@ -3216,7 +3458,10 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                   <a href="https://www.facebook.com/profile.php?id=61581511228047" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-blue-500 hover:text-blue-400 mt-1"><ExternalLink size={9}/> Open on Facebook</a>
                                 </div>
                               ) : !destinyLoading ? (
-                                <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>
+                                <div>
+                                  <p className={`text-[11px] ${subtl} mb-1`}>Click Sync Now</p>
+                                  <a href="https://www.instagram.com/destinyspringshealthcare/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400"><ExternalLink size={9}/> Open on Instagram</a>
+                                </div>
                               ) : null}
                             </div>
                           );
@@ -3231,14 +3476,14 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                 <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 via-pink-600 to-orange-400 flex items-center justify-center flex-shrink-0"><span className="text-white text-[10px] font-black">IG</span></div>
                                 <span className={`text-xs font-black ${hasIg ? 'text-pink-700 dark:text-pink-300' : subtl}`}>Instagram</span>
                               </div>
-                              {destinyLoading && !ig && <p className={`text-[11px] ${subtl}`}>Fetching</p>}
+                              {destinyLoading && !ig && <p className={`text-[11px] ${subtl}`}>Fetching…</p>}
                               {hasIg ? (
                                 <div className="space-y-1">
                                   {(ig.fullName || ig.username) && <p className={`text-xs font-black ${txt} leading-tight`}>{ig.fullName || '@' + ig.username}</p>}
                                   {ig.followers != null && <p className="text-xl font-black text-pink-600 dark:text-pink-400">{Number(ig.followers).toLocaleString()} <span className={`text-xs font-normal ${subtl}`}>followers</span></p>}
                                   {ig.posts    != null && <p className={`text-xs ${subtl}`}>{Number(ig.posts).toLocaleString()} posts</p>}
                                   {ig.bio && <p className={`text-[11px] ${subtl} mt-1 line-clamp-2`}>{ig.bio}</p>}
-                                  {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500 mt-1"> Verified</span>}
+                                  {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500 mt-1">✓ Verified</span>}
                                   <a href={ig.url || 'https://www.instagram.com/destinyspringshealthcare/'} target="_blank" rel="noreferrer"
                                     className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400 mt-1">
                                     <ExternalLink size={9} /> View Profile
@@ -3268,7 +3513,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                 <div className="w-6 h-6 rounded-lg bg-black flex items-center justify-center flex-shrink-0"><span className="text-white text-[9px] font-black">TT</span></div>
                                 <span className={`text-xs font-black ${hasTt ? txt : subtl}`}>TikTok</span>
                               </div>
-                              {destinyLoading && !tt && <p className={`text-[11px] ${subtl}`}>Fetching</p>}
+                              {destinyLoading && !tt && <p className={`text-[11px] ${subtl}`}>Fetching…</p>}
                               {hasTt ? (
                                 <div className="space-y-1">
                                   {(tt.nickname || tt.username) && <p className={`text-xs font-black ${txt} leading-tight`}>{tt.nickname || '@' + tt.username}</p>}
@@ -3287,10 +3532,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                   <a href="https://www.tiktok.com/@destinyspringshealthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-slate-700 dark:text-slate-300 hover:opacity-70 mt-1"><ExternalLink size={9}/> Open on TikTok</a>
                                 </div>
                               ) : !destinyLoading ? (
-                                <div>
-                                  <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>
-                                  <a href="https://www.tiktok.com/@destinyspringshealthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-slate-700 dark:text-slate-300 hover:opacity-70 mt-1"><ExternalLink size={9}/> Open on TikTok</a>
-                                </div>
+                                <p className={`text-[11px] ${subtl}`}>Click Sync Now</p>
                               ) : null}
                             </div>
                           );
@@ -3306,7 +3548,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                 <div className="w-6 h-6 rounded-lg bg-[#0A66C2] flex items-center justify-center flex-shrink-0"><span className="text-white text-[9px] font-black">in</span></div>
                                 <span className={`text-xs font-black ${hasLi ? 'text-sky-700 dark:text-sky-300' : subtl}`}>LinkedIn</span>
                               </div>
-                              {destinyLoading && !li && <p className={`text-[11px] ${subtl}`}>Fetching</p>}
+                              {destinyLoading && !li && <p className={`text-[11px] ${subtl}`}>Fetching…</p>}
                               {hasLi ? (
                                 <div className="space-y-1">
                                   {li.name && <p className={`text-xs font-black ${txt} leading-tight`}>{li.name}</p>}
@@ -3339,22 +3581,43 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
             {/* Top KPI Row */}
             {!overviewHidden.includes('kpis') && (
             <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Google Rating"     value={metrics.googleScore}    trend={metrics.googleTrend} icon={Star}        color="bg-amber-500"   sub="Review Cleanup Performance" onClick={() => setActiveTab('reviews')} />
-              <StatCard title="Monthly Sessions"  value={metrics.wixSessions}    trend={null}                icon={Layout}      color="bg-teal-600"    sub="Wix Website Traffic"        onClick={() => setActiveTab('seo')} />
-              <StatCard title="Avg Read Time"     value={metrics.avgReadTime}    trend={null}                icon={Clock}       color="bg-emerald-600" sub="Blog & Education Retention"  onClick={() => setActiveTab('seo')} />
-              <StatCard title="Omnichannel Reach" value={(() => { const reach = _socialMet.reduce((s,e)=>s+Number(e.reach||0),0); if (reach > 0) return reach.toLocaleString(); const audience = socialAnalytics.reduce((s,p)=>s+p.followers,0); return audience > 0 ? audience.toLocaleString() : '---'; })()} trend={null} icon={Activity} color="bg-purple-600" sub={_socialMet.reduce((s,e)=>s+Number(e.reach||0),0)>0 ? 'Combined Ad / Social' : 'Total Social Audience'} onClick={() => setActiveTab('social')} />
-              </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Total Leads"       value={metrics.totalLeads}     trend={metrics.leadsGrowth} icon={Target}      color="bg-rose-500"    sub="Monthly Lead Volume"         onClick={() => setActiveTab('pipeline')} />
-              <StatCard title="Cost Per Lead"     value={metrics.costPerLead}    trend={null}                icon={TrendingDown} color="bg-indigo-600" sub="Blended Paid Acquisition"    onClick={() => setActiveTab('ads')} />
-              <StatCard title="Site Conversion"   value={metrics.siteConversion} trend={null}                icon={MousePointer} color="bg-teal-600"   sub="Visitor to Lead Rate"         onClick={() => setActiveTab('seo')} />
-              <StatCard title="NPS Score"         value={metrics.nps}            trend={null}                icon={ThumbsUp}    color="bg-amber-600"   sub="Net Promoter Score"          onClick={() => setActiveTab('reviews')} />
-            </div>
+            {(() => {
+              const omniReach = (() => {
+                const reach = _socialMet.reduce((s, e) => s + Number(e.reach || 0), 0);
+                if (reach > 0) return reach.toLocaleString();
+                const audience = socialAnalytics.reduce((s, p) => s + p.followers, 0);
+                return audience > 0 ? audience.toLocaleString() : '---';
+              })();
+              const kpiCards = [
+                { title: 'Google Rating', value: metrics.googleScore, trend: metrics.googleTrend, icon: Star, color: 'bg-amber-500', sub: 'Review Cleanup Performance', onClick: () => setActiveTab('reviews') },
+                { title: 'Monthly Sessions', value: metrics.wixSessions, trend: null, icon: Layout, color: 'bg-teal-600', sub: 'Wix Website Traffic', onClick: () => setActiveTab('seo') },
+                { title: 'Avg Read Time', value: metrics.avgReadTime, trend: null, icon: Clock, color: 'bg-emerald-600', sub: 'Blog & Education Retention', onClick: () => setActiveTab('seo') },
+                { title: 'Omnichannel Reach', value: omniReach, trend: null, icon: Activity, color: 'bg-purple-600', sub: _socialMet.reduce((s, e) => s + Number(e.reach || 0), 0) > 0 ? 'Combined Ad / Social' : 'Total Social Audience', onClick: () => setActiveTab('social') },
+                { title: 'Total Leads', value: metrics.totalLeads, trend: metrics.leadsGrowth, icon: Target, color: 'bg-rose-500', sub: 'Monthly Lead Volume', onClick: () => setActiveTab('pipeline') },
+                { title: 'Cost Per Lead', value: metrics.costPerLead, trend: null, icon: TrendingDown, color: 'bg-indigo-600', sub: 'Blended Paid Acquisition', onClick: () => setActiveTab('ads') },
+                { title: 'Site Conversion', value: metrics.siteConversion, trend: null, icon: MousePointer, color: 'bg-teal-600', sub: 'Visitor to Lead Rate', onClick: () => setActiveTab('seo') },
+                { title: 'NPS Score', value: metrics.nps, trend: null, icon: ThumbsUp, color: 'bg-amber-600', sub: 'Latest imported survey NPS', onClick: () => setActiveTab('survey') },
+              ].filter(c => hasMetricValue(c.value));
+
+              if (kpiCards.length === 0) {
+                return (
+                  <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
+                    <p className={`text-sm font-black ${txt}`}>No useful KPI data yet</p>
+                    <p className={`text-xs ${subtl} mt-1`}>Connect Google, Wix, Ads, and Survey data to show the KPI grid.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
+                  {kpiCards.map(c => <StatCard key={c.title} {...c} />)}
+                </div>
+              );
+            })()}
             </>
             )}
 
-            {/*  Brand Health Score  */}
+            {/* ── Brand Health Score ────────────────────────────────────── */}
             {!overviewHidden.includes('health') && (() => {
               const dsRating  = destinyData?.google?.rating ?? destinyData?.bestRating?.rating ?? null;
               const dsReviews = destinyData?.google?.reviewCount ?? destinyData?.bestRating?.reviewCount ?? null;
@@ -3367,23 +3630,23 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               const totalC    = allR.length;
               const breakdown = [];
               let score = 0;
-              if (dsRating) { const p=Math.round((dsRating/5)*25); score+=p; breakdown.push({label:'Star Rating',pts:p,max:25,detail:`${dsRating}/5.0 `,color:'bg-amber-500'}); }
+              if (dsRating) { const p=Math.round((dsRating/5)*25); score+=p; breakdown.push({label:'Star Rating',pts:p,max:25,detail:`${dsRating}/5.0 ★`,color:'bg-amber-500'}); }
               if (dsReviews) { const p=Math.min(20,Math.round((Math.min(dsReviews,200)/200)*20)); score+=p; breakdown.push({label:'Review Volume',pts:p,max:20,detail:`${dsReviews.toLocaleString()} reviews`,color:'bg-blue-500'}); }
               const sp=Math.round((socials/4)*20); score+=sp; breakdown.push({label:'Social Presence',pts:sp,max:20,detail:`${socials}/4 platforms active`,color:'bg-pink-500'});
-              const wp=Math.min(20,Math.round((Math.min(wq,10)/10)*15)+(wc>2000?5:Math.round((wc/2000)*5))); score+=wp; breakdown.push({label:'Website Quality',pts:wp,max:20,detail:`${wq} services detected  ${wc.toLocaleString()} words`,color:'bg-teal-500'});
+              const wp=Math.min(20,Math.round((Math.min(wq,10)/10)*15)+(wc>2000?5:Math.round((wc/2000)*5))); score+=wp; breakdown.push({label:'Website Quality',pts:wp,max:20,detail:`${wq} services detected · ${wc.toLocaleString()} words`,color:'bg-teal-500'});
               if (dsRank&&totalC>1){const p=Math.round(((totalC-dsRank)/(totalC-1))*15);score+=p;breakdown.push({label:'Competitive Rank',pts:p,max:15,detail:`#${dsRank} of ${totalC} providers`,color:'bg-purple-500'});}
               const maxPs = breakdown.reduce((s,b)=>s+b.max,0)||100;
               const healthScore = breakdown.length ? Math.min(100,Math.round((score/maxPs)*100)) : null;
-              const grade = healthScore!=null ? (healthScore>=85?'A':healthScore>=70?'B':healthScore>=55?'C':healthScore>=40?'D':'F') : '';
+              const grade = healthScore!=null ? (healthScore>=85?'A':healthScore>=70?'B':healthScore>=55?'C':healthScore>=40?'D':'F') : '—';
               const gradeColor = healthScore!=null ? (healthScore>=85?'text-emerald-500':healthScore>=70?'text-teal-500':healthScore>=55?'text-amber-500':healthScore>=40?'text-orange-500':'text-rose-500') : subtl;
               const insights = [];
-              if (!dsRating) insights.push({ icon:'', text:'No rating data yet  run a Sync to pull live Google/Yelp/Healthgrades scores.' });
-              else if (dsRating < 4.0)  insights.push({ icon:'', text:`Rating of ${dsRating} is below the 4.0 threshold for strong trust. Prioritize review recovery.` });
-              else if (dsRating >= 4.5) insights.push({ icon:'', text:`Excellent ${dsRating} rating. Focus on volume  more reviews = more SEO authority.` });
-              if (socials < 3)          insights.push({ icon:'', text:`Only ${socials}/4 social profiles scraped. Connect missing platforms in Integrations.` });
-              if (wq < 5)               insights.push({ icon:'', text:'Website content thin  consider adding more service pages for SEO.' });
-              if (dsRank === 1 && totalC > 1) insights.push({ icon:'', text:`Top-rated out of ${totalC} providers tracked. Maintain and market this position!` });
-              else if (dsRank && dsRank > Math.ceil(totalC/2)) insights.push({ icon:'', text:`Ranked #${dsRank} of ${totalC} locally. Primary lever: grow Google review count.` });
+              if (!dsRating) insights.push({ icon:'⚠️', text:'No rating data yet — run a Sync to pull live Google/Yelp/Healthgrades scores.' });
+              else if (dsRating < 4.0)  insights.push({ icon:'📈', text:`Rating of ${dsRating} is below the 4.0 threshold for strong trust. Prioritize review recovery.` });
+              else if (dsRating >= 4.5) insights.push({ icon:'⭐', text:`Excellent ${dsRating} rating. Focus on volume — more reviews = more SEO authority.` });
+              if (socials < 3)          insights.push({ icon:'🔗', text:`Only ${socials}/4 social profiles scraped. Connect missing platforms in Integrations.` });
+              if (wq < 5)               insights.push({ icon:'🌐', text:'Website content thin — consider adding more service pages for SEO.' });
+              if (dsRank === 1 && totalC > 1) insights.push({ icon:'🏆', text:`Top-rated out of ${totalC} providers tracked. Maintain and market this position!` });
+              else if (dsRank && dsRank > Math.ceil(totalC/2)) insights.push({ icon:'🔄', text:`Ranked #${dsRank} of ${totalC} locally. Primary lever: grow Google review count.` });
               return (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <div className="flex items-start gap-6 flex-wrap md:flex-nowrap">
@@ -3418,7 +3681,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   </div>
                   {insights.length > 0 && (
                     <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3`}> AI Insights</p>
+                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3`}>⚡ AI Insights</p>
                       {insights.map((ins, i) => (
                         <div key={i} className="flex items-start gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                           <span className="text-base leading-none mt-0.5">{ins.icon}</span>
@@ -3437,7 +3700,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               <SectionHeader icon={TrendingUp} color="text-teal-500" title="6-Month Growth Trend" subtitle="Sessions, Reach & Lead Volume" />
               <div className="h-72">
                 {monthlyTrend.length === 0 ? (
-                  <EmptyChart height="h-72" message="No trend data yet  connect Google Analytics &amp; Meta to populate" />
+                  <EmptyChart height="h-72" message="No trend data yet – connect Google Analytics &amp; Meta to populate" />
                 ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -3457,7 +3720,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
             </div>
             )}
 
-            {/*  Competitor Intelligence  */}
+            {/* ── Competitor Intelligence ──────────────────────────────── */}
             {!overviewHidden.includes('competitors') && (() => {
               const dsRating  = destinyData?.google?.rating ?? destinyData?.bestRating?.rating ?? null;
               const dsReviews = destinyData?.google?.reviewCount ?? destinyData?.bestRating?.reviewCount ?? null;
@@ -3468,7 +3731,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   id: 'destiny-springs', name: 'Destiny Springs Healthcare', isUs: true,
                   web: 'https://destinyspringshealthcare.com',
                   google:      dsRating   ? { rating: dsRating,   reviewCount: dsReviews }  : null,
-                  healthgrades: destinyData?.healthgrades || null,
+                  cms: destinyData?.cms || null,
                   avgRating:   dsRating,
                   totalReviews: dsReviews,
                   services:    destinyData?.website?.services?.length || 0,
@@ -3481,7 +3744,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 return b.avgRating - a.avgRating;
               });
               const starBar = (r) => {
-                if (!r) return <span className={`text-[11px] ${subtl}`}></span>;
+                if (!r) return <span className={`text-[11px] ${subtl}`}>—</span>;
                 const pct = Math.round((r / 5) * 100);
                 return (
                   <div className="flex items-center gap-1.5">
@@ -3499,13 +3762,13 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                     <button onClick={fetchCompetitors} disabled={competitorLoading}
                       className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-colors">
                       <RefreshCw size={13} className={competitorLoading ? 'animate-spin' : ''} />
-                      {competitorLoading ? 'Scanning' : 'Refresh'}
+                      {competitorLoading ? 'Scanning…' : 'Refresh'}
                     </button>
                   </div>
                   {competitorLoading && !competitorData && (
                     <div className="flex items-center gap-3 py-8 justify-center">
                       <RefreshCw size={18} className="animate-spin text-purple-500" />
-                      <p className={`text-sm font-bold ${subtl}`}>Scraping competitor data this takes ~30s</p>
+                      <p className={`text-sm font-bold ${subtl}`}>Scraping competitor data… this takes ~30s</p>
                     </div>
                   )}
                   {!competitorLoading && !competitorData && (
@@ -3520,7 +3783,6 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                             <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Provider</th>
                             <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Google Rating</th>
                             <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Reviews</th>
-                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>CMS Rating</th>
                             <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider`}>Services</th>
                           </tr>
                         </thead>
@@ -3528,7 +3790,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                           {allProviders.map((p, idx) => (
                             <tr key={p.id} className={`${p.isUs ? 'bg-teal-50/60 dark:bg-teal-900/10' : rowCls}`}>
                               <td className={`py-3 pr-4 text-xs font-black ${p.isUs ? 'text-teal-600 dark:text-teal-400' : subtl}`}>
-                                {idx === 0 ? '' : idx === 1 ? '' : idx === 2 ? '' : `#${idx+1}`}
+                                {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`}
                               </td>
                               <td className="py-3 pr-4">
                                 <div className="flex items-center gap-2">
@@ -3543,17 +3805,12 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                               <td className="py-3 pr-4">
                                 {p.totalReviews || p.google?.reviewCount
                                   ? <span className={`text-xs font-bold ${txt2}`}>{(p.totalReviews || p.google?.reviewCount || 0).toLocaleString()}</span>
-                                  : <span className={`text-[11px] ${subtl}`}></span>}
-                              </td>
-                              <td className="py-3 pr-4">
-                                {p.healthgrades?.rating
-                                  ? <span className={`text-xs font-bold ${txt2}`}>{p.healthgrades.rating.toFixed(1)} </span>
-                                  : <span className={`text-[11px] ${subtl}`}></span>}
+                                  : <span className={`text-[11px] ${subtl}`}>—</span>}
                               </td>
                               <td className="py-3">
                                 {(p.services || p.website?.services?.length)
                                   ? <span className={`text-xs font-bold ${txt2}`}>{p.services || p.website?.services?.length} detected</span>
-                                  : <span className={`text-[11px] ${subtl}`}></span>}
+                                  : <span className={`text-[11px] ${subtl}`}>—</span>}
                               </td>
                             </tr>
                           ))}
@@ -3566,7 +3823,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               );
             })()}
 
-            {/*  Historical Trends  */}
+            {/* ── Historical Trends ─────────────────────────────────────────── */}
             {(() => {
               const cutoff   = new Date(Date.now() - historyPeriod * 24 * 60 * 60 * 1000);
               const sliced   = metricsHistory
@@ -3584,7 +3841,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
                     <SectionHeader icon={TrendingUp} color="text-indigo-500"
                       title="Historical Trends"
-                      subtitle="Time-series view of your key metrics  auto-recorded daily" />
+                      subtitle="Time-series view of your key metrics — auto-recorded daily" />
                     <div className="flex items-center gap-2">
                       {[7, 30, 90, 365].map(d => (
                         <button key={d}
@@ -3600,7 +3857,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                         disabled={historyLoading}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-colors bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white`}>
                         <RefreshCw size={11} className={historyLoading ? 'animate-spin' : ''} />
-                        {historyLoading ? 'Loading' : 'Refresh'}
+                        {historyLoading ? 'Loading…' : 'Refresh'}
                       </button>
                     </div>
                   </div>
@@ -3691,7 +3948,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                   axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10, fontWeight: 700 }} />
                                 <YAxis domain={[3, 5]} axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10 }} width={30} />
                                 <Tooltip contentStyle={tipStyle} labelFormatter={v => new Date(v).toLocaleDateString()}
-                                  formatter={v => [Number(v).toFixed(2) + ' ', 'Rating']} />
+                                  formatter={v => [Number(v).toFixed(2) + ' ★', 'Rating']} />
                                 <Area type="monotone" dataKey="googleRating" stroke="#f59e0b" fill={darkMode ? '#f59e0b25' : '#fef3c7'} strokeWidth={2.5} dot={false} name="Google Rating" />
                               </AreaChart>
                             </ResponsiveContainer>
@@ -3706,42 +3963,42 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                             label: 'IG Growth',
                             value: (() => {
                               const vals = sliced.filter(h => h.igFollowers).map(h => h.igFollowers);
-                              if (vals.length < 2) return '';
+                              if (vals.length < 2) return '—';
                               const diff = vals[vals.length-1] - vals[0];
                               return (diff >= 0 ? '+' : '') + diff.toLocaleString();
                             })(),
                             color: diff => diff && diff.startsWith('+') ? 'text-emerald-500' : diff && diff.startsWith('-') ? 'text-rose-500' : subtl,
-                            icon: '',
+                            icon: '📸',
                           },
                           {
-                            label: 'Sessions ',
+                            label: 'Sessions Δ',
                             value: (() => {
                               const vals = sliced.filter(h => h.sessions).map(h => h.sessions);
-                              if (vals.length < 2) return '';
+                              if (vals.length < 2) return '—';
                               const diff = vals[vals.length-1] - vals[0];
                               return (diff >= 0 ? '+' : '') + diff.toLocaleString();
                             })(),
-                            icon: '',
+                            icon: '🌐',
                           },
                           {
-                            label: 'Leads ',
+                            label: 'Leads Δ',
                             value: (() => {
                               const vals = sliced.filter(h => h.totalLeads).map(h => h.totalLeads);
-                              if (vals.length < 2) return '';
+                              if (vals.length < 2) return '—';
                               const diff = vals[vals.length-1] - vals[0];
                               return (diff >= 0 ? '+' : '') + diff.toLocaleString();
                             })(),
-                            icon: '',
+                            icon: '🎯',
                           },
                           {
-                            label: 'Rating ',
+                            label: 'Rating Δ',
                             value: (() => {
                               const vals = sliced.filter(h => h.googleRating).map(h => h.googleRating);
-                              if (vals.length < 2) return '';
+                              if (vals.length < 2) return '—';
                               const diff = (vals[vals.length-1] - vals[0]).toFixed(2);
                               return (Number(diff) >= 0 ? '+' : '') + diff;
                             })(),
-                            icon: '',
+                            icon: '⭐',
                           },
                         ].map(({ label, value, icon }) => {
                           const isPos = value && value.startsWith('+') && value !== '+0' && value !== '+0.00';
@@ -3757,7 +4014,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       </div>
 
                       <p className={`text-[10px] ${subtl} text-right`}>
-                        {sliced.length} data point{sliced.length !== 1 ? 's' : ''}  last {historyPeriod === 365 ? '365' : historyPeriod} days
+                        {sliced.length} data point{sliced.length !== 1 ? 's' : ''} · last {historyPeriod === 365 ? '365' : historyPeriod} days
                         {metricsHistory.length > sliced.length ? ` (${metricsHistory.length} total in archive)` : ''}
                       </p>
                     </div>
@@ -3766,7 +4023,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               );
             })()}
 
-            {/*  AI Weekly Brief  */}
+            {/* ── AI Weekly Brief ───────────────────────────────────────────── */}
             {weeklyDigest && (
               <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                 <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
@@ -3785,10 +4042,10 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 {weeklyDigest.metrics && (
                   <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-4 border-t ${brd}`}>
                     {[
-                      { label: 'Google Rating', val: weeklyDigest.metrics.googleRating ? `${Number(weeklyDigest.metrics.googleRating).toFixed(1)} ` : '' },
-                      { label: 'Sessions',      val: weeklyDigest.metrics.sessions ? Number(weeklyDigest.metrics.sessions).toLocaleString() : '' },
-                      { label: 'Total Leads',   val: weeklyDigest.metrics.totalLeads || '' },
-                      { label: 'Email Open',    val: weeklyDigest.metrics.emailOpenRate || '' },
+                      { label: 'Google Rating', val: weeklyDigest.metrics.googleRating ? `${Number(weeklyDigest.metrics.googleRating).toFixed(1)} ★` : '—' },
+                      { label: 'Sessions',      val: weeklyDigest.metrics.sessions ? Number(weeklyDigest.metrics.sessions).toLocaleString() : '—' },
+                      { label: 'Total Leads',   val: weeklyDigest.metrics.totalLeads || '—' },
+                      { label: 'Email Open',    val: weeklyDigest.metrics.emailOpenRate || '—' },
                     ].map(({ label, val }) => (
                       <div key={label} className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                         <div className={`text-sm font-black ${txt}`}>{val}</div>
@@ -3867,19 +4124,19 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               </div>
 
               <div className={`lg:col-span-4 ${card} p-8 rounded-[2.5rem]`}>
-                <SectionHeader icon={Map} color="text-rose-500" title="AZ Market Share" subtitle="Statewide Regional Breakdown" />
-                <div className="space-y-4">
-                  {regionalTraffic.map(item => (
-                    <div key={item.city}>
-                      <div className={`flex justify-between text-[13px] font-black ${subtl} uppercase mb-1`}>
-                        <span>{item.city}</span><span>{item.traffic}%</span>
+                <SectionHeader icon={MessageSquare} color="text-rose-500" title="Survey Voice Snapshot" subtitle="Most frequent open-text themes" />
+                {surveyThemes.length > 0 ? (
+                  <div className="space-y-3">
+                    {surveyThemes.slice(0, 6).map(theme => (
+                      <div key={theme.term} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                        <span className={`text-sm font-black ${txt}`}>{theme.term}</span>
+                        <span className="text-xs font-black text-rose-500">{theme.count} mentions</span>
                       </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                        <div className="bg-teal-500 h-full rounded-full" style={{ width: `${item.traffic}%` }}></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyChart height="h-52" message="No open-text survey responses available yet" />
+                )}
               </div>
             </div>
             )}
@@ -3889,28 +4146,32 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <div className={`${card} p-7 rounded-[2.5rem]`}>
                 <SectionHeader icon={MousePointer} color="text-teal-500" title="Video Tracing Analysis" subtitle="UX Depth & Page Retention" />
-                <div className="space-y-5">
-                  {pathData.map(p => (
-                    <div key={p.name}>
-                      <div className={`flex justify-between text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>
-                        <span>{p.name}</span><span>{p.stay}% Retention</span>
+                {pathData.length > 0 ? (
+                  <div className="space-y-5">
+                    {pathData.map(p => (
+                      <div key={p.name}>
+                        <div className={`flex justify-between text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>
+                          <span>{p.name}</span><span>{p.stay}% Retention</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-teal-500" style={{ width: `${p.stay}%` }}></div>
+                        </div>
                       </div>
-                      <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-teal-500" style={{ width: `${p.stay}%` }}></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyChart height="h-52" message="Video tracing data is not available for this profile yet" />
+                )}
               </div>
 
               <div className={`${card} p-7 rounded-[2.5rem]`}>
-                <SectionHeader icon={FileText} color="text-purple-500" title="Content Velocity" subtitle="Monthly Production Output" />
+                <SectionHeader icon={FileText} color="text-purple-500" title="Content Inventory" subtitle="Calendar-backed publishing pipeline" />
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   {[
-                    { val: metrics.blogVelocity,   label: 'Blogs / Mo',  bg: 'bg-purple-50 dark:bg-purple-900/30', tx: 'text-purple-900 dark:text-purple-200', sm: 'text-purple-500' },
-                    { val: metrics.tiktokVelocity, label: 'TikToks / Mo',bg: 'bg-pink-50 dark:bg-pink-900/30',     tx: 'text-pink-900 dark:text-pink-200',     sm: 'text-pink-500'   },
-                    { val: _socialMet.reduce((s,e)=>s+Number(e.posts||0),0) || metrics.socialPostsMonthly || '---', label: 'Social Posts', bg: 'bg-teal-50 dark:bg-teal-900/30',   tx: 'text-teal-900 dark:text-teal-200',     sm: 'text-teal-500'   },
-                    { val: metrics.videoViews,      label: 'Video Views',  bg: 'bg-amber-50 dark:bg-amber-900/30', tx: 'text-amber-900 dark:text-amber-200',   sm: 'text-amber-500'  },
+                    { val: contentItems.filter(c => String(c.type || '').toLowerCase() === 'blog').length || '—', label: 'Blog Items',   bg: 'bg-purple-50 dark:bg-purple-900/30', tx: 'text-purple-900 dark:text-purple-200', sm: 'text-purple-500' },
+                    { val: contentItems.filter(c => String(c.type || '').toLowerCase() === 'social').length || '—', label: 'Social Items', bg: 'bg-pink-50 dark:bg-pink-900/30', tx: 'text-pink-900 dark:text-pink-200', sm: 'text-pink-500' },
+                    { val: contentItems.filter(c => String(c.status || '').toLowerCase() === 'published').length || '—', label: 'Published', bg: 'bg-teal-50 dark:bg-teal-900/30', tx: 'text-teal-900 dark:text-teal-200', sm: 'text-teal-500' },
+                    { val: contentItems.filter(c => String(c.status || '').toLowerCase() === 'scheduled').length || '—', label: 'Scheduled', bg: 'bg-amber-50 dark:bg-amber-900/30', tx: 'text-amber-900 dark:text-amber-200', sm: 'text-amber-500' },
                   ].map(s => (
                     <div key={s.label} className={`p-4 ${s.bg} rounded-3xl text-center`}>
                       <div className={`text-3xl font-black ${s.tx}`}>{s.val}</div>
@@ -3919,18 +4180,15 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   ))}
                 </div>
                 <div className="space-y-2">
-                  <div className={`flex justify-between items-center text-[13px] font-bold`}>
-                    <span className={`${muted} uppercase`}>Statewide SEO Lift</span>
-                    <span className="text-teal-500">{metrics.seoStatewideGrowth} Organic</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-teal-500 w-[74%]"></div>
+                  <div className={`flex justify-between items-center text-[13px] font-bold ${muted}`}>
+                    <span className="uppercase">Total Planned Items</span>
+                    <span className="text-teal-500">{contentItems.length || 0}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/*  Sir Clicks-a-Lot AI Insights  */}
+            {/* ── Sir Clicks-a-Lot AI Insights ─────────────────────────────── */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
                 <SectionHeader icon={Bot} color="text-purple-500" title="AI Data Analysis" subtitle="Captain KPI reads your imported data and delivers the hard truths" />
@@ -3940,7 +4198,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-all flex-shrink-0 shadow-lg"
                 >
                   <Bot size={14} className={aiInsightsLoading ? 'animate-spin' : ''} />
-                  {aiInsightsLoading ? 'Analyzing' : 'Analyze Now'}
+                  {aiInsightsLoading ? 'Analyzing…' : 'Analyze Now'}
                 </button>
               </div>
               {aiInsights ? (
@@ -3987,20 +4245,26 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           </>
         )}
 
-        {/*  SOCIAL  */}
+        {/* ══════════════════ SOCIAL ══════════════════ */}
         {activeTab === 'social' && (
           <>
             {/* Live Social Snapshot */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               {socialAnalytics.map(s => {
                 const hasLiveData = s.followers > 0;
+                const profileUrl =
+                  s.platform === 'Instagram' ? (destinyData?.instagram?.url || _igLive.url || 'https://www.instagram.com/destinyspringshealthcare/') :
+                  s.platform === 'LinkedIn'  ? (destinyData?.linkedin?.url  || _liLive.url || 'https://www.linkedin.com/company/destiny-springs-healthcare') :
+                  s.platform === 'Facebook'  ? (destinyData?.facebook?.url  || _fbLive.url || 'https://www.facebook.com/profile.php?id=61581511228047') :
+                  s.platform === 'TikTok'    ? (destinyData?.tiktok?.url    || _ttLive.url || 'https://www.tiktok.com/@destinyspringshealthcare') :
+                  null;
                 const secondaryLabel =
                   s.platform === 'Facebook'  ? (s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} page likes` : 'Page followers') :
                   s.platform === 'Instagram' ? (s.posts > 0     ? `${s.posts.toLocaleString()} posts`            : 'Profile followers') :
                   s.platform === 'TikTok'    ? (s.videos > 0    ? `${s.videos.toLocaleString()} videos`          : s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} total likes` : 'Account followers') :
                   s.reach > 0 ? `${s.reach.toLocaleString()} reach` : 'Followers';
                 const tertiaryVal =
-                  s.platform === 'TikTok' && s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} ` :
+                  s.platform === 'TikTok' && s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} ❤` :
                   s.platform === 'Instagram' && s.posts > 0   ? `${s.posts.toLocaleString()} posts` :
                   s.clicks > 0 ? `${s.clicks} clicks` : null;
                 return (
@@ -4009,35 +4273,39 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       <div className="h-4 w-4 rounded-full" style={{ backgroundColor: s.color }}></div>
                     </div>
                     <p className={`text-[13px] font-black uppercase ${subtl} tracking-widest mb-1`}>{s.platform}</p>
-                    <h3 className={`text-2xl font-black ${txt}`}>{s.followers > 0 ? s.followers.toLocaleString() : ''}</h3>
+                    <h3 className={`text-2xl font-black ${txt}`}>{s.followers > 0 ? s.followers.toLocaleString() : '—'}</h3>
                     <p className={`text-[13px] ${subtl} italic mt-1`}>{hasLiveData ? 'Followers' : 'No live data'}</p>
                     <div className={`mt-3 pt-3 border-t ${brd} flex justify-between text-[13px] font-bold`}>
                       <span className={muted}>{secondaryLabel}</span>
                       {tertiaryVal && <span className="text-teal-500">{tertiaryVal}</span>}
                     </div>
+                    {profileUrl && (
+                      <a href={profileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-teal-500 hover:text-teal-400 mt-2">
+                        <ExternalLink size={9} /> View Profile
+                      </a>
+                    )}
                   </div>
                 );
               })}
             </div>
 
-            {/* Live Social Stats  detailed breakdown per platform */}
+            {/* Live Social Stats — detailed breakdown per platform */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-5">
-                <SectionHeader icon={Activity} color="text-purple-500" title="Live Social Performance" subtitle="Followers, posts & engagement  synced from each platform" />
+                <SectionHeader icon={Activity} color="text-purple-500" title="Live Social Performance" subtitle="Followers, posts & engagement — synced from each platform" />
                 <button
                   onClick={fetchDestinyProfile}
                   disabled={destinyLoading}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-black transition-all shrink-0"
                 >
                   <RefreshCw size={11} className={destinyLoading ? 'animate-spin' : ''} />
-                  {destinyLoading ? 'Syncing' : 'Sync Now'}
+                  {destinyLoading ? 'Syncing…' : 'Sync Now'}
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 {/* Facebook */}
                 {(() => {
-                  const _metaFbFallback = (_metaLive.fanCount || _metaLive.followers) ? { followers: _metaLive.followers || _metaLive.fanCount, name: _metaLive.pageName } : null;
-                  const fb = (destinyData?.facebook && !destinyData.facebook.error) ? destinyData.facebook : ((_fbLive.followers != null || _fbLive.likes != null || _fbLive.name) ? _fbLive : (_metaFbFallback || _fbLive));
+                  const fb = (destinyData?.facebook && !destinyData.facebook.error) ? destinyData.facebook : _fbLive;
                   const hasFb = fb.followers != null || fb.likes != null || !!fb.name;
                   const mainCount = fb.followers ?? fb.likes;
                   const mainLabel = fb.followers != null ? 'Followers' : 'Page Likes';
@@ -4072,7 +4340,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                         </div>
                       ) : (
                         <div className="text-center py-4">
-                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching' : 'No live data yet'}</p>
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching…' : 'No live data yet'}</p>
                           {!destinyLoading && <p className={`text-[11px] ${subtl}`}>Click Sync Now to pull Facebook data</p>}
                         </div>
                       )}
@@ -4081,8 +4349,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 })()}
                 {/* Instagram */}
                 {(() => {
-                  const _metaIgFallback = _metaLive.igFollowers ? { followers: _metaLive.igFollowers, posts: _metaLive.igMediaCount, username: _metaLive.igUsername } : null;
-                  const ig = (destinyData?.instagram && !destinyData.instagram.error) ? destinyData.instagram : ((_igLive.followers != null) ? _igLive : (_metaIgFallback || _igLive));
+                  const ig = (destinyData?.instagram && !destinyData.instagram.error) ? destinyData.instagram : _igLive;
                   const hasIg = ig.followers != null;
                   return (
                     <div className={`p-5 rounded-2xl ${hasIg ? 'bg-pink-50 dark:bg-pink-900/10 border border-pink-200 dark:border-pink-800' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
@@ -4108,19 +4375,15 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                               <span>Following</span><span className={`font-black ${txt}`}>{Number(ig.following).toLocaleString()}</span>
                             </div>
                           )}
-                          {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500"> Verified</span>}
+                          {ig.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500">✓ Verified</span>}
                           {(destinyData?.fetchedAt || _socialLive.fetchedAt) && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(destinyData?.fetchedAt || _socialLive.fetchedAt).toLocaleString()}</p>}
                           <a href={ig.url || 'https://www.instagram.com/destinyspringshealthcare/'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400 mt-1"><ExternalLink size={9}/> View Profile</a>
                         </div>
                       ) : (
                         <div className="text-center py-4">
-                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching' : 'No live data yet'}</p>
-                          {!destinyLoading && (
-                            <div>
-                              <p className={`text-[11px] ${subtl} mb-1`}>Click Sync Now to pull Instagram data</p>
-                              <a href="https://www.instagram.com/destinyspringshealthcare/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400"><ExternalLink size={9}/> Open on Instagram</a>
-                            </div>
-                          )}
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching…' : 'No live data yet'}</p>
+                          {!destinyLoading && <p className={`text-[11px] ${subtl}`}>Click Sync Now to pull Instagram data</p>}
+                          <a href="https://www.instagram.com/destinyspringshealthcare/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-pink-500 hover:text-pink-400 mt-2"><ExternalLink size={9}/> View Profile</a>
                         </div>
                       )}
                     </div>
@@ -4146,7 +4409,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                           </div>
                           {tt.likes != null && (
                             <div className={`flex items-center justify-between text-xs ${subtl} pt-2 border-t ${brd}`}>
-                              <span>Total Likes </span><span className={`font-black ${txt}`}>{Number(tt.likes).toLocaleString()}</span>
+                              <span>Total Likes ❤</span><span className={`font-black ${txt}`}>{Number(tt.likes).toLocaleString()}</span>
                             </div>
                           )}
                           {tt.videos != null && (
@@ -4159,58 +4422,52 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                               <span>Following</span><span className={`font-black ${txt}`}>{Number(tt.following).toLocaleString()}</span>
                             </div>
                           )}
-                          {tt.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500"> Verified</span>}
+                          {tt.isVerified && <span className="inline-flex items-center gap-0.5 text-[10px] font-black text-blue-500">✓ Verified</span>}
                           {(destinyData?.fetchedAt || _socialLive.fetchedAt) && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(destinyData?.fetchedAt || _socialLive.fetchedAt).toLocaleString()}</p>}
                           <a href={tt.url || 'https://www.tiktok.com/@destinyspringshealthcare'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black hover:opacity-70 mt-1"><ExternalLink size={9}/> View Profile</a>
                         </div>
                       ) : (
                         <div className="text-center py-4">
-                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching' : 'No live data yet'}</p>
-                          {!destinyLoading && (
-                            <div>
-                              <p className={`text-[11px] ${subtl} mb-1`}>Click Sync Now to pull TikTok data</p>
-                              <a href="https://www.tiktok.com/@destinyspringshealthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-slate-700 dark:text-slate-300 hover:opacity-70"><ExternalLink size={9}/> Open on TikTok</a>
-                            </div>
-                          )}
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching…' : 'No live data yet'}</p>
+                          {!destinyLoading && <p className={`text-[11px] ${subtl}`}>Click Sync Now to pull TikTok data</p>}
                         </div>
                       )}
                     </div>
                   );
                 })()}
+
                 {/* LinkedIn */}
                 {(() => {
-                  const li = _socialLive?.linkedin || {};
-                  const hasLi = li.followers != null || li.connections != null;
+                  const li = (destinyData?.linkedin && !destinyData.linkedin.error) ? destinyData.linkedin : _liLive;
+                  const hasLi = li.followers != null || li.posts != null || !!li.name;
                   return (
-                    <div className={`p-5 rounded-2xl ${hasLi ? 'bg-blue-50 dark:bg-blue-900/10 border border-blue-300 dark:border-blue-700' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
+                    <div className={`p-5 rounded-2xl ${hasLi ? 'bg-sky-50 dark:bg-sky-900/10 border border-sky-200 dark:border-sky-800' : `bg-slate-50 dark:bg-slate-800/50 ${brd} border`}`}>
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="w-7 h-7 rounded-xl bg-[#0A66C2] flex items-center justify-center flex-shrink-0"><span className="text-white text-[9px] font-black">in</span></div>
-                        <span className={`text-sm font-black ${hasLi ? 'text-blue-700 dark:text-blue-300' : subtl}`}>LinkedIn</span>
+                        <div className="w-7 h-7 rounded-xl bg-sky-700 flex items-center justify-center flex-shrink-0"><span className="text-white text-[10px] font-black">in</span></div>
+                        <span className={`text-sm font-black ${hasLi ? 'text-sky-700 dark:text-sky-300' : subtl}`}>LinkedIn</span>
                         {hasLi && <span className="ml-auto text-[10px] font-black px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400">Live</span>}
                       </div>
                       {hasLi ? (
                         <div className="space-y-2">
-                          {li.name && <p className={`text-xs font-bold ${txt2} leading-tight`}>{li.name}</p>}
-                          <div>
-                            <p className={`text-3xl font-black text-blue-600 dark:text-blue-400`}>{Number(li.followers ?? li.connections).toLocaleString()}</p>
-                            <p className={`text-xs ${subtl} mt-0.5`}>{li.followers != null ? 'Followers' : 'Connections'}</p>
-                          </div>
-                          {li.posts != null && (
-                            <div className={`flex items-center justify-between text-xs ${subtl} pt-2 border-t ${brd}`}>
-                              <span>Posts</span><span className={`font-black ${txt}`}>{li.posts}</span>
+                          {(li.name || li.companyName) && <p className={`text-xs font-bold ${txt2} leading-tight`}>{li.name || li.companyName}</p>}
+                          {li.followers != null && (
+                            <div>
+                              <p className={`text-3xl font-black text-sky-600 dark:text-sky-400`}>{Number(li.followers).toLocaleString()}</p>
+                              <p className={`text-xs ${subtl} mt-0.5`}>Followers</p>
                             </div>
                           )}
-                          <a href="https://www.linkedin.com/company/destiny-springs-healthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-blue-600 hover:text-blue-500 mt-1"><ExternalLink size={9}/> View Page</a>
+                          {li.posts != null && (
+                            <div className={`flex items-center justify-between text-xs ${subtl} pt-2 border-t ${brd}`}>
+                              <span>Posts</span><span className={`font-black ${txt}`}>{Number(li.posts).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {(destinyData?.fetchedAt || _socialLive.fetchedAt) && <p className={`text-[10px] ${subtl} mt-2`}>Synced {new Date(destinyData?.fetchedAt || _socialLive.fetchedAt).toLocaleString()}</p>}
+                          <a href={li.url || 'https://www.linkedin.com/company/destiny-springs-healthcare'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-sky-600 hover:text-sky-500 mt-1"><ExternalLink size={9}/> View Profile</a>
                         </div>
                       ) : (
                         <div className="text-center py-4">
-                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching' : 'No live data yet'}</p>
-                          {!destinyLoading && (
-                            <div>
-                              <p className={`text-[11px] ${subtl} mb-1`}>LinkedIn data not yet available</p>
-                              <a href="https://www.linkedin.com/company/destiny-springs-healthcare" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-black text-blue-600 hover:text-blue-500"><ExternalLink size={9}/> Open on LinkedIn</a>
-                            </div>
-                          )}
+                          <p className={`text-xs ${subtl} mb-2`}>{destinyLoading ? 'Fetching…' : 'No live data yet'}</p>
+                          {!destinyLoading && <p className={`text-[11px] ${subtl}`}>Click Sync Now to pull LinkedIn data</p>}
                         </div>
                       )}
                     </div>
@@ -4261,7 +4518,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 )}
               </div>
             </div>
-            {/*  Recent Content from Meta Graph API  */}
+            {/* ── Recent Content from Meta Graph API ───────────────────────── */}
             {(_metaLive.igPosts?.length > 0 || _metaLive.fbPosts?.length > 0) && (
               <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                 <SectionHeader icon={Share2} color="text-pink-500" title="Recent Content" subtitle="Latest posts pulled via Meta Graph API" />
@@ -4269,7 +4526,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 {/* Instagram grid */}
                 {_metaLive.igPosts?.length > 0 && (
                   <div className="mt-5">
-                    <p className="text-[11px] font-black text-pink-500 uppercase tracking-wider mb-3">Instagram  Latest Posts</p>
+                    <p className="text-[11px] font-black text-pink-500 uppercase tracking-wider mb-3">Instagram — Latest Posts</p>
                     <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                       {_metaLive.igPosts.map(post => (
                         <a key={post.id} href={post.url || '#'} target="_blank" rel="noreferrer"
@@ -4288,14 +4545,14 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                             </div>
                           )}
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex-col items-center justify-center gap-1 hidden group-hover:flex">
-                            <span className="text-white text-[10px] font-black"> {post.likes.toLocaleString()}</span>
-                            <span className="text-white text-[10px]"> {post.comments}</span>
+                            <span className="text-white text-[10px] font-black">❤ {post.likes.toLocaleString()}</span>
+                            <span className="text-white text-[10px]">💬 {post.comments}</span>
                           </div>
                         </a>
                       ))}
                     </div>
                     {_metaLive.igPosts.length > 0 && (
-                      <p className={`text-[10px] ${subtl} mt-2`}>Media URLs expire after ~1 hour  reconnect Meta to refresh</p>
+                      <p className={`text-[10px] ${subtl} mt-2`}>Media URLs expire after ~1 hour — reconnect Meta to refresh</p>
                     )}
                   </div>
                 )}
@@ -4303,7 +4560,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 {/* Facebook posts list */}
                 {_metaLive.fbPosts?.length > 0 && (
                   <div className={`${_metaLive.igPosts?.length > 0 ? 'mt-6 pt-6 border-t ' + brd : 'mt-5'}`}>
-                    <p className="text-[11px] font-black text-blue-500 uppercase tracking-wider mb-3">Facebook  Recent Posts</p>
+                    <p className="text-[11px] font-black text-blue-500 uppercase tracking-wider mb-3">Facebook — Recent Posts</p>
                     {(() => {
                       const engScore = (p) => (p.likes || 0) + (p.comments || 0) * 2 + (p.shares || 0) * 3;
                       const maxEng   = Math.max(1, ..._metaLive.fbPosts.map(p => engScore(p)));
@@ -4325,9 +4582,9 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                   </p>
                                   <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                                     <span className={`text-[10px] ${subtl}`}>{new Date(post.date).toLocaleDateString()}</span>
-                                    <span className="text-[10px] text-blue-500 font-black"> {post.likes.toLocaleString()}</span>
-                                    <span className={`text-[10px] ${subtl} font-bold`}> {post.comments}</span>
-                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${scoreColor}`}> {score}</span>
+                                    <span className="text-[10px] text-blue-500 font-black">❤ {post.likes.toLocaleString()}</span>
+                                    <span className={`text-[10px] ${subtl} font-bold`}>💬 {post.comments}</span>
+                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${scoreColor}`}>⚡ {score}</span>
                                   </div>
                                 </div>
                                 <ExternalLink size={12} className={`${subtl} flex-shrink-0 mt-1`} />
@@ -4349,7 +4606,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
                   <div>
                     <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Social Metrics Entry</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Log data here  charts update instantly</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log data here — charts update instantly</p>
                   </div>
                 </div>
                 <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
@@ -4372,14 +4629,14 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           </>
         )}
 
-        {/*  SEO & CONTENT  */}
+        {/* ══════════════════ SEO & CONTENT ══════════════════ */}
         {activeTab === 'seo' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Organic Growth"  value={_wixLive.organic ? _wixLive.organic + '%' : ''} trend={_wixLive.organic ? '+' + _wixLive.organic + '%' : null} icon={TrendingUp} color="bg-teal-600"   sub="Organic Traffic Share"   />
-              <StatCard title="Avg Position"    value={seoKeywords.length ? (seoKeywords.reduce((s,k)=>s+k.pos,0)/seoKeywords.length).toFixed(1) : ''} trend={seoKeywords.length > 1 ? null : null} icon={Search} color="bg-blue-600" sub="Google SERP Average" />
-              <StatCard title="Blog Posts / Mo" value={metrics.blogVelocity} trend="+4" icon={FileText}  color="bg-purple-600" sub="Monthly Production"   />
-              <StatCard title="Avg Read Time"   value={metrics.avgReadTime} trend="+12s" icon={Clock}    color="bg-amber-600"  sub="Content Engagement"   />
+              <StatCard title="Organic Growth"  value={_wixLive.organic ? _wixLive.organic + '%' : '—'} trend={_wixLive.organic ? '+' + _wixLive.organic + '%' : null} icon={TrendingUp} color="bg-teal-600"   sub="Organic Traffic Share"   />
+              <StatCard title="Avg Position"    value={seoKeywords.length ? (seoKeywords.reduce((s,k)=>s+k.pos,0)/seoKeywords.length).toFixed(1) : '—'} trend={seoKeywords.length > 1 ? null : null} icon={Search} color="bg-blue-600" sub="Google SERP Average" />
+              <StatCard title="Blog Posts / Mo" value={metrics.blogVelocity} trend={null} icon={FileText}  color="bg-purple-600" sub="Monthly Production"   />
+              <StatCard title="Avg Read Time"   value={metrics.avgReadTime} trend={null} icon={Clock}    color="bg-amber-600"  sub="Content Engagement"   />
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Search} color="text-blue-500" title="Keyword Rankings" subtitle="Top AZ Healthcare Keywords" />
@@ -4439,7 +4696,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 {[
                   { val: metrics.tiktokVelocity, label: 'Videos / Mo',  bg: 'bg-pink-50 dark:bg-pink-900/30',   tx: 'text-pink-900 dark:text-pink-200',   sm: 'text-pink-500'   },
                   { val: metrics.videoViews,      label: 'Total Views',  bg: 'bg-rose-50 dark:bg-rose-900/30',   tx: 'text-rose-900 dark:text-rose-200',   sm: 'text-rose-500'   },
-                  { val: (() => { const likes = Number(_tikLive.totalLikes || _ttLive.totalLikes || 0) + _tiktokPosts.reduce((s,e)=>s+Number(e.likes||0),0); return likes > 0 ? likes.toLocaleString() : ''; })(), label: 'Engagements',  bg: 'bg-orange-50 dark:bg-orange-900/30',tx: 'text-orange-900 dark:text-orange-200',sm: 'text-orange-500' },
+                  { val: (() => { const likes = Number(_tikLive.totalLikes || _ttLive.totalLikes || 0) + _tiktokPosts.reduce((s,e)=>s+Number(e.likes||0),0); return likes > 0 ? likes.toLocaleString() : '—'; })(), label: 'Engagements',  bg: 'bg-orange-50 dark:bg-orange-900/30',tx: 'text-orange-900 dark:text-orange-200',sm: 'text-orange-500' },
                 ].map(s => (
                   <div key={s.label} className={`p-4 ${s.bg} rounded-3xl text-center`}>
                     <div className={`text-3xl font-black ${s.tx}`}>{s.val}</div>
@@ -4455,7 +4712,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
                   <div>
                     <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add SEO Rankings Entry</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Log keyword data  charts update instantly</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log keyword data — charts update instantly</p>
                   </div>
                 </div>
                 <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
@@ -4474,7 +4731,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           </>
         )}
 
-        {/*  PAID ADS  */}
+        {/* ══════════════════ PAID ADS ══════════════════ */}
         {activeTab === 'ads' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
@@ -4496,7 +4753,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   </thead>
                   <tbody className={`divide-y ${divdr}`}>
                     {adPerformance.length === 0 ? (
-                      <tr><td colSpan={6} className="py-8 text-center text-sm text-slate-400">No ad data yet  add an entry below</td></tr>
+                      <tr><td colSpan={6} className="py-8 text-center text-sm text-slate-400">No ad data yet — add an entry below</td></tr>
                     ) : adPerformance.map(ad => (
                       <tr key={ad.platform}>
                         <td className={`py-3 pr-4 text-sm font-bold ${txt}`}>{ad.platform}</td>
@@ -4534,7 +4791,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
                   <div>
                     <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Ad Spend Entry</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Log campaign data  performance table updates instantly</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log campaign data — performance table updates instantly</p>
                   </div>
                 </div>
                 <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
@@ -4557,11 +4814,11 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           </>
         )}
 
-        {/*  EMAIL  */}
+        {/* ══════════════════ EMAIL ══════════════════ */}
         {activeTab === 'email' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Avg Open Rate"  value={_mailLive.openRate  || metrics.emailOpenRate} trend={null} icon={Mail}         color="bg-teal-600"   sub={_mailLive.listName ? `${_mailLive.listName}  Mailchimp` : 'All Campaigns'} />
+              <StatCard title="Avg Open Rate"  value={_mailLive.openRate  || metrics.emailOpenRate} trend={null} icon={Mail}         color="bg-teal-600"   sub={_mailLive.listName ? `${_mailLive.listName} · Mailchimp` : 'All Campaigns'} />
               <StatCard title="Subscribers"    value={_mailLive.subscribers ? Number(_mailLive.subscribers).toLocaleString() : (emailCampaigns.reduce((s,c)=>s+c.sent,0)>0 ? emailCampaigns.reduce((s,c)=>s+c.sent,0).toLocaleString() : '---')} trend={null} icon={Users} color="bg-purple-600" sub={_mailLive.subscribers ? 'Mailchimp Audience' : 'Total Emails Sent'} />
               <StatCard title="Avg Click Rate" value={_mailLive.clickRate  || (emailCampaigns.length>0 ? (emailCampaigns.reduce((s,c)=>s+c.clicked,0)/Math.max(1,emailCampaigns.reduce((s,c)=>s+c.sent,0))*100).toFixed(1)+'%' : '---')} trend={null} icon={MousePointer} color="bg-emerald-600" sub="Avg CTR" />
               <StatCard title="Total Campaigns" value={_mailLive.totalCampaigns || emailCampaigns.reduce((s,c)=>s+(c.conversions||0),0)||'---'} trend={null} icon={CheckCircle} color="bg-amber-600" sub={_mailLive.totalCampaigns ? 'Sent via Mailchimp' : 'Email-Attributed'} />
@@ -4599,10 +4856,10 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       {_mailLive.recentCampaigns.map(c => (
                         <tr key={c.id}>
                           <td className={`py-3 pr-3 text-sm font-bold ${txt} max-w-[220px] truncate`} title={c.subject}>{c.title || c.subject}</td>
-                          <td className={`py-3 px-3 text-right text-sm font-bold ${txt2}`}>{c.emailsSent?.toLocaleString() || c.uniqueOpens?.toLocaleString() || ''}</td>
+                          <td className={`py-3 px-3 text-right text-sm font-bold ${txt2}`}>{c.emailsSent?.toLocaleString() || c.uniqueOpens?.toLocaleString() || '—'}</td>
                           <td className="py-3 px-3 text-right"><span className="text-sm font-bold text-blue-500">{c.openRate}</span></td>
                           <td className="py-3 px-3 text-right"><span className="text-sm font-bold text-purple-500">{c.clickRate}</span></td>
-                          <td className={`py-3 pl-3 text-right text-xs ${subtl}`}>{c.sentAt ? new Date(c.sentAt).toLocaleDateString() : ''}</td>
+                          <td className={`py-3 pl-3 text-right text-xs ${subtl}`}>{c.sentAt ? new Date(c.sentAt).toLocaleDateString() : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -4659,7 +4916,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
                   <div>
                     <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Email Campaign Entry</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Log campaign stats  metrics update instantly</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log campaign stats — metrics update instantly</p>
                   </div>
                 </div>
                 <ChevronDown size={16} className={`transition-transform text-slate-400 ${showQuickAdd ? 'rotate-180' : ''}`} />
@@ -4678,7 +4935,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           </>
         )}
 
-        {/*  PIPELINE  */}
+        {/* ══════════════════ PIPELINE ══════════════════ */}
         {activeTab === 'pipeline' && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -4730,7 +4987,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           </>
         )}
 
-        {/*  MY ACHIEVEMENTS  */}
+        {/* ══════════════════ MY ACHIEVEMENTS ══════════════════ */}
         {activeTab === 'achievements' && (
           <>
             <div className="bg-gradient-to-r from-teal-700 to-teal-900 rounded-[2.5rem] p-8 text-white mb-8 flex flex-col md:flex-row items-center gap-6">
@@ -4739,8 +4996,8 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               </div>
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight">My Digital Marketing Achievements</h2>
-                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing  Social Media  Website Management  Blog Writing  SEO  Paid Ads</p>
-                <p className="text-teal-200 text-xs mt-2 italic">Ongoing  Destiny Springs Healthcare</p>
+                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing – Social Media – Website Management – Blog Writing – SEO – Paid Ads</p>
+                <p className="text-teal-200 text-xs mt-2 italic">Ongoing – Destiny Springs Healthcare</p>
               </div>
               <div className="ml-auto shrink-0 text-right hidden md:block">
                 <div className="text-4xl font-black text-amber-300">312</div>
@@ -4750,18 +5007,19 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
               {myStats.map(s => {
-                const pct = Math.min(100, Math.round((s.value / s.target) * 100));
+                const numericValue = Number.isFinite(Number(s.value)) ? Number(s.value) : 0;
+                const pct = s.target > 0 ? Math.min(100, Math.round((numericValue / s.target) * 100)) : 0;
                 return (
                   <div key={s.label} className={`${card} p-5 rounded-2xl`}>
                     <div className="flex items-center gap-3 mb-3">
                       <s.icon size={20} className={s.color} />
                       <span className={`text-[13px] font-black uppercase ${subtl} tracking-widest`}>{s.label}</span>
                     </div>
-                    <div className={`text-3xl font-black ${txt} mb-1`}>{s.value}</div>
+                    <div className={`text-3xl font-black ${txt} mb-1`}>{Number.isFinite(Number(s.value)) ? Number(s.value).toLocaleString() : s.value}</div>
                     <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2">
                       <div className="h-full bg-teal-500 rounded-full" style={{ width: `${pct}%` }}></div>
                     </div>
-                    <div className={`text-[12px] ${subtl} mt-1`}>{s.target > 0 ? `${pct}% of target (${s.target})` : `${s.value} total`}</div>
+                    <div className={`text-[12px] ${subtl} mt-1`}>{s.target > 0 ? `${pct}% of target (${s.target})` : `${numericValue} total`}</div>
                   </div>
                 );
               })}
@@ -4816,7 +5074,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           </>
         )}
 
-        {/*  CLIENT ROI  */}
+        {/* ══════════════════ CLIENT ROI ══════════════════ */}
         {activeTab === 'roi' && (
           <>
             {/* ROI settings bar */}
@@ -4854,8 +5112,8 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Est. Revenue Potential" value={_revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : ''} trend={null} icon={DollarSign} color="bg-teal-600"    sub="Based on avg value / lead"  />
-              <StatCard title="Total Mktg Spend"       value={_totalSpend > 0 ? '$' + _totalSpend.toLocaleString() : ''}            trend={null} icon={Target}     color="bg-indigo-600"  sub="All paid channels"          />
+              <StatCard title="Est. Revenue Potential" value={_revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : '—'} trend={null} icon={DollarSign} color="bg-teal-600"    sub="Based on avg value / lead"  />
+              <StatCard title="Total Mktg Spend"       value={_totalSpend > 0 ? '$' + _totalSpend.toLocaleString() : '—'}            trend={null} icon={Target}     color="bg-indigo-600"  sub="All paid channels"          />
               <StatCard title="Blended ROI"            value={_blendedRoi}                                                            trend={null} icon={TrendingUp} color="bg-emerald-600" sub="Revenue / Spend Ratio"      />
               <StatCard title="Agency Cost Savings"    value={_agencySavings}                                                         trend={null} icon={ShieldCheck} color="bg-amber-600"  sub="vs. Full Agency Retainer"   />
             </div>
@@ -4912,8 +5170,8 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[
-                { label: 'Total Leads  Avg Patient Value', value: _revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : '', icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
-                { label: 'Total Marketing Investment',      value: _totalSpend > 0 ? '$' + _totalSpend.toLocaleString() : '',             icon: Target,     color: 'text-indigo-500',  sub: 'Blended spend across all channels'   },
+                { label: 'Total Leads × Avg Patient Value', value: _revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : '—', icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
+                { label: 'Total Marketing Investment',      value: _totalSpend > 0 ? '$' + _totalSpend.toLocaleString() : '—',             icon: Target,     color: 'text-indigo-500',  sub: 'Blended spend across all channels'   },
                 { label: 'Return on Investment',            value: _blendedRoi,                                                             icon: TrendingUp, color: 'text-emerald-500', sub: 'Revenue potential / marketing spend'  },
               ].map(s => (
                 <div key={s.label} className={`${card} p-6 rounded-2xl text-center`}>
@@ -4927,10 +5185,10 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           </>
         )}
 
-        {/*  CONTENT CALENDAR  */}
+        {/* ══════════════════ CONTENT CALENDAR ══════════════════ */}
         {activeTab === 'calendar' && (
           <>
-            {/*  Toolbar: view toggle + type filter + schedule button  */}
+            {/* ── Toolbar: view toggle + type filter + schedule button ── */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div className="flex items-center gap-2 flex-wrap">
                 {/* View toggle pill */}
@@ -4958,7 +5216,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               </button>
             </div>
 
-            {/*  Schedule Post form  */}
+            {/* ── Schedule Post form ── */}
             {showAddPost && (
               <div className={`${card} p-6 rounded-[2rem] mb-6`} style={{ borderColor: 'rgba(13,148,136,0.35)' }}>
                 <div className="flex items-center justify-between mb-5">
@@ -4995,7 +5253,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   <button onClick={() => generateCaption(newPost.title, newPost.platform, newPost.type)}
                     disabled={captionGenerating || !newPost.title}
                     className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-black hover:bg-purple-500 transition-all disabled:opacity-40">
-                    {captionGenerating ? <RefreshCw size={13} className="animate-spin" /> : <Zap size={13} />} {captionGenerating ? 'Writing' : 'AI Caption'}
+                    {captionGenerating ? <RefreshCw size={13} className="animate-spin" /> : <Zap size={13} />} {captionGenerating ? 'Writing…' : 'AI Caption'}
                   </button>
                   <button onClick={() => setShowAddPost(false)}
                     className={`px-6 py-2.5 ${card} ${muted} rounded-xl text-sm font-black hover:text-teal-500 transition-all border`}>
@@ -5005,7 +5263,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               </div>
             )}
 
-            {/*  Status summary chips  */}
+            {/* ── Status summary chips ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               {[
                 { label: 'Scheduled',     value: contentItems.filter(c=>c.status==='scheduled').length, color: 'text-teal-500'   },
@@ -5020,7 +5278,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               ))}
             </div>
 
-            {/*  Content Calendar card  */}
+            {/* ── Content Calendar card ── */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
                 <SectionHeader icon={Calendar} color="text-teal-500" title="Content Calendar" subtitle="Upcoming Posts &amp; Deadlines" />
@@ -5038,7 +5296,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 )}
               </div>
 
-              {/*  MONTH VIEW  */}
+              {/* ──── MONTH VIEW ──── */}
               {calView === 'month' && (() => {
                 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                 const cells = [];
@@ -5068,7 +5326,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                               <div className={`text-[12px] font-black mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-teal-600 text-white' : txt}`}>{day}</div>
                               <div className="space-y-0.5">
                                 {dayItems.slice(0, 3).map((item, ii) => (
-                                  <div key={ii} title={`${item.title}  ${item.platform}`}
+                                  <div key={ii} title={`${item.title} — ${item.platform}`}
                                     className={`text-[9px] font-black px-1 py-0.5 rounded truncate leading-tight ${typeColor[item.type] || 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
                                     {item.title}
                                   </div>
@@ -5086,7 +5344,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 );
               })()}
 
-              {/*  WEEK VIEW  */}
+              {/* ──── WEEK VIEW ──── */}
               {calView === 'week' && (() => {
                 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                 return (
@@ -5105,13 +5363,13 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                           </div>
                           <div className="space-y-1">
                             {dayItems.map((item, ii) => (
-                              <div key={ii} title={`${item.title}  ${item.platform}`}
+                              <div key={ii} title={`${item.title} — ${item.platform}`}
                                 className={`text-[10px] font-black px-1.5 py-1 rounded-lg truncate ${typeColor[item.type] || 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
                                 {item.title}
                               </div>
                             ))}
                             {dayItems.length === 0 && (
-                              <div className={`text-[10px] ${subtl} text-center py-2`}></div>
+                              <div className={`text-[10px] ${subtl} text-center py-2`}>—</div>
                             )}
                           </div>
                         </div>
@@ -5121,7 +5379,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 );
               })()}
 
-              {/*  LIST VIEW  */}
+              {/* ──── LIST VIEW ──── */}
               {calView === 'list' && (
                 <div className="space-y-3">
                   {filteredContent.map((item, i) => {
@@ -5148,7 +5406,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                             title="Publish now to Facebook via Graph API"
                             className="shrink-0 flex items-center gap-1 text-[11px] font-black px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-40">
                             {autoPostLoading[i] ? <RefreshCw size={10} className="animate-spin" /> : <Send size={10} />}
-                            {autoPostLoading[i] ? '' : 'Publish'}
+                            {autoPostLoading[i] ? '…' : 'Publish'}
                           </button>
                         )}
                       </div>
@@ -5160,30 +5418,30 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           </>
         )}
 
-        {/*  REVIEWS  */}
+        {/* ══════════════════ REVIEWS ══════════════════ */}
         {activeTab === 'reviews' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Overall Rating"    value={_avgRating ? _avgRating + ' ' : ''} trend={null} icon={Star} color="bg-amber-500" sub={_platformEntries.length ? 'Weighted Avg  All Platforms' : 'Google Business Profile'} />
-              <StatCard title="Total Reviews"     value={_totalReviewCount || ''} trend={null} icon={MessageSquare} color="bg-teal-600" sub={_platformEntries.length ? `Across ${_platformEntries.length} platform${_platformEntries.length!==1?'s':''}` : 'All Time'} />
-              <StatCard title="Best Platform"     value={_bestPlatform ? _bestPlatform[0].charAt(0).toUpperCase()+_bestPlatform[0].slice(1) : ''} trend={null} icon={Trophy} color="bg-emerald-600" sub={_bestPlatform ? _bestPlatform[1].rating+'   '+Number(_bestPlatform[1].count).toLocaleString()+' reviews' : 'No platform data'} />
-              <StatCard title="Most Reviews"      value={_mostReviewsPlatform ? Number(_mostReviewsPlatform[1].count).toLocaleString() : ''} trend={null} icon={ThumbsUp} color="bg-purple-600" sub={_mostReviewsPlatform ? _mostReviewsPlatform[0].charAt(0).toUpperCase()+_mostReviewsPlatform[0].slice(1) : 'No platform data'} />
+              <StatCard title="Overall Rating"    value={_avgRating ? _avgRating + ' ★' : '—'} trend={null} icon={Star} color="bg-amber-500" sub={_platformEntries.length ? 'Weighted Avg — All Platforms' : 'Google Business Profile'} />
+              <StatCard title="Total Reviews"     value={_totalReviewCount || '—'} trend={null} icon={MessageSquare} color="bg-teal-600" sub={_platformEntries.length ? `Across ${_platformEntries.length} platform${_platformEntries.length!==1?'s':''}` : 'All Time'} />
+              <StatCard title="Best Platform"     value={_bestPlatform ? _bestPlatform[0].charAt(0).toUpperCase()+_bestPlatform[0].slice(1) : '—'} trend={null} icon={Trophy} color="bg-emerald-600" sub={_bestPlatform ? _bestPlatform[1].rating+' ★ · '+Number(_bestPlatform[1].count).toLocaleString()+' reviews' : 'No platform data'} />
+              <StatCard title="Most Reviews"      value={_mostReviewsPlatform ? Number(_mostReviewsPlatform[1].count).toLocaleString() : '—'} trend={null} icon={ThumbsUp} color="bg-purple-600" sub={_mostReviewsPlatform ? _mostReviewsPlatform[0].charAt(0).toUpperCase()+_mostReviewsPlatform[0].slice(1) : 'No platform data'} />
             </div>
 
-            {/*  Multi-Platform Review Tracker  */}
+            {/* ── Multi-Platform Review Tracker ── */}
             <div className={`${card} p-6 rounded-[2rem] mb-8`}>
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><Star size={16} className="text-amber-500" /></div>
                   <div>
                     <p className={`text-sm font-black ${txt}`}>Live Review Scores</p>
-                    <p className={`text-xs ${subtl}`}>Fetch live scores from each platform  or enter manually</p>
+                    <p className={`text-xs ${subtl}`}>Fetch live scores from each platform — or enter manually</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {_platformEntries.length > 0 && (
                     <span className={`text-xs font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400`}>
-                      {_totalReviewCount.toLocaleString()} total  {_avgRating}  avg
+                      {_totalReviewCount.toLocaleString()} total · {_avgRating} ★ avg
                     </span>
                   )}
                   <button
@@ -5241,16 +5499,16 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                         <div className="flex-1">
                           {(saved.rating || saved.count) ? (
                             <div className="mb-1">
-                              <span className={`text-2xl font-black ${plat.color}`}>{saved.rating || ''}</span>
-                              {saved.rating && <span className={`text-base ${plat.color} ml-0.5`}></span>}
+                              <span className={`text-2xl font-black ${plat.color}`}>{saved.rating || '—'}</span>
+                              {saved.rating && <span className={`text-base ${plat.color} ml-0.5`}>★</span>}
                               {saved.count && <p className={`text-xs ${subtl} mt-0.5`}>{Number(saved.count).toLocaleString()} reviews</p>}
                             </div>
                           ) : (
-                            <p className={`text-xs ${subtl} mb-1`}>{fetching ? 'Fetching' : 'No data yet'}</p>
+                            <p className={`text-xs ${subtl} mb-1`}>{fetching ? 'Fetching…' : 'No data yet'}</p>
                           )}
                           {hasError && (
-                            <p className="text-[10px] text-red-500 dark:text-red-400 leading-tight mb-1 line-clamp-2" title={saved.fetchError}>
-                              {saved.fetchError}
+                            <p className="text-[10px] text-red-500 dark:text-red-400 leading-tight mb-1">
+                              Live fetch unavailable. Enter manually.
                             </p>
                           )}
                           {fetchAge && !hasError && (
@@ -5301,7 +5559,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                               className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg ${hasError ? 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600' : 'bg-teal-600 hover:bg-teal-500 text-white'} disabled:opacity-50 text-xs font-black transition-all`}
                             >
                               <RefreshCw size={10} className={fetching ? 'animate-spin' : ''} />
-                              {fetching ? 'Fetching' : 'Retry'}
+                              {fetching ? 'Fetching' : 'Fetch'}
                             </button>
                             {!hasError && (
                               <button
@@ -5327,18 +5585,22 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={TrendingUp} color="text-amber-500" title="Google Rating Trend" subtitle="6-Month Review & Rating Growth" />
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={reviewTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={grid} />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 11, fontWeight: 700 }} />
-                    <YAxis yAxisId="left"  domain={[3,5]}  axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10 }} />
-                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10 }} />
-                    <Tooltip contentStyle={tipStyle} />
-                    <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 700, color: tick }} />
-                    <Area yAxisId="left"  type="monotone" dataKey="rating"  stroke="#f59e0b" fill={darkMode ? '#f59e0b20' : '#fef3c7'} strokeWidth={3} name="Avg Rating"  />
-                    <Bar  yAxisId="right" dataKey="reviews" fill="#0d9488"  radius={[4,4,0,0]} barSize={16} name="New Reviews" />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                {reviewTrend.length === 0 ? (
+                  <EmptyChart height="h-64" message="No dated review history available yet" />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={reviewTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={grid} />
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 11, fontWeight: 700 }} />
+                      <YAxis yAxisId="left" domain={[3,5]} axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10 }} />
+                      <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10 }} />
+                      <Tooltip contentStyle={tipStyle} />
+                      <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 700, color: tick }} />
+                      <Area yAxisId="left" type="monotone" dataKey="rating" stroke="#f59e0b" fill={darkMode ? '#f59e0b20' : '#fef3c7'} strokeWidth={3} name="Avg Rating" />
+                      <Bar yAxisId="right" dataKey="reviews" fill="#0d9488" radius={[4,4,0,0]} barSize={16} name="New Reviews" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -5374,7 +5636,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                           disabled={reviewDraftLoading[i]}
                           className="flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 transition-colors disabled:opacity-40">
                           {reviewDraftLoading[i] ? <RefreshCw size={9} className="animate-spin" /> : <Bot size={9} />}
-                          {reviewDraftLoading[i] ? 'Writing' : reviewDrafts[i] ? 'Regenerate' : 'AI Draft Response'}
+                          {reviewDraftLoading[i] ? 'Writing…' : reviewDrafts[i] ? 'Regenerate' : 'AI Draft Response'}
                         </button>
                         <span className={`text-[12px] font-black px-2 py-1 rounded-full ${r.responded ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
                           {r.responded ? <><CheckCircle size={9} className="inline mr-1" />Responded</> : 'Needs Response'}
@@ -5386,7 +5648,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               </div>
 
               <div className={`${card} p-6 rounded-[2rem]`}>
-                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 910 Clients Ready for Google Review" />
+                <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Promoter Outreach Pipeline" subtitle="NPS 9–10 Clients Ready for Google Review" />
                 <div className="space-y-3">
                   {promoters.map((p, i) => (
                     <div key={i} className={`flex items-center gap-3 p-3 ${rowCls} rounded-xl`}>
@@ -5409,16 +5671,14 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           </>
         )}
 
-        {/*  INTEL  */}
-        
-        {/* SURVEYMONKEY */}
+        {/* ══════════════════ SURVEYMONKEY ══════════════════ */}
         {activeTab === 'survey' && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
-              <StatCard title="Survey Imports" value={surveyEntries.length || ''} trend={null} icon={Upload} color="bg-amber-500" sub="Saved SurveyMonkey snapshots" />
-              <StatCard title="Total Responses" value={surveyTotals.totalResponses ? Number(surveyTotals.totalResponses).toLocaleString() : ''} trend={null} icon={Users} color="bg-teal-600" sub="Across all imported surveys" />
-              <StatCard title="Weighted NPS" value={surveyAvgNps != null ? surveyAvgNps : ''} trend={null} icon={ThumbsUp} color="bg-emerald-600" sub="Weighted by response volume" />
-              <StatCard title="Avg Satisfaction" value={surveyAvgSatisfaction != null ? surveyAvgSatisfaction : ''} trend={null} icon={Star} color="bg-indigo-600" sub="Weighted average score" />
+              <StatCard title="Survey Imports" value={surveyEntries.length || '—'} trend={null} icon={Upload} color="bg-amber-500" sub="Saved SurveyMonkey snapshots" />
+              <StatCard title="Total Responses" value={surveyTotals.totalResponses ? Number(surveyTotals.totalResponses).toLocaleString() : '—'} trend={null} icon={Users} color="bg-teal-600" sub="Across all imported surveys" />
+              <StatCard title="Weighted NPS" value={surveyAvgNps != null ? surveyAvgNps : '—'} trend={null} icon={ThumbsUp} color="bg-emerald-600" sub="Weighted by response volume" />
+              <StatCard title="Avg Satisfaction" value={surveyAvgSatisfaction != null ? surveyAvgSatisfaction : '—'} trend={null} icon={Star} color="bg-indigo-600" sub="Weighted average score" />
             </div>
 
             {surveyEntries.length === 0 && (
@@ -5556,9 +5816,9 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                         {surveyVisibleRows.slice(0, 80).map(r => (
                           <tr key={r.id} className={`${rowCls} border-t border-slate-100 dark:border-slate-800`}>
                             <td className={`px-3 py-2 text-xs font-bold ${txt}`}>{r.survey}</td>
-                            <td className={`px-3 py-2 text-xs font-black ${r.nps == null ? subtl : r.nps >= 50 ? 'text-emerald-500' : r.nps >= 0 ? 'text-amber-500' : 'text-rose-500'}`}>{r.nps == null ? '' : r.nps}</td>
-                            <td className={`px-3 py-2 text-xs font-black ${r.satisfaction == null ? subtl : 'text-teal-500'}`}>{r.satisfaction == null ? '' : r.satisfaction}</td>
-                            <td className={`px-3 py-2 text-xs ${txt2}`}>{r.response || ''}</td>
+                            <td className={`px-3 py-2 text-xs font-black ${r.nps == null ? subtl : r.nps >= 50 ? 'text-emerald-500' : r.nps >= 0 ? 'text-amber-500' : 'text-rose-500'}`}>{r.nps == null ? '—' : r.nps}</td>
+                            <td className={`px-3 py-2 text-xs font-black ${r.satisfaction == null ? subtl : 'text-teal-500'}`}>{r.satisfaction == null ? '—' : r.satisfaction}</td>
+                            <td className={`px-3 py-2 text-xs ${txt2}`}>{r.response || '—'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -5572,6 +5832,8 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
             )}
           </>
         )}
+
+        {/* ══════════════════ INTEL ══════════════════ */}
         {activeTab === 'intel' && (() => {
           const newsApiCreds = connections['News API'] || {};
           const _ytLive   = liveData['YouTube Analytics'] || {};
@@ -5589,8 +5851,8 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 {[
                   { label: 'Tracked URLs',    value: String(savedUrls.length),              color: 'text-teal-500',    icon: Link2 },
                   { label: 'News Loaded',     value: String(newsItems.length),              color: 'text-sky-500',     icon: Newspaper },
-                  { label: 'YT Subscribers',  value: _ytLive.subscribers ? Number(_ytLive.subscribers).toLocaleString()  : '', color: 'text-rose-500',    icon: Youtube },
-                  { label: 'Yelp Rating',     value: _yelpLive.rating    ? `${_yelpLive.rating}  (${_yelpLive.reviewCount || 0})` : '', color: 'text-red-500', icon: Building2 },
+                  { label: 'YT Subscribers',  value: _ytLive.subscribers ? Number(_ytLive.subscribers).toLocaleString()  : '—', color: 'text-rose-500',    icon: Youtube },
+                  { label: 'Yelp Rating',     value: _yelpLive.rating    ? `${_yelpLive.rating} ★ (${_yelpLive.reviewCount || 0})` : '—', color: 'text-red-500', icon: Building2 },
                 ].map(s => (
                   <div key={s.label} className={`${card} p-5 rounded-2xl text-center`}>
                     <s.icon size={22} className={`${s.color} mx-auto mb-2`} />
@@ -5614,7 +5876,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 ))}
               </div>
 
-              {/*  News Feed  */}
+              {/* ── News Feed ── */}
               {intelSubTab === 'news' && (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <SectionHeader icon={Newspaper} color="text-sky-500" title="Industry News Feed" subtitle="Real-time news pulled from newsapi.org" />
@@ -5633,7 +5895,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       className={`flex-1 bg-slate-100 dark:bg-slate-800 ${txt} rounded-xl px-4 py-2.5 text-sm border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500`}
                       value={newsQuery}
                       onChange={e => setNewsQuery(e.target.value)}
-                      placeholder="Search query e.g. mental health Arizona"
+                      placeholder="Search query e.g. mental health Arizona…"
                       onKeyDown={e => { if (e.key === 'Enter') fetchNewsItems(newsQuery, newsApiCreds?.apiKey); }}
                     />
                     <button
@@ -5642,7 +5904,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-black flex items-center gap-2 disabled:opacity-50"
                     >
                       {newsLoading ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
-                      {newsLoading ? 'Fetching' : 'Fetch News'}
+                      {newsLoading ? 'Fetching…' : 'Fetch News'}
                     </button>
                   </div>
                   {/* Preset queries */}
@@ -5684,7 +5946,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 </div>
               )}
 
-              {/*  Web Page Scraper  */}
+              {/* ── Web Page Scraper ── */}
               {intelSubTab === 'scraper' && (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <SectionHeader icon={Link2} color="text-teal-500" title="Page Intelligence Scraper" subtitle="Deep-scan any facility, save profiles, and compare head-to-head" />
@@ -5763,11 +6025,11 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                               <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-3">
                                 <div>
                                   <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-0.5`}>Page Title</p>
-                                  <p className={`font-black text-sm ${txt}`}>{scraperResult.title||''}</p>
+                                  <p className={`font-black text-sm ${txt}`}>{scraperResult.title||'—'}</p>
                                 </div>
                                 <div>
                                   <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-0.5`}>Meta Description</p>
-                                  <p className={`text-xs ${txt2}`}>{scraperResult.description||''}</p>
+                                  <p className={`text-xs ${txt2}`}>{scraperResult.description||'—'}</p>
                                 </div>
                                 {scraperResult.keywords && (
                                   <div>
@@ -5777,7 +6039,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                 )}
                                 <div>
                                   <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mb-0.5`}>H1 Heading</p>
-                                  <p className={`font-black text-sm text-teal-600 dark:text-teal-400`}>{scraperResult.h1||''}</p>
+                                  <p className={`font-black text-sm text-teal-600 dark:text-teal-400`}>{scraperResult.h1||'—'}</p>
                                 </div>
                               </div>
                               {scraperResult.h2s?.length > 0 && (
@@ -6030,7 +6292,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       className="px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-white rounded-xl text-sm font-black flex items-center gap-2 disabled:opacity-50"
                     >
                       {rssLoading ? <RefreshCw size={14} className="animate-spin" /> : <Rss size={14} />}
-                      {rssLoading ? 'Fetching' : 'Load Feed'}
+                      {rssLoading ? 'Fetching…' : 'Load Feed'}
                     </button>
                   </div>
                   {/* Preset feeds */}
@@ -6106,7 +6368,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                 {v.thumbnail && <img src={v.thumbnail} alt="" className="w-10 h-7 object-cover rounded-lg flex-shrink-0" />}
                                 <div className="min-w-0 flex-1">
                                   <p className={`text-xs font-black ${txt} truncate`}>{v.title}</p>
-                                  <p className={`text-[11px] ${subtl}`}>{Number(v.views||0).toLocaleString()} views  {Number(v.likes||0).toLocaleString()} likes</p>
+                                  <p className={`text-[11px] ${subtl}`}>{Number(v.views||0).toLocaleString()} views · {Number(v.likes||0).toLocaleString()} likes</p>
                                 </div>
                               </div>
                             ))}
@@ -6134,8 +6396,8 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                           <p className={`text-[11px] ${subtl}`}>Reviews</p>
                         </div>
                       </div>
-                      {_yelpLive.address && <p className={`text-xs ${subtl}`}> {_yelpLive.address}</p>}
-                      {_yelpLive.phone   && <p className={`text-xs ${subtl} mt-1`}> {_yelpLive.phone}</p>}
+                      {_yelpLive.address && <p className={`text-xs ${subtl}`}>📍 {_yelpLive.address}</p>}
+                      {_yelpLive.phone   && <p className={`text-xs ${subtl} mt-1`}>📞 {_yelpLive.phone}</p>}
                       {_yelpLive.url && (
                         <a href={_yelpLive.url} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-1 text-xs text-red-500 hover:text-red-400 font-black">
                           <ExternalLink size={11} /> View on Yelp
@@ -6149,24 +6411,9 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
           );
         })()}
 
-        {/*  INTEGRATIONS  */}
+        {/* ══════════════════ INTEGRATIONS ══════════════════ */}
         {activeTab === 'integrations' && (
           <>
-            {oauthBannerError && (
-              <div className="mb-4 p-4 rounded-2xl bg-rose-50 dark:bg-rose-900/20 border border-rose-300 dark:border-rose-700 flex items-start gap-3">
-                <AlertCircle size={18} className="text-rose-500 flex-shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black text-rose-600 dark:text-rose-400 mb-0.5">Connection Failed</p>
-                  <p className="text-sm text-rose-600 dark:text-rose-400 break-words">{oauthBannerError}</p>
-                  <button onClick={() => {
-                    fetch('/api/google?action=check').then(r => r.json()).then(d => {
-                      setOauthBannerError('Config check: ' + JSON.stringify(d));
-                    }).catch(() => setOauthBannerError('Config check failed - API not reachable'));
-                  }} className="mt-2 text-xs font-black text-rose-500 underline">Run diagnostics</button>
-                </div>
-                <button onClick={() => setOauthBannerError(null)} className="text-rose-400 hover:text-rose-600 flex-shrink-0"><X size={14} /></button>
-              </div>
-            )}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
               <div className={`${card} p-5 rounded-2xl text-center`}>
                 <div className="text-3xl font-black text-teal-500 mb-1">{integrations.filter(i=>i.connected).length}</div>
@@ -6247,7 +6494,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                               : syncStatus[intg.name] === 'error'
                               ? <X size={10} className="text-rose-500" />
                               : <RefreshCw size={10} />}
-                            {syncStatus[intg.name] === 'syncing' ? 'Syncing' : syncStatus[intg.name] === 'error' ? 'Retry' : 'Sync Now'}
+                            {syncStatus[intg.name] === 'syncing' ? 'Syncing…' : syncStatus[intg.name] === 'error' ? 'Retry' : 'Sync Now'}
                           </button>
                         : <button onClick={() => { setConnectModal(intg.name); setConnectFormData(connections[intg.name] || {}); setConnectError(null); }} className="text-amber-500 hover:text-amber-400 font-black flex items-center gap-1">
                             <Plug size={10} /> Connect
@@ -6260,10 +6507,21 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
             </div>
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
               <SectionHeader icon={Plug} color="text-teal-500" title="Integration Setup Guide" subtitle="Steps to connect remaining platforms" />
+              {/* SurveyMonkey CSV notice */}
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl mb-4 flex items-start gap-3">
+                <ThumbsUp size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black text-amber-700 dark:text-amber-300 mb-0.5">SurveyMonkey — CSV Import (Free Plan)</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 leading-relaxed mb-2">SurveyMonkey's API requires a paid plan. On the free plan, export your survey as a CSV (Analyze → Export → CSV) then import it here.</p>
+                  <button onClick={() => setActiveTab('import')} className="text-[11px] font-black bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                    <Upload size={11} /> Go to Import Tab
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {[
-                  { name: 'Meta Ads Manager',    icon: Megaphone,  step: 'Meta Business Manager ? Apps ? Generate API token ? Add to .env as VITE_META_ADS_TOKEN'  },
-                  { name: 'TikTok for Business', icon: PlayCircle, step: 'Apply for TikTok Business API ? Create App ? Get access token ? Add as VITE_TIKTOK_TOKEN' },
+                  { name: 'Meta Ads Manager',    icon: Megaphone,  step: 'Meta Business Manager → Apps → Generate API token → Add to .env as VITE_META_ADS_TOKEN'  },
+                  { name: 'TikTok for Business', icon: PlayCircle, step: 'Apply for TikTok Business API → Create App → Get access token → Add as VITE_TIKTOK_TOKEN' },
                 ].map(g => (
                   <div key={g.name} className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl">
                     <div className="flex items-center gap-2 mb-2">
@@ -6276,7 +6534,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               </div>
               <div className="p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-2xl">
                 <p className="text-xs font-black text-teal-700 dark:text-teal-300 uppercase tracking-wider mb-1">Note</p>
-                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 530 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
+                <p className="text-sm text-teal-600 dark:text-teal-400 leading-relaxed">All active integrations pull live data via their respective APIs, refreshing every 5–30 min depending on rate limits. Contact your developer to update API keys in the environment config.</p>
               </div>
             </div>
           </>
@@ -6300,20 +6558,20 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               ))}
             </div>
 
-            {/*  Backup & Sync card  */}
+            {/* ── Backup & Sync card ──────────────────────────────────────── */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
               <SectionHeader icon={RefreshCw} color="text-indigo-500" title="Cloud Sync" subtitle="All data syncs automatically across every device in real time" />
 
               {/* Cloud status banner */}
               {cloudSynced === 'offline' ? (
                 <div className="mb-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
-                  <p className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-1"> Cloud sync not configured yet</p>
+                  <p className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-1">☁️ Cloud sync not configured yet</p>
                   <p className="text-xs text-amber-600 dark:text-amber-500 mb-3">To enable automatic cross-device sync, create a free Upstash Redis database (takes ~2 min):</p>
                   <ol className="text-xs text-amber-600 dark:text-amber-500 space-y-1 list-decimal list-inside mb-3">
-                    <li>Go to <strong>upstash.com</strong>  sign in  <strong>Create Database</strong>  Redis  any region  <strong>Create</strong></li>
-                    <li>Open the database  <strong>REST API</strong> tab  copy <strong>UPSTASH_REDIS_REST_URL</strong> and <strong>UPSTASH_REDIS_REST_TOKEN</strong></li>
-                    <li>Go to your <strong>Vercel project</strong>  <strong>Settings</strong>  <strong>Environment Variables</strong></li>
-                    <li>Add both variables, then <strong>Redeploy</strong>  sync activates instantly</li>
+                    <li>Go to <strong>upstash.com</strong> → sign in → <strong>Create Database</strong> → Redis → any region → <strong>Create</strong></li>
+                    <li>Open the database → <strong>REST API</strong> tab → copy <strong>UPSTASH_REDIS_REST_URL</strong> and <strong>UPSTASH_REDIS_REST_TOKEN</strong></li>
+                    <li>Go to your <strong>Vercel project</strong> → <strong>Settings</strong> → <strong>Environment Variables</strong></li>
+                    <li>Add both variables, then <strong>Redeploy</strong> — sync activates instantly</li>
                   </ol>
                   <p className="text-xs text-amber-500 dark:text-amber-600">Until then, use the <strong>Export Backup</strong> button below to manually move data between devices.</p>
                 </div>
@@ -6322,7 +6580,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Auto-sync active</p>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-500">Data saves automatically  open this dashboard on any device and you'll see the latest data instantly.</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-500">Data saves automatically — open this dashboard on any device and you'll see the latest data instantly.</p>
                   </div>
                 </div>
               )}
@@ -6424,9 +6682,9 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   <div className="mb-5 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
                     <p className="text-sm font-black text-amber-700 dark:text-amber-400 mb-1">How to export from SurveyMonkey</p>
                     <ol className="text-xs text-amber-600 dark:text-amber-500 space-y-0.5 list-decimal list-inside">
-                      <li>Open your survey  <strong>Analyze Results</strong> tab</li>
-                      <li>Click <strong>Export All</strong>  <strong>Export File</strong></li>
-                      <li>Choose <strong>All Responses Data</strong>  format <strong>CSV</strong></li>
+                      <li>Open your survey → <strong>Analyze Results</strong> tab</li>
+                      <li>Click <strong>Export All</strong> → <strong>Export File</strong></li>
+                      <li>Choose <strong>All Responses Data</strong> → format <strong>CSV</strong></li>
                       <li>Paste the file contents below or drop the file onto the drop zone</li>
                     </ol>
                   </div>
@@ -6441,7 +6699,11 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       const f = e.dataTransfer.files[0];
                       if (!f) return;
                       const reader = new FileReader();
-                      reader.onload = ev => setPasteCSV(ev.target.result);
+                      reader.onload = ev => {
+                        const csvText = String(ev.target.result || '');
+                        setPasteCSV(csvText);
+                        parseSurveyMonkeyCSV(csvText, { autoSave: true });
+                      };
                       reader.readAsText(f);
                     }}
                   >
@@ -6449,7 +6711,11 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       onChange={e => {
                         const f = e.target.files[0]; if (!f) return;
                         const reader = new FileReader();
-                        reader.onload = ev => setPasteCSV(ev.target.result);
+                        reader.onload = ev => {
+                          const csvText = String(ev.target.result || '');
+                          setPasteCSV(csvText);
+                          parseSurveyMonkeyCSV(csvText, { autoSave: true });
+                        };
                         reader.readAsText(f);
                         e.target.value = '';
                       }}
@@ -6495,7 +6761,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   {surveyParsed && (
                     <div className="rounded-2xl border-2 border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/10 p-5 space-y-4">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-black text-amber-700 dark:text-amber-400">Survey Preview  review before saving</p>
+                        <p className="text-sm font-black text-amber-700 dark:text-amber-400">Survey Preview — review before saving</p>
                         <span className={`text-[11px] font-bold ${subtl}`}>{surveyParsed.totalResponses} responses</span>
                       </div>
 
@@ -6503,13 +6769,13 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       <div className="grid grid-cols-3 gap-3">
                         <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-800 text-center">
                           <p className={`text-2xl font-black ${ surveyParsed.npsScore == null ? subtl : surveyParsed.npsScore >= 50 ? 'text-emerald-600' : surveyParsed.npsScore >= 0 ? 'text-amber-500' : 'text-rose-500' }`}>
-                            {surveyParsed.npsScore != null ? surveyParsed.npsScore : ''}
+                            {surveyParsed.npsScore != null ? surveyParsed.npsScore : '—'}
                           </p>
                           <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-0.5`}>NPS Score</p>
                         </div>
                         <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-800 text-center">
                           <p className={`text-2xl font-black ${surveyParsed.avgSatisfaction ? 'text-teal-600' : subtl}`}>
-                            {surveyParsed.avgSatisfaction ?? ''}
+                            {surveyParsed.avgSatisfaction ?? '—'}
                           </p>
                           <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-0.5`}>Avg Satisfaction</p>
                         </div>
@@ -6550,7 +6816,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                                   <div className="flex flex-wrap gap-1 mt-1.5">
                                     {q.topAnswers.map((a, j) => (
                                       <span key={j} className={`text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 ${txt2}`}>
-                                        {a.answer.slice(0, 40)} <span className="font-black">{a.count}</span>
+                                        {a.answer.slice(0, 40)} <span className="font-black">×{a.count}</span>
                                       </span>
                                     ))}
                                   </div>
@@ -6616,8 +6882,8 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                               <tbody className={`divide-y ${divdr}`}>
                                 {[...(manualData['tiktok_posts'] || [])].reverse().slice(0, 10).map((e, i) => (
                                   <tr key={i} className={rowCls}>
-                                    <td className={`py-2 pr-4 font-bold ${txt} max-w-[140px] truncate`}>{e.title || ''}</td>
-                                    <td className={`py-2 pr-4 ${txt2}`}>{e.date || ''}</td>
+                                    <td className={`py-2 pr-4 font-bold ${txt} max-w-[140px] truncate`}>{e.title || '—'}</td>
+                                    <td className={`py-2 pr-4 ${txt2}`}>{e.date || '—'}</td>
                                     <td className={`py-2 pr-4 font-black text-teal-500`}>{Number(e.views || 0).toLocaleString()}</td>
                                     <td className={`py-2 pr-4 ${txt2}`}>{Number(e.likes || 0).toLocaleString()}</td>
                                     <td className={`py-2 pr-4 ${txt2}`}>{Number(e.comments || 0).toLocaleString()}</td>
@@ -6744,7 +7010,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
 
               {importMode === 'wix' && (
                 <div>
-                  {/*  Instructions  */}
+                  {/* ── Instructions ── */}
                   <div className="mb-6 p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/50">
                     <p className="text-[13px] font-black text-violet-700 dark:text-violet-300 mb-3 flex items-center gap-2">
                       <Globe size={14} /> How to export from Wix Analytics
@@ -6752,7 +7018,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                     <ol className="space-y-2 text-xs text-violet-600 dark:text-violet-400">
                       <li className="flex items-start gap-2">
                         <span className="font-black shrink-0 bg-violet-200 dark:bg-violet-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">1</span>
-                        In your Wix Dashboard, go to <strong>Analytics &amp; Reports  Traffic Overview</strong>
+                        In your Wix Dashboard, go to <strong>Analytics &amp; Reports → Traffic Overview</strong>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="font-black shrink-0 bg-violet-200 dark:bg-violet-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">2</span>
@@ -6764,12 +7030,12 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="font-black shrink-0 bg-violet-200 dark:bg-violet-800 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">4</span>
-                        Drop the downloaded file into the upload zone below  we'll auto-parse it
+                        Drop the downloaded file into the upload zone below — we'll auto-parse it
                       </li>
                     </ol>
                   </div>
 
-                  {/*  CSV upload zone  */}
+                  {/* ── CSV upload zone ── */}
                   <div
                     className="border-2 border-dashed border-violet-300 dark:border-violet-700/50 rounded-2xl p-10 text-center hover:border-violet-500 transition-colors cursor-pointer mb-6 group"
                     onClick={() => wixFileRef.current?.click()}
@@ -6785,7 +7051,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                     />
                     <Upload size={30} className={`${subtl} group-hover:text-violet-500 mx-auto mb-2 transition-colors`} />
                     <p className={`text-sm font-black ${txt} mb-1`}>Drop your Wix Analytics CSV here</p>
-                    <p className={`text-xs ${subtl} mb-4`}>Traffic Overview or Traffic Sources export  sessions, bounce rate &amp; channels auto-detected</p>
+                    <p className={`text-xs ${subtl} mb-4`}>Traffic Overview or Traffic Sources export — sessions, bounce rate &amp; channels auto-detected</p>
                     <button
                       className="px-5 py-2 bg-violet-600 text-white rounded-xl text-sm font-black hover:bg-violet-500 transition-all"
                       onClick={e => { e.stopPropagation(); wixFileRef.current?.click(); }}
@@ -6794,7 +7060,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                     </button>
                   </div>
 
-                  {/*  Manual entry fallback  */}
+                  {/* ── Manual entry fallback ── */}
                   <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-3`}>Or enter manually</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
                     {[
@@ -6828,7 +7094,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                     <Plus size={13} /> Save Wix Data
                   </button>
 
-                  {/*  Current Wix data preview  */}
+                  {/* ── Current Wix data preview ── */}
                   {wixData?.sessions > 0 && (
                     <div className="mt-5 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                       <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-3`}>Current Wix Data on Record</p>
@@ -6852,7 +7118,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 </div>
               )}
 
-              {/*  AI Screenshot Scanner  */}
+              {/* ── AI Screenshot Scanner ─────────────────────────────── */}
               {importMode === 'scan' && (
                 <div>
                   <div className="mb-4 p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/50">
@@ -6861,7 +7127,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       <div>
                         <p className={`text-sm font-bold text-violet-700 dark:text-violet-300 mb-0.5`}>AI-Powered Screenshot Extractor</p>
                         <p className={`text-xs text-violet-600 dark:text-violet-400`}>
-                          Take a screenshot of <strong>any platform</strong> (Google, Yelp, Instagram, TikTok, Facebook Ads, GA4, Mailchimp  anything) and AI will read every visible metric and save it to your dashboard automatically.
+                          Take a screenshot of <strong>any platform</strong> (Google, Yelp, Instagram, TikTok, Facebook Ads, GA4, Mailchimp — anything) and AI will read every visible metric and save it to your dashboard automatically.
                         </p>
                       </div>
                     </div>
@@ -6888,7 +7154,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                     >
                       <Camera size={40} className="text-violet-300 dark:text-violet-600 group-hover:text-violet-500 mx-auto mb-3 transition-colors" />
                       <p className={`text-sm font-black ${txt} mb-1`}>Drop a screenshot here, click to browse, or paste (Ctrl+V)</p>
-                      <p className={`text-xs ${subtl} mb-5`}>Supports PNG, JPG, WebP  up to 10 MB</p>
+                      <p className={`text-xs ${subtl} mb-5`}>Supports PNG, JPG, WebP — up to 10 MB</p>
                       <p className={`text-xs text-violet-500`}>Works with Google Business, Yelp, Instagram, TikTok, Facebook, GA4, Meta Ads, Mailchimp, and more</p>
                       <input
                         ref={scanFileRef}
@@ -6972,7 +7238,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       {/* Extracted fields grid */}
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {[
-                          { key: 'rating',        label: 'Rating',       unit: '',  color: 'text-amber-500'   },
+                          { key: 'rating',        label: 'Rating',       unit: '★',  color: 'text-amber-500'   },
                           { key: 'reviewCount',   label: 'Reviews',      unit: '',   color: 'text-amber-500'   },
                           { key: 'followers',     label: 'Followers',    unit: '',   color: 'text-purple-500'  },
                           { key: 'likes',         label: 'Likes',        unit: '',   color: 'text-rose-500'    },
@@ -7041,8 +7307,8 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       <p className={`text-[13px] ${subtl} truncate`}>
                         {feed.connected
                           ? (liveData[feed.name] && Object.keys(liveData[feed.name]).filter(k=>!['id','name','connected','lastSync','accessToken','openId','clientId','apiKey','apiSecret','pageId','placeId'].includes(k)).length > 0
-                            ? Object.entries(liveData[feed.name]).filter(([k])=>!['id','name','connected','lastSync','accessToken','openId','clientId','apiKey','apiSecret','pageId','placeId'].includes(k)).slice(0,3).map(([k,v])=>`${k.replace(/_/g,' ')}: ${v}`).join('  ')
-                            : `Last synced ${connections[feed.name]?.lastSync || ''}`)
+                            ? Object.entries(liveData[feed.name]).filter(([k])=>!['id','name','connected','lastSync','accessToken','openId','clientId','apiKey','apiSecret','pageId','placeId'].includes(k)).slice(0,3).map(([k,v])=>`${k.replace(/_/g,' ')}: ${v}`).join(' · ')
+                            : `Last synced ${connections[feed.name]?.lastSync || '—'}`)
                           : feed.metrics.join(', ')}
                       </p>
                     </div>
@@ -7052,7 +7318,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                         : <button
                             onClick={() => { setConnectModal(feed.name); setConnectFormData(connections[feed.name] || {}); setConnectError(null); setActiveTab('integrations'); }}
                             className="text-[12px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors cursor-pointer"
-                          >Set Up </button>
+                          >Set Up →</button>
                       }
                     </div>
                   </div>
@@ -7060,90 +7326,20 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               </div>
             </div>
 
-            {/*  Survey Results  Live data  */}
-            {(connections['SurveyMonkey']?.connected || _smLive.totalSurveys != null || _smLive.totalResponses != null) && (
+            {/* ── Survey Results history ──────────────────────────────────────────── */}
+            {_surveyEntries.length > 0 && (
               <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
                 <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
-                  <SectionHeader icon={ThumbsUp} color="text-amber-500" title="Survey Results (Live)" subtitle={`Connected as ${_smLive.username || _smLive.email || 'SurveyMonkey'}  ${_smLive.connectedAt ? new Date(_smLive.connectedAt).toLocaleDateString() : ''}`} />
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                  {_smLive.totalSurveys == null && _smLive.totalResponses == null ? (
-                    <div className={`col-span-3 p-4 rounded-2xl border ${brd} text-center`}>
-                      <p className={`text-sm ${subtl}`}>No survey data yet  click <span className="font-black text-teal-400">Sync Now</span> on the SurveyMonkey integration above, or use the <span className="font-black text-amber-400">CSV Import</span> tab to upload a SurveyMonkey export.</p>
-                    </div>
-                  ) : (<>
-                  <div className={`p-4 rounded-2xl border ${brd} text-center`}>
-                    <p className={`text-3xl font-black ${txt}`}>{_smLive.totalSurveys ?? ''}</p>
-                    <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-1`}>Total Surveys</p>
-                  </div>
-                  <div className={`p-4 rounded-2xl border ${brd} text-center`}>
-                    <p className={`text-3xl font-black text-teal-600 dark:text-teal-400`}>{_smLive.totalResponses != null ? _smLive.totalResponses.toLocaleString() : ''}</p>
-                    <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-1`}>Total Responses</p>
-                  </div>
-                  {_smLive.activeSurveyTitle && (
-                    <div className={`p-4 rounded-2xl border ${brd} text-center col-span-2 md:col-span-1`}>
-                      <p className={`text-2xl font-black text-amber-500`}>{_smLive.activeSurveyResponses ?? 0}</p>
-                      <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-1`}>Responses</p>
-                      <p className={`text-xs ${subtl} mt-1 truncate`}>{_smLive.activeSurveyTitle}</p>
-                    </div>
-                  )}
-                  </>)}
-                </div>
-                {(_smLive.recentSurveys || []).length > 0 && (
-                  <div className="space-y-2">
-                    <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-2`}>Recent Surveys</p>
-                    {(_smLive.recentSurveys || []).slice(0, 5).map((s, i) => (
-                      <div key={s.id || i} className={`flex items-center justify-between p-3 rounded-xl border ${brd}`}>
-                        <span className={`text-sm ${txt} truncate flex-1 mr-3`}>{s.title}</span>
-                        <span className={`text-xs font-black ${subtl} whitespace-nowrap`}>{(s.responses ?? 0).toLocaleString()} resp.</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {(_smLive.rollups || []).length > 0 && (
-                  <div className="mt-4 space-y-4">
-                    <p className={`text-[11px] font-black ${muted} uppercase tracking-wider`}>Question Rollups</p>
-                    {(_smLive.rollups || []).slice(0, 3).map((q, qi) => (
-                      <div key={qi} className={`p-4 rounded-2xl border ${brd}`}>
-                        <p className={`text-sm font-black ${txt} mb-3`}>{q.question}</p>
-                        <div className="space-y-2">
-                          {(q.answers || []).slice(0, 5).map((a, ai) => {
-                            const total = (q.answers || []).reduce((s, x) => s + (x.count || 0), 0);
-                            const pct = total > 0 ? Math.round((a.count / total) * 100) : 0;
-                            return (
-                              <div key={ai}>
-                                <div className="flex justify-between mb-0.5">
-                                  <span className={`text-xs ${subtl} truncate flex-1 mr-2`}>{a.text}</span>
-                                  <span className={`text-xs font-black ${txt}`}>{pct}%</span>
-                                </div>
-                                <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
-                                  <div className="h-1.5 rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/*  Survey Results history  */}
-            {(manualData.survey_results || []).length > 0 && (
-              <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
-                <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
-                  <SectionHeader icon={ThumbsUp} color="text-amber-500" title="Survey Results" subtitle="Patient satisfaction data imported from SurveyMonkey" />
+                  <SectionHeader icon={ThumbsUp} color="text-amber-500" title="Current Survey Results" subtitle="Latest SurveyMonkey import used across the dashboard" />
                   <button
                     onClick={() => { setImportMode('survey'); setSurveyParsed(null); setPasteCSV(''); }}
                     className="text-xs font-black px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-700 hover:bg-amber-100 transition-colors flex items-center gap-1.5"
                   >
-                    <Plus size={11} /> Import More
+                    <Plus size={11} /> Replace Import
                   </button>
                 </div>
                 <div className="space-y-4">
-                  {(manualData.survey_results || []).slice(0, 5).map((survey, idx) => (
+                  {_surveyEntries.map((survey, idx) => (
                     <div key={idx} className={`p-4 rounded-2xl border ${brd} ${idx === 0 ? 'bg-amber-50 dark:bg-amber-900/10' : ''}`}>
                       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                         <div className="flex items-center gap-2">
@@ -7155,13 +7351,13 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       <div className="grid grid-cols-3 gap-3">
                         <div className="text-center">
                           <p className={`text-2xl font-black ${survey.npsScore == null ? subtl : survey.npsScore >= 50 ? 'text-emerald-600 dark:text-emerald-400' : survey.npsScore >= 0 ? 'text-amber-500' : 'text-rose-500'}`}>
-                            {survey.npsScore != null ? survey.npsScore : ''}
+                            {survey.npsScore != null ? survey.npsScore : '—'}
                           </p>
                           <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>NPS</p>
                         </div>
                         <div className="text-center">
                           <p className={`text-2xl font-black ${survey.avgSatisfaction ? 'text-teal-600 dark:text-teal-400' : subtl}`}>
-                            {survey.avgSatisfaction ?? ''}
+                            {survey.avgSatisfaction ?? '—'}
                           </p>
                           <p className={`text-[10px] font-black ${subtl} uppercase tracking-wider`}>Avg Sat.</p>
                         </div>
@@ -7172,9 +7368,9 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                       </div>
                       {survey.npsBreakdown && (
                         <div className={`flex gap-4 mt-3 pt-3 border-t ${brd} text-xs ${subtl}`}>
-                          <span> Promoters: <strong className={txt}>{survey.npsBreakdown.promoters}</strong></span>
-                          <span> Passives: <strong className={txt}>{survey.npsBreakdown.passives}</strong></span>
-                          <span> Detractors: <strong className={txt}>{survey.npsBreakdown.detractors}</strong></span>
+                          <span>🟢 Promoters: <strong className={txt}>{survey.npsBreakdown.promoters}</strong></span>
+                          <span>🟡 Passives: <strong className={txt}>{survey.npsBreakdown.passives}</strong></span>
+                          <span>🔴 Detractors: <strong className={txt}>{survey.npsBreakdown.detractors}</strong></span>
                         </div>
                       )}
                     </div>
@@ -7194,7 +7390,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 )}
               </div>
 
-              {/*  File upload log  */}
+              {/* ── File upload log ── */}
               {fileImportLog.length > 0 && (
                 <div className="mb-6">
                   <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-2`}>Files Uploaded ({fileImportLog.length})</p>
@@ -7222,15 +7418,15 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 </div>
               )}
 
-              {/*  Manual data entries  */}
+              {/* ── Manual data entries ── */}
               <p className={`text-[11px] font-black ${muted} uppercase tracking-wider mb-2`}>Manual Data Entries</p>
               {(() => {
                 const allEntries = Object.entries(manualData)
                   .flatMap(([key, rows]) =>
                     (rows || []).map(row => ({
                       type: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                      savedAt: row._savedAt || '',
-                      summary: Object.entries(row).filter(([k]) => !k.startsWith('_')).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join('    '),
+                      savedAt: row._savedAt || '—',
+                      summary: Object.entries(row).filter(([k]) => !k.startsWith('_')).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join('  ·  '),
                     }))
                   )
                   .reverse()
@@ -7267,7 +7463,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               })()}
             </div>
 
-            {/*  Captain KPI  Import Data Analysis  */}
+            {/* ── Captain KPI — Import Data Analysis ── */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
               <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
                 <SectionHeader icon={Bot} color="text-purple-500" title="AI Data Analysis" subtitle="Captain KPI reads your imported data and delivers the hard truths" />
@@ -7277,7 +7473,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-all flex-shrink-0 shadow-lg"
                 >
                   <Bot size={14} className={aiInsightsLoading ? 'animate-spin' : ''} />
-                  {aiInsightsLoading ? 'Analyzing' : 'Analyze Imported Data'}
+                  {aiInsightsLoading ? 'Analyzing…' : 'Analyze Imported Data'}
                 </button>
               </div>
               {aiInsights ? (
@@ -7294,7 +7490,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 <div className="flex flex-col items-center justify-center py-8">
                   <CaptainKPI size={48} />
                   <p className={`text-sm font-black ${txt} mt-3 mb-1`}>Ready to analyze your data</p>
-                  <p className={`text-xs ${subtl} max-w-sm text-center`}>Import your data above, then hit Analyze  Captain KPI will break down what it means for Destiny Springs.</p>
+                  <p className={`text-xs ${subtl} max-w-sm text-center`}>Import your data above, then hit Analyze — Captain KPI will break down what it means for Destiny Springs.</p>
                 </div>
               )}
             </div>
@@ -7317,7 +7513,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   </div>
                   <span className="shrink-0 text-[13px] font-black px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">Connect Required</span>
                 </div>
-                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>Sintra AI automates your digital marketing workflows  from social post generation to SEO optimization and ad copy. Connect your account to sync campaign data and run AI-powered automations directly from this dashboard.</p>
+                <p className={`text-sm ${txt2} leading-relaxed mb-5`}>Sintra AI automates your digital marketing workflows – from social post generation to SEO optimization and ad copy. Connect your account to sync campaign data and run AI-powered automations directly from this dashboard.</p>
                 <div className="space-y-2 mb-6">
                   {[
                     'Automated social media post generation',
@@ -7407,7 +7603,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               <div className="mb-5">
                 <label className={`block text-[13px] font-black ${muted} uppercase mb-1.5 tracking-wider`}>Topic / Brief</label>
                 <textarea value={aiTopic} onChange={e => setAiTopic(e.target.value)} className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm ${txt} h-24 resize-none focus:outline-none focus:border-purple-500`}
-                  placeholder="e.g. Mental health awareness week post  focus on reducing stigma in Arizona healthcare..." />
+                  placeholder="e.g. Mental health awareness week post – focus on reducing stigma in Arizona healthcare..." />
               </div>
               <div className="flex items-center gap-3 flex-wrap mb-5">
                 <button
@@ -7466,19 +7662,19 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
         <div className={`mt-12 pt-6 border-t ${brd} flex flex-col md:flex-row justify-between items-center gap-3 no-print`}>
           <div className="flex items-center gap-2">
             <Heart size={13} className="text-teal-500 fill-teal-500" />
-            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare  Digital Marketing Portal</span>
+            <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare – Digital Marketing Portal</span>
           </div>
           <span className={`text-[13px] ${subtl} uppercase tracking-wider`}>Powered by DMD &middot; Destiny Springs Healthcare</span>
         </div>
 
         </main>
 
-        {/*  CAPTAIN KPI CHATBOT  */}
+        {/* ══ CAPTAIN KPI CHATBOT ═══════════════════════════════════════════ */}
         {/* Floating toggle button */}
         <button
           onClick={() => setChatOpen(o => !o)}
           className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-br from-purple-700 to-indigo-700 shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform no-print"
-          title="Captain KPI  AI Marketing Assistant"
+          title="Captain KPI — AI Marketing Assistant"
         >
           {chatOpen ? <X size={22} /> : <CaptainKPI size={30} />}
         </button>
@@ -7495,8 +7691,8 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 <CaptainKPI size={32} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-white leading-tight">Captain KPI </p>
-                <p className="text-[10px] text-purple-200">AI Marketing Officer  Powered by Gemini</p>
+                <p className="text-sm font-black text-white leading-tight">Captain KPI 🫡</p>
+                <p className="text-[10px] text-purple-200">AI Marketing Officer · Powered by Gemini</p>
               </div>
               <button onClick={() => setChatOpen(false)} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><X size={16} /></button>
             </div>
@@ -7525,7 +7721,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                     <CaptainKPI size={22} />
                   </div>
                   <div className={`rounded-2xl rounded-tl-sm px-3 py-2 ${darkMode ? 'bg-white/10 text-purple-300' : 'bg-white text-slate-500 shadow-sm'} text-[13px]`}>
-                    Typing 
+                    Typing… ✍️
                   </div>
                 </div>
               )}
@@ -7549,27 +7745,53 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
             </div>
 
             {/* Input */}
-            <div className={`flex gap-2 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/10 bg-indigo-950/80' : 'border-t border-purple-100 bg-white'}`}>
-              <input
-                className={`flex-1 rounded-xl px-3 py-2 text-[13px] outline-none border ${darkMode ? 'bg-white/10 border-white/20 text-white placeholder-white/40 focus:border-purple-400' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-purple-400'} transition-colors`}
-                placeholder="Ask Captain KPI"
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
-              />
-              <button
-                onClick={() => sendChatMessage()}
-                disabled={chatLoading || !chatInput.trim()}
-                className="h-9 w-9 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 flex items-center justify-center text-white transition-colors flex-shrink-0"
-              >
-                <Send size={14} />
-              </button>
+            <div className={`flex flex-col gap-1.5 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/10 bg-indigo-950/80' : 'border-t border-purple-100 bg-white'}`}>
+              {/* Attachment preview */}
+              {chatAttachment && (
+                <div className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-[12px] ${darkMode ? 'bg-white/10 text-purple-200' : 'bg-purple-50 text-purple-700'}`}>
+                  <Paperclip size={12} className="flex-shrink-0" />
+                  <span className="truncate flex-1">{chatAttachment.name}</span>
+                  <button onClick={() => setChatAttachment(null)} className="flex-shrink-0 hover:text-rose-400 transition-colors"><X size={12} /></button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                {/* Attach file button */}
+                <button
+                  onClick={() => chatFileRef.current?.click()}
+                  disabled={chatLoading}
+                  title="Attach image, PDF, or text file"
+                  className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40 ${chatAttachment ? 'bg-purple-600 text-white' : darkMode ? 'bg-white/10 text-purple-300 hover:bg-white/20' : 'bg-purple-50 text-purple-500 hover:bg-purple-100'}`}
+                >
+                  <Paperclip size={14} />
+                </button>
+                <input
+                  ref={chatFileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv"
+                  className="hidden"
+                  onChange={e => { handleChatFileSelect(e.target.files[0]); e.target.value = ''; }}
+                />
+                <input
+                  className={`flex-1 rounded-xl px-3 py-2 text-[13px] outline-none border ${darkMode ? 'bg-white/10 border-white/20 text-white placeholder-white/40 focus:border-purple-400' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-purple-400'} transition-colors`}
+                  placeholder="Ask Captain KPI…"
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
+                />
+                <button
+                  onClick={() => sendChatMessage()}
+                  disabled={chatLoading || (!chatInput.trim() && !chatAttachment)}
+                  className="h-9 w-9 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 flex items-center justify-center text-white transition-colors flex-shrink-0"
+                >
+                  <Send size={14} />
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/*  CONNECT MODAL  */}
+      {/* ══ CONNECT MODAL ══════════════════════════════════════════════════════ */}
       {connectModal && (() => {
         const intg   = integrations.find(i => i.name === connectModal);
         const fields = integrationFields[connectModal] || [];
@@ -7591,191 +7813,11 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                 </div>
                 <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`${muted} hover:text-rose-500 transition-colors`}><X size={18} /></button>
               </div>
-              {/* Meta Business Suite: OAuth button */}
-              {connectModal === 'Meta Business Suite' ? (
+              {/* TikTok: OAuth button instead of credential fields */}
+              {connectModal === 'TikTok for Business' ? (
                 <div className="mb-4">
                   <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
-                    Click below to log in with Facebook. You will be redirected to Facebook and back - connects both Facebook and Instagram.
-                  </p>
-                  <a
-                    href="/api/meta?action=login"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-black text-white transition-colors"
-                    style={{ background: '#1877F2' }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                    Continue with Facebook
-                  </a>
-                  <details className="mt-4">
-                    <summary className={`text-[11px] cursor-pointer ${subtl} hover:text-teal-400`}>Or enter token manually</summary>
-                    <div className="mt-3 space-y-3">
-                      {fields.map(field => (
-                        <div key={field.key}>
-                          <label className={`block text-[12px] font-black ${txt2} uppercase tracking-wider mb-1.5`}>{field.label}</label>
-                          <input
-                            type={field.type || 'text'}
-                            placeholder={field.placeholder}
-                            value={connectFormData[field.key] || ''}
-                            onChange={e => setConnectFormData(d => ({ ...d, [field.key]: e.target.value }))}
-                            className={`w-full px-3 py-2.5 rounded-xl text-sm ${txt} bg-slate-50 dark:bg-slate-800 border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500`}
-                          />
-                          {field.hint && <p className={`text-[11px] mt-1 ${subtl}`}>{field.hint}</p>}
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => saveConnection(connectModal, connectFormData)}
-                        disabled={connectTesting}
-                        className="w-full py-2.5 rounded-xl text-sm font-black bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2"
-                      >
-                        {connectTesting ? <><RefreshCw size={14} className="animate-spin" /> Testing...</> : <><Plug size={14} /> Save &amp; Connect</>}
-                      </button>
-                    </div>
-                  </details>
-                  <button
-                    onClick={() => { setConnectModal(null); setConnectError(null); }}
-                    className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
-                  >Cancel</button>
-                </div>
-              ) : connectModal === 'Google Analytics' ? (
-                <div className="mb-4">
-                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
-                    Sign in with Google for live data, or import a GA4 CSV export below.
-                  </p>
-                  <a
-                    href="/api/google?action=login"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-black text-white transition-colors"
-                    style={{ background: '#4285F4' }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                    Sign in with Google
-                  </a>
-                  <div className={`my-3 flex items-center gap-2`}>
-                    <div className={`flex-1 h-px ${brd} border-t`} />
-                    <span className={`text-[11px] ${subtl}`}>or</span>
-                    <div className={`flex-1 h-px ${brd} border-t`} />
-                  </div>
-                  <GaCsvImport onImport={(data) => {
-                    setLiveData(d => ({ ...d, 'Google Analytics': { ...data, connectedAt: new Date().toISOString() } }));
-                    setConnections(c => ({ ...c, 'Google Analytics': { connected: true, lastSync: new Date().toLocaleString() } }));
-                    setConnectModal(null);
-                  }} card={card} txt={txt} txt2={txt2} subtl={subtl} brd={brd} muted={muted} />
-                  <button
-                    onClick={() => { setConnectModal(null); setConnectError(null); }}
-                    className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
-                  >Cancel</button>
-                </div>
-              ) : connectModal === 'Mailchimp' ? (
-                <div className="mb-4">
-                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
-                    Click below to log in with Mailchimp. You will be redirected to Mailchimp and back automatically.
-                  </p>
-                  <a
-                    href="/api/mailchimp?action=login"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-black text-white transition-colors"
-                    style={{ background: '#FFE01B', color: '#000' }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21.7 14.56c-.06-.27-.27-.48-.54-.54l-1.56-.36c.03-.18.06-.36.06-.54 0-1.56-1.26-2.82-2.82-2.82-.18 0-.36.03-.54.06l-.36-1.56c-.06-.27-.27-.48-.54-.54-.27-.06-.54.06-.69.29l-.9 1.38c-.45-.12-.93-.18-1.41-.18-3.09 0-5.61 2.52-5.61 5.61s2.52 5.61 5.61 5.61 5.61-2.52 5.61-5.61c0-.48-.06-.96-.18-1.41l1.38-.9c.23-.15.35-.42.29-.69zM14.97 19.5c-2.22 0-4.02-1.8-4.02-4.02s1.8-4.02 4.02-4.02 4.02 1.8 4.02 4.02-1.8 4.02-4.02 4.02z"/></svg>
-                    Connect Mailchimp
-                  </a>
-                  <details className="mt-4">
-                    <summary className={`text-[11px] cursor-pointer ${subtl} hover:text-teal-400`}>Or enter API key manually</summary>
-                    <div className="mt-3 space-y-3">
-                      {fields.map(field => (
-                        <div key={field.key}>
-                          <label className={`block text-[12px] font-black ${txt2} uppercase tracking-wider mb-1.5`}>{field.label}</label>
-                          <input
-                            type={field.type || 'text'}
-                            placeholder={field.placeholder}
-                            value={connectFormData[field.key] || ''}
-                            onChange={e => setConnectFormData(d => ({ ...d, [field.key]: e.target.value }))}
-                            className={`w-full px-3 py-2.5 rounded-xl text-sm ${txt} bg-slate-50 dark:bg-slate-800 border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500`}
-                          />
-                          {field.hint && <p className={`text-[11px] mt-1 ${subtl}`}>{field.hint}</p>}
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => saveConnection(connectModal, connectFormData)}
-                        disabled={connectTesting}
-                        className="w-full py-2.5 rounded-xl text-sm font-black bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2"
-                      >
-                        {connectTesting ? <><RefreshCw size={14} className="animate-spin" /> Testing...</> : <><Plug size={14} /> Save &amp; Connect</>}
-                      </button>
-                    </div>
-                  </details>
-                  <button
-                    onClick={() => { setConnectModal(null); setConnectError(null); }}
-                    className={`mt-3 w-full py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
-                  >Cancel</button>
-                </div>
-              ) : connectModal === 'SurveyMonkey' ? (
-                <div className="mb-4">
-                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
-                    Paste your SurveyMonkey personal access token below. Find it at{' '}
-                    <span className="font-black text-teal-400">developer.surveymonkey.com</span>  My Apps  your app  Access Token.
-                  </p>
-                  {fields.map(field => (
-                    <div key={field.key} className="mb-3">
-                      <label className={`block text-[12px] font-black ${txt2} uppercase tracking-wider mb-1.5`}>{field.label}</label>
-                      <input
-                        type={field.type || 'text'}
-                        placeholder={field.placeholder}
-                        value={connectFormData[field.key] || ''}
-                        onChange={e => setConnectFormData(d => ({ ...d, [field.key]: e.target.value }))}
-                        className={`w-full px-3 py-2.5 rounded-xl text-sm ${txt} bg-slate-50 dark:bg-slate-800 border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500`}
-                      />
-                      {field.hint && <p className={`text-[11px] mt-1 ${subtl}`}>{field.hint}</p>}
-                    </div>
-                  ))}
-                  {connectError && (
-                    <div className="mb-3 p-3 rounded-xl text-sm bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">{connectError}</div>
-                  )}
-                  <div className="flex gap-3 mt-2">
-                    <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
-                    <button
-                      onClick={() => saveConnection(connectModal, connectFormData)}
-                      disabled={connectTesting}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-black bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2"
-                    >
-                      {connectTesting ? <><RefreshCw size={14} className="animate-spin" /> Testing...</> : <><Plug size={14} /> Save &amp; Connect</>}
-                    </button>
-                  </div>
-                </div>
-              ) : connectModal === 'Wix Analytics' ? (
-                <div className="mb-4">
-                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
-                    Paste your Wix API key below. Get it at{' '}
-                    <span className="font-black text-teal-400">manage.wix.com</span>  select your site  Settings  Advanced  API Keys  Generate Key (enable Analytics permission).
-                  </p>
-                  {fields.map(field => (
-                    <div key={field.key} className="mb-3">
-                      <label className={`block text-[12px] font-black ${txt2} uppercase tracking-wider mb-1.5`}>{field.label}</label>
-                      <input
-                        type={field.type || 'text'}
-                        placeholder={field.placeholder}
-                        value={connectFormData[field.key] || ''}
-                        onChange={e => setConnectFormData(d => ({ ...d, [field.key]: e.target.value }))}
-                        className={`w-full px-3 py-2.5 rounded-xl text-sm ${txt} bg-slate-50 dark:bg-slate-800 border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500`}
-                      />
-                      {field.hint && <p className={`text-[11px] mt-1 ${subtl}`}>{field.hint}</p>}
-                    </div>
-                  ))}
-                  {connectError && (
-                    <div className="mb-3 p-3 rounded-xl text-sm bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">{connectError}</div>
-                  )}
-                  <div className="flex gap-3 mt-2">
-                    <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
-                    <button
-                      onClick={() => saveConnection(connectModal, connectFormData)}
-                      disabled={connectTesting}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-black bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2"
-                    >
-                      {connectTesting ? <><RefreshCw size={14} className="animate-spin" /> Testing...</> : <><Plug size={14} /> Save &amp; Connect</>}
-                    </button>
-                  </div>
-                </div>
-              ) : connectModal === 'TikTok for Business' ? (
-                <div className="mb-4">
-                  <p className={`text-sm ${txt2} mb-4 leading-relaxed`}>
-                    Click below to log in with your TikTok account. Youll be redirected to TikTok and back automatically  no credentials to copy.
+                    Click below to log in with your TikTok account. You’ll be redirected to TikTok and back automatically — no credentials to copy.
                   </p>
                   <a
                     href="/api/tiktok?action=login"
@@ -7813,19 +7855,19 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
               {/* Error / Warning */}
               {connectError && (
                 <div className={`mb-4 p-3 rounded-xl text-sm border ${
-                  connectError.startsWith('')
+                  connectError.startsWith('⚠️')
                     ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400'
                     : 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400'
                 }`}>{connectError}</div>
               )}
               {/* Note for non-Meta, non-Wix, non-TikTok platforms */}
-              {!['Meta Business Suite','Meta Ads Manager','Wix Analytics','TikTok for Business','Google Analytics','Mailchimp','SurveyMonkey'].includes(connectModal) && (
+              {!['Meta Business Suite','Meta Ads Manager','Wix Analytics','TikTok for Business'].includes(connectModal) && (
                 <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-[12px] text-blue-600 dark:text-blue-400">
                   Credentials are saved locally. Live data sync for this platform requires the backend API proxy to be configured by your developer.
                 </div>
               )}
-              {/* Actions  hidden for TikTok and Meta Business Suite (OAuth handles them) */}
-              {!['TikTok for Business', 'Meta Business Suite', 'Google Analytics', 'Mailchimp', 'SurveyMonkey', 'Wix Analytics'].includes(connectModal) && (
+              {/* Actions — hidden for TikTok (OAuth handles it) */}
+              {connectModal !== 'TikTok for Business' && (
               <div className="flex gap-3 mt-2">
                 <button onClick={() => { setConnectModal(null); setConnectError(null); }} className={`flex-1 py-2.5 rounded-xl text-sm font-black border ${brd} ${muted} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>Cancel</button>
                 <button
@@ -7834,7 +7876,7 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
                   className="flex-1 py-2.5 rounded-xl text-sm font-black bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2"
                 >
                   {connectTesting
-                    ? <><RefreshCw size={14} className="animate-spin" /> Testing</>
+                    ? <><RefreshCw size={14} className="animate-spin" /> Testing…</>
                     : connections[connectModal]?.connected
                       ? <><Pencil size={14} /> Save Changes</>
                       : <><Plug size={14} /> Save & Connect</>}
@@ -7850,4 +7892,3 @@ Always give actionable, specific suggestions. You HAVE the data above  use it. N
 };
 
 export default App;
-

@@ -259,7 +259,7 @@ async function scrapeHealthgrades(opts = {}) {
   hErr.reviewUrl = 'https://www.healthgrades.com/search?what=Destiny+Springs+Healthcare';
   throw hErr;
 }
-── 6. ZOCDOC ─────────────────────────────────────────────────────────────────
+// ── 6. ZOCDOC ───────────────────────────────────────────────────────────────
 async function scrapeZocdoc(opts = {}) {
   const directUrl = process.env.DS_ZOCDOC_URL;
   const searchUrl = `https://www.zocdoc.com/search?address=Scottsdale%2C+AZ&reason_visit=84&insurance_carrier=-1&search_query=${encodeURIComponent('Destiny Springs')}`;
