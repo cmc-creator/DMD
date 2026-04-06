@@ -203,7 +203,8 @@ const App = () => {
   const [chatMessages, setChatMessages]         = useState([{ role: 'assistant', content: "Reporting for duty! 🫡 I'm **Captain KPI**, your marketing analytics officer. Fire away — ask me about the data, what to post, how to get more reviews, or why your bounce rate looks like a trampoline." }]);
   const [chatInput, setChatInput]               = useState('');
   const [chatLoading, setChatLoading]           = useState(false);
-  const [chatAttachment, setChatAttachment]     = useState(null); // { base64, mimeType, name }
+  const [chatAttachments, setChatAttachments]   = useState([]); // [{ base64|text, mimeType, name }]
+  const [chatDragOver, setChatDragOver]         = useState(false);
   const chatFileRef                             = useRef(null);
   const [importNotice, setImportNotice]         = useState('');
   const [wixFormVals, setWixFormVals]           = useState({});
@@ -1925,17 +1926,17 @@ const App = () => {
 
   // ── Sir Clicks-a-Lot chat message sender ────────────────────────────────────
   const sendChatMessage = async (prefill) => {
-    const defaultMsg  = chatAttachment
-      ? `Please analyze this file (${chatAttachment.name}) and extract all marketing data you find. Save each data category to the dashboard automatically.`
+    const defaultMsg  = chatAttachments.length > 0
+      ? `Please analyze these ${chatAttachments.length > 1 ? chatAttachments.length + ' files' : 'file'} (${chatAttachments.map(a => a.name).join(', ')}) and extract all marketing data. Save each data category to the dashboard automatically.`
       : '';
     const text = (prefill || chatInput).trim() || defaultMsg;
     if (!text || chatLoading) return;
-    const pendingAttachment = chatAttachment;
+    const pendingAttachments = chatAttachments;
     const userMsg = { role: 'user', content: text };
     const updatedMsgs = [...chatMessages, userMsg];
     setChatMessages(updatedMsgs);
     setChatInput('');
-    setChatAttachment(null);
+    setChatAttachments([]);
     setChatLoading(true);
 
     // ── Build rich context snapshot for Captain KPI ──────────────────────────
@@ -2090,11 +2091,7 @@ Rules:
         body: JSON.stringify({
           systemPrompt,
           messages: updatedMsgs.slice(-12),
-          ...(pendingAttachment?.base64
-            ? { imageBase64: pendingAttachment.base64, imageMimeType: pendingAttachment.mimeType }
-            : pendingAttachment?.text
-            ? { textContent: pendingAttachment.text, imageMimeType: pendingAttachment.mimeType, fileName: pendingAttachment.name }
-            : {}),
+          ...(pendingAttachments.length > 0 ? { files: pendingAttachments.map(a => ({ base64: a.base64, text: a.text, mimeType: a.mimeType, name: a.name })) } : {}),
         }),
       });
       const { reply, error } = await r.json();
@@ -2162,32 +2159,34 @@ Rules:
     setChatLoading(false);
   };
 
-  const handleChatFileSelect = (file) => {
-    if (!file) return;
-    const textTypes = ['text/plain', 'text/csv', 'text/tab-separated-values'];
+  const handleChatFilesSelect = (fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    const textTypes   = ['text/plain', 'text/csv', 'text/tab-separated-values'];
     const binaryTypes = ['image/png','image/jpeg','image/webp','image/gif','application/pdf'];
-    const allowed = [...textTypes, ...binaryTypes];
-    if (!allowed.includes(file.type)) {
-      setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ Unsupported file type. You can attach images (PNG, JPG, WebP, GIF), PDFs, or text/CSV files.` }]);
-      return;
-    }
-    if (file.size > 15 * 1024 * 1024) {
-      setChatMessages(m => [...m, { role: 'assistant', content: '⚠️ File too large. Please attach a file under 15 MB.' }]);
-      return;
-    }
-    const reader = new FileReader();
-    if (textTypes.includes(file.type)) {
-      reader.onload = (e) => {
-        setChatAttachment({ text: e.target.result, mimeType: file.type, name: file.name });
-      };
-      reader.readAsText(file);
-    } else {
-      reader.onload = (e) => {
-        const base64 = e.target.result.split(',')[1];
-        setChatAttachment({ base64, mimeType: file.type, name: file.name });
-      };
-      reader.readAsDataURL(file);
-    }
+    const allowed     = [...textTypes, ...binaryTypes];
+    Array.from(fileList).forEach(file => {
+      if (!allowed.includes(file.type)) {
+        setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ "${file.name}" is an unsupported type. Attach images, PDFs, or text/CSV files.` }]);
+        return;
+      }
+      if (file.size > 15 * 1024 * 1024) {
+        setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ "${file.name}" is over 15 MB — please use a smaller file.` }]);
+        return;
+      }
+      const reader = new FileReader();
+      if (textTypes.includes(file.type)) {
+        reader.onload = (e) => {
+          setChatAttachments(prev => [...prev, { text: e.target.result, mimeType: file.type, name: file.name }]);
+        };
+        reader.readAsText(file);
+      } else {
+        reader.onload = (e) => {
+          const base64 = e.target.result.split(',')[1];
+          setChatAttachments(prev => [...prev, { base64, mimeType: file.type, name: file.name }]);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
   };
 
   const savePlatformData = (platformKey) => {
@@ -7802,8 +7801,22 @@ Rules:
               <button onClick={() => setChatOpen(false)} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><X size={16} /></button>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ minHeight: 0 }}>
+            {/* Messages — also the drag-drop target */}
+            <div
+              className="flex-1 overflow-y-auto p-3 space-y-3 relative"
+              style={{ minHeight: 0 }}
+              onDragOver={e => { e.preventDefault(); setChatDragOver(true); }}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setChatDragOver(false); }}
+              onDrop={e => { e.preventDefault(); setChatDragOver(false); handleChatFilesSelect(e.dataTransfer.files); }}
+            >
+              {/* Drag overlay */}
+              {chatDragOver && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-purple-400 bg-purple-900/60 backdrop-blur-sm pointer-events-none">
+                  <Paperclip size={28} className="text-purple-300 mb-2" />
+                  <p className="text-purple-200 text-sm font-black">Drop files here</p>
+                  <p className="text-purple-400 text-[11px] mt-1">Images, PDFs, CSV, or text</p>
+                </div>
+              )}
               {chatMessages.map((m, i) => (
                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {m.role === 'assistant' && (
@@ -7851,12 +7864,16 @@ Rules:
 
             {/* Input */}
             <div className={`flex flex-col gap-1.5 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/10 bg-indigo-950/80' : 'border-t border-purple-100 bg-white'}`}>
-              {/* Attachment preview */}
-              {chatAttachment && (
-                <div className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-[12px] ${darkMode ? 'bg-white/10 text-purple-200' : 'bg-purple-50 text-purple-700'}`}>
-                  <Paperclip size={12} className="flex-shrink-0" />
-                  <span className="truncate flex-1">{chatAttachment.name}</span>
-                  <button onClick={() => setChatAttachment(null)} className="flex-shrink-0 hover:text-rose-400 transition-colors"><X size={12} /></button>
+              {/* Attachment chips */}
+              {chatAttachments.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {chatAttachments.map((a, i) => (
+                    <div key={i} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] max-w-[140px] ${darkMode ? 'bg-white/10 text-purple-200' : 'bg-purple-50 text-purple-700'}`}>
+                      <Paperclip size={10} className="flex-shrink-0" />
+                      <span className="truncate">{a.name}</span>
+                      <button onClick={() => setChatAttachments(prev => prev.filter((_, j) => j !== i))} className="flex-shrink-0 hover:text-rose-400 transition-colors ml-0.5"><X size={10} /></button>
+                    </div>
+                  ))}
                 </div>
               )}
               <div className="flex gap-2">
@@ -7864,28 +7881,29 @@ Rules:
                 <button
                   onClick={() => chatFileRef.current?.click()}
                   disabled={chatLoading}
-                  title="Attach image, PDF, or text file"
-                  className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40 ${chatAttachment ? 'bg-purple-600 text-white' : darkMode ? 'bg-white/10 text-purple-300 hover:bg-white/20' : 'bg-purple-50 text-purple-500 hover:bg-purple-100'}`}
+                  title="Attach files (images, PDFs, CSV) — or drag & drop into chat"
+                  className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40 ${chatAttachments.length > 0 ? 'bg-purple-600 text-white' : darkMode ? 'bg-white/10 text-purple-300 hover:bg-white/20' : 'bg-purple-50 text-purple-500 hover:bg-purple-100'}`}
                 >
                   <Paperclip size={14} />
                 </button>
                 <input
                   ref={chatFileRef}
                   type="file"
+                  multiple
                   accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv"
                   className="hidden"
-                  onChange={e => { handleChatFileSelect(e.target.files[0]); e.target.value = ''; }}
+                  onChange={e => { handleChatFilesSelect(e.target.files); e.target.value = ''; }}
                 />
                 <input
                   className={`flex-1 rounded-xl px-3 py-2 text-[13px] outline-none border ${darkMode ? 'bg-white/10 border-white/20 text-white placeholder-white/40 focus:border-purple-400' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-purple-400'} transition-colors`}
-                  placeholder="Ask Captain KPI…"
+                  placeholder="Ask Captain KPI… or drop files above"
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
                 />
                 <button
                   onClick={() => sendChatMessage()}
-                  disabled={chatLoading || (!chatInput.trim() && !chatAttachment)}
+                  disabled={chatLoading || (!chatInput.trim() && chatAttachments.length === 0)}
                   className="h-9 w-9 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 flex items-center justify-center text-white transition-colors flex-shrink-0"
                 >
                   <Send size={14} />

@@ -29,29 +29,36 @@ export default async function handler(req, res) {
     });
   }
 
-  const { messages = [], systemPrompt, maxTokens, imageBase64, imageMimeType, textContent, fileName } = req.body || {};
+  const { messages = [], systemPrompt, maxTokens, imageBase64, imageMimeType, textContent, fileName, files = [] } = req.body || {};
   if (!messages.length) return res.status(400).json({ error: 'No messages provided' });
 
   const system = systemPrompt ||
     "You are Captain KPI ≡ƒ½í ΓÇö a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a mental health clinic in Scottsdale, AZ. Be helpful, concise, and funny but professional.";
 
-  // Text/CSV files: inline content, PDFs/images: inlineData
   const TEXT_TYPES = ['text/plain', 'text/csv', 'text/tab-separated-values'];
-  const isTextFile = imageMimeType && TEXT_TYPES.includes(imageMimeType);
+
+  // Normalise: support legacy single-file fields AND new `files` array
+  const allFiles = files.length > 0
+    ? files
+    : imageBase64
+      ? [{ base64: imageBase64, mimeType: imageMimeType }]
+      : textContent
+        ? [{ text: textContent, mimeType: imageMimeType, name: fileName }]
+        : [];
 
   // Build Gemini contents array from OpenAI-style messages
   const contents = messages.map((m, idx) => {
     const isLast = idx === messages.length - 1;
     const parts  = [];
 
-    if (isLast && m.role === 'user') {
-      if (isTextFile && textContent) {
-        // Append file content as readable text
-        parts.push({ text: `📄 File: ${fileName || 'document'}\n\n${textContent}` });
-      } else if (imageBase64 && imageMimeType) {
-        // PDF, image, or other binary — send as inlineData (Gemini supports PDF natively)
-        parts.push({ inlineData: { mimeType: imageMimeType, data: imageBase64 } });
-      }
+    if (isLast && m.role === 'user' && allFiles.length > 0) {
+      allFiles.forEach(f => {
+        if (TEXT_TYPES.includes(f.mimeType) && f.text) {
+          parts.push({ text: `📄 File: ${f.name || 'document'}\n\n${f.text}` });
+        } else if (f.base64 && f.mimeType) {
+          parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
+        }
+      });
     }
 
     parts.push({ text: m.content || '' });
@@ -72,7 +79,7 @@ export default async function handler(req, res) {
   const payload = JSON.stringify({
     system_instruction: { parts: [{ text: system }] },
     contents,
-    generationConfig: { maxOutputTokens: maxTokens || (imageBase64 || textContent ? 2000 : 800), temperature: 0.7 },
+    generationConfig: { maxOutputTokens: maxTokens || (allFiles.length > 0 ? 2000 : 800), temperature: 0.7 },
   });
 
   let lastError = 'Gemini API error';
