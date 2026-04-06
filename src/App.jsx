@@ -2040,38 +2040,30 @@ const App = () => {
     // ── When files are attached, use a lean extraction-only prompt so the model
     //    has maximum output budget for DMD_UPDATE blocks — skip the heavy dashboard
     //    context which is irrelevant to extraction and wastes tokens.
-    const extractionPrompt = `You are Captain KPI's data extraction engine for Destiny Springs Healthcare (mental health clinic, Scottsdale AZ).
+    const extractionPrompt = `You are a data extraction API for the Destiny Springs Healthcare marketing dashboard.
 
-Your ONLY job right now: extract every marketing metric from the attached file(s) and save it to the dashboard.
+YOUR RESPONSE MUST START WITH A <DMD_UPDATE> BLOCK. Your very first character is "<". No greeting. No apology. No "here are the updates". No preamble of any kind. Begin extracting immediately.
 
-MANDATORY PROCESS — follow exactly:
-1. Scan the entire file for ALL marketing metrics (social media, ads, email, web traffic, reviews, revenue, leads, any KPIs)
-2. Emit <DMD_UPDATE> blocks — ONE PER DATA CATEGORY — before ANY other text
-3. After ALL blocks, write a short 2-3 sentence plain-English summary of what you saved
+Scan the attached file for ALL marketing metrics and emit one <DMD_UPDATE> block per data category found. After ALL blocks, write 1-2 sentences summarizing what was extracted.
 
-CRITICAL: Blocks come FIRST. Text summary comes AFTER. No exceptions.
+SUPPORTED TYPES (only include fields actually in the file):
+- "social_metrics" → rows: platform, month, followers, reach, impressions, engagement, clicks
+- "ad_spend" → rows: month, platform, spend, leads, impressions, clicks
+- "email_stats" → rows: month, subject, recipients, opens, clicks, openRate, clickRate
+- "review" → rows: platform, rating, count
+- "wix" → rows: sessions, bounceRate, organic, social, direct, referral
+- "custom_metric" → rows: category, label, value, unit, period, notes
 
-If you recognize a metric but it doesn't fit the standard types, use "custom_metric" with a descriptive category name.
-
-Standard types:
-- "social_metrics": { platform, month, followers, reach, impressions, engagement, clicks }
-- "ad_spend": { month, platform, spend, leads, impressions, clicks }
-- "email_stats": { month, subject, recipients, opens, clicks, openRate, clickRate }
-- "review": { platform, rating, count }
-- "wix": { sessions, bounceRate, organic, social, direct, referral }
-- "custom_metric": { category, label, value, unit, period, notes }
-
-Format — use EXACTLY this, no deviations:
+EXACT FORMAT:
 <DMD_UPDATE>
 {"type":"social_metrics","rows":[{"platform":"Facebook","month":"Mar 2026","followers":1200}]}
 </DMD_UPDATE>
 
-Rules:
-- Use "rows" array for ALL entries — even single rows
-- Only include fields that appear in the file — omit anything else
-- Emit as many blocks as needed — one per data type found
-- If a value is unclear, include it with a note and move on
-- Do NOT refuse, do NOT ask clarifying questions before emitting — extract now, ask later`;
+RULES:
+- "rows" array always — even for a single row
+- Emit one block per data type, multiple blocks total if multiple types exist
+- Metric doesn't fit the types above? Use "custom_metric" with a clear category name
+- Do NOT say "I'll save" or "the blocks have been emitted" — just emit them and summarize after`;
 
     const systemPrompt = pendingAttachments.length > 0 ? extractionPrompt : `You are Captain KPI 🫡 — a dynamic, intelligent marketing analytics assistant for Destiny Springs Healthcare (behavioral health / mental health clinic, Scottsdale/Surprise AZ). You are witty, sharp, and occasionally hilarious — but always helpful, specific, and professional. Keep responses under 300 words unless the user asks for more. Use bullet points for lists. Always end with 1-3 clear, specific action items.
 
@@ -2319,11 +2311,23 @@ Other rules:
           }
         };
 
+        let savedCount = 0;
+        let failedCount = 0;
         updateBlocks.forEach(match => {
-          try { applyUpdate(JSON.parse(match[1].trim())); } catch { /* malformed JSON — ignore */ }
+          try { applyUpdate(JSON.parse(match[1].trim())); savedCount++; } catch { failedCount++; }
         });
 
-        setChatMessages(m => [...m, { role: 'assistant', content: cleanReply }]);
+        let displayReply = cleanReply;
+        if (pendingAttachments.length > 0) {
+          if (updateBlocks.length === 0) {
+            displayReply = (displayReply ? displayReply + '\n\n' : '') + '⚠️ **No data was saved.** The model did not emit valid save blocks. Please try sending the file again — if it keeps happening, try a smaller or simpler file.';
+          } else if (failedCount > 0 && savedCount === 0) {
+            displayReply = (displayReply ? displayReply + '\n\n' : '') + '⚠️ **No data was saved.** Save blocks were found but contained malformed JSON. Please try again.';
+          } else if (failedCount > 0) {
+            displayReply += `\n\n⚠️ ${failedCount} block(s) had malformed JSON and were skipped. ${savedCount} block(s) saved successfully.`;
+          }
+        }
+        setChatMessages(m => [...m, { role: 'assistant', content: displayReply }]);
       }
     } catch {
       setChatMessages(m => [...m, { role: 'assistant', content: "My circuits are jammed! 🔧 Make sure GEMINI_API_KEY is set in your Vercel project. Get a free key at aistudio.google.com — I'll be back once fed." }]);
