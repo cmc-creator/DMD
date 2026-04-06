@@ -2042,31 +2042,43 @@ const App = () => {
     //    context which is irrelevant to extraction and wastes tokens.
     const extractionPrompt = `You are a data extraction API for the Destiny Springs Healthcare marketing dashboard.
 
-YOUR RESPONSE MUST START WITH A <DMD_UPDATE> BLOCK. Your very first character is "<". No greeting. No apology. No preamble. Begin extracting immediately.
+══ CRITICAL RULE — READ FIRST ══
+You ONLY extract REAL, ALREADY-MEASURED data: actual numbers that were recorded in the past.
 
-Scan the file for ALL metrics. For each one, choose the MOST SPECIFIC type below before falling back to custom_metric.
+DO NOT extract — and DO NOT invent placeholder values for:
+- Recommendations, suggestions, or action items ("make the CTA more prominent")
+- Future plans, objectives, or things "to be tracked"
+- Lists of what someone should do or improve
+- Strategy documents, optimization plans, or audit reports without real numbers
+- Anything where you would have to write "To be tracked", "TBD", "N/A", or make up a value
 
-══ TYPE DECISION GUIDE ══
+If the file contains NO real measured data (only recommendations, plans, or strategy), your entire response must be exactly:
+NO_DATA
 
-Use "social_metrics" when you see: followers, fans, likes (page-level), reach, impressions, engagement rate, post clicks, shares, comments — for Facebook, Instagram, LinkedIn, TikTok, Twitter/X, YouTube, Pinterest, etc.
+══ WHEN REAL DATA EXISTS ══
+YOUR RESPONSE MUST START WITH A <DMD_UPDATE> BLOCK. Your very first character is "<". No greeting. No apology. No preamble.
+
+For each real metric found, choose the MOST SPECIFIC type:
+
+Use "social_metrics" for: actual recorded followers, reach, impressions, engagement rate — for Facebook, Instagram, LinkedIn, TikTok, YouTube, etc.
   Fields → rows: [{ platform, month, followers, reach, impressions, engagement, clicks }]
 
-Use "ad_spend" when you see: ad budget, spend, cost, CPC, CPM, ROAS, leads from ads, conversions from ads, ad impressions, ad clicks, CTR — for Google Ads, Meta Ads, TikTok Ads, etc.
+Use "ad_spend" for: actual recorded ad budget, spend, CPC, CPM, ROAS, leads from ads — for Google Ads, Meta Ads, TikTok Ads, etc.
   Fields → rows: [{ month, platform, spend, leads, impressions, clicks }]
 
-Use "email_stats" when you see: email sends, open rate, click rate, recipients, subject line, list size, unsubscribes, bounces — for Mailchimp, Constant Contact, HubSpot, etc.
+Use "email_stats" for: actual recorded email sends, open rate, click rate, recipients — for Mailchimp, Constant Contact, HubSpot, etc.
   Fields → rows: [{ month, subject, recipients, opens, clicks, openRate, clickRate }]
 
-Use "review" when you see: star rating, review count, average rating — for Google, Yelp, Facebook, Healthgrades, Zocdoc, etc.
+Use "review" for: actual recorded star ratings and review counts — for Google, Yelp, Facebook, Healthgrades, etc.
   Fields → rows: [{ platform, rating, count }]
 
-Use "seo_rankings" when you see: Google Search Console exports, keyword rankings, search queries with clicks/impressions/CTR/position, page performance in search. Map GSC fields: "Top queries" or "keyword" → keyword, "Position" → rank, "Clicks" → clicks, "Impressions" → searchVol, "CTR" → ctr, "Top pages" → keyword (use the URL path).
+Use "seo_rankings" for: actual Google Search Console data — queries, clicks, impressions, CTR, position.
   Fields → rows: [{ keyword, rank, clicks, searchVol, ctr, prevRank }]
 
-Use "wix" when you see: website sessions, visits, page views, bounce rate, traffic source breakdown (organic, social, direct, referral).
+Use "wix" for: actual recorded website sessions, page views, bounce rate, traffic sources.
   Fields → rows: [{ sessions, bounceRate, organic, social, direct, referral }]
 
-Use "custom_metric" ONLY for metrics that genuinely do not fit any type above — e.g. facility capacity, staff count, call volume, appointment requests, patient satisfaction scores, revenue, specific KPIs with no social/ad/email/web/review angle.
+Use "custom_metric" ONLY for real measured values that don't fit above — e.g. actual patient count, actual call volume, actual NPS score, actual bed occupancy. The "value" field MUST be a real number from the file.
   Fields → rows: [{ category, label, value, unit, period, notes }]
 
 ══ FORMAT ══
@@ -2077,8 +2089,8 @@ Use "custom_metric" ONLY for metrics that genuinely do not fit any type above �
 RULES:
 - One block per type — combine all rows of the same type into one block
 - "rows" array always, even for a single entry
-- Only include fields present in the file — omit the rest
-- If a dataset has more than 30 rows, extract the TOP 30 only (highest clicks, spend, or engagement value). Do NOT attempt to extract all rows.
+- Only include fields that have real values from the file — never invent or guess
+- If more than 30 rows of the same type, keep only the TOP 30 by clicks, spend, or engagement
 - After ALL blocks, write exactly one word: Saved.
 - No listing, no apologies, no explanation. Just blocks then: Saved.`;
 
@@ -2360,9 +2372,11 @@ Other rules:
 
         let displayReply;
         if (pendingAttachments.length > 0) {
-          if (updateBlocks.length === 0) {
+          if (reply.trim() === 'NO_DATA') {
+            displayReply = `ℹ️ **Nothing to save.** This file contains recommendations or strategy notes — not recorded metrics. Captain KPI only saves real measured numbers (follower counts, ad spend, rankings, scores, etc.). Nothing was added to the dashboard.`;
+          } else if (updateBlocks.length === 0) {
             const preview = cleanReply.slice(0, 200).replace(/\n/g, ' ');
-            displayReply = `⚠️ **No data was saved.** The file was processed but no save blocks were generated.\n\n_Model said:_ "${preview}${cleanReply.length > 200 ? '…' : ''}"${cleanReply.length > 200 ? '' : ''}\n\nTry re-attaching just ONE file at a time, starting with the CSV.`;
+            displayReply = `⚠️ **No data was saved.** The file was processed but no save blocks were generated.\n\n_Model said:_ "${preview}${cleanReply.length > 200 ? '…' : ''}"\n\nTry re-attaching just ONE file at a time, starting with the CSV.`;
           } else if (failedCount > 0 && savedCount === 0) {
             displayReply = '⚠️ **No data was saved.** Save blocks were found but the JSON was malformed. Please try again.';
           } else {
