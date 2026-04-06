@@ -2046,7 +2046,29 @@ POTENTIAL REFERRAL SOURCES TO SUGGEST (even without live data):
 - Insurance case managers: BCBS AZ, Mercy Care, UHC Community Plan
 - Faith communities, community health centers, FQHC partners in Maricopa County
 
-Always give actionable, specific suggestions. You HAVE the data above — use it. Never say you lack access to data.`;
+Always give actionable, specific suggestions. You HAVE the data above — use it. Never say you lack access to data.
+
+══ DATA ENTRY CAPABILITY ══
+You CAN add or update data directly in the dashboard. When the user gives you numbers or stats to record, DO IT — don't tell them to go use the import tab. Just save it and confirm.
+
+To save data, append a JSON block at the very end of your reply in this exact format (no extra text after it):
+<DMD_UPDATE>
+{"type":"social_metrics","data":{"platform":"Facebook","month":"Mar 2026","followers":1200,"reach":5000,"impressions":8000,"engagement":3.2,"clicks":120}}
+</DMD_UPDATE>
+
+Supported types and their field shapes:
+- "social_metrics": { platform, month, followers, reach, impressions, engagement, clicks }
+- "ad_spend": { month, platform, spend, leads, impressions, clicks }
+- "email_stats": { month, subject, recipients, opens, clicks, openRate, clickRate }
+- "review": { platform, rating, count } — updates the review platform scores
+- "wix": { sessions, bounceRate, organic, social, direct, referral } — updates Wix traffic
+
+Rules:
+- Only emit one <DMD_UPDATE> block per response.
+- Only include fields the user actually provided; omit the rest.
+- After saving, confirm naturally in your reply text (e.g. "Done! I've logged those Facebook stats for March.").
+- If the user gives partial info, save what you have and ask for the rest.
+- Never refuse to save data the user provides. You are both analyst AND data entry.`;
 
     try {
       const r = await fetch('/api/chat', {
@@ -2059,7 +2081,53 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
         }),
       });
       const { reply, error } = await r.json();
-      setChatMessages(m => [...m, { role: 'assistant', content: error ? `Oops: ${error}` : reply }]);
+      if (error) {
+        setChatMessages(m => [...m, { role: 'assistant', content: `Oops: ${error}` }]);
+      } else {
+        // Parse and apply any embedded data update
+        const updateMatch = reply.match(/<DMD_UPDATE>\s*([\s\S]*?)\s*<\/DMD_UPDATE>/);
+        const cleanReply  = reply.replace(/<DMD_UPDATE>[\s\S]*?<\/DMD_UPDATE>/g, '').trim();
+        if (updateMatch) {
+          try {
+            const { type, data } = JSON.parse(updateMatch[1].trim());
+            if (type === 'social_metrics') {
+              setManualData(prev => {
+                const updated = { ...prev, social_metrics: [...(prev.social_metrics || []), { ...data, _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' }] };
+                localStorage.setItem('dmd_manual', JSON.stringify(updated));
+                return updated;
+              });
+            } else if (type === 'ad_spend') {
+              setManualData(prev => {
+                const updated = { ...prev, ad_spend: [...(prev.ad_spend || []), { ...data, _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' }] };
+                localStorage.setItem('dmd_manual', JSON.stringify(updated));
+                return updated;
+              });
+            } else if (type === 'email_stats') {
+              setManualData(prev => {
+                const updated = { ...prev, email_stats: [...(prev.email_stats || []), { ...data, _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' }] };
+                localStorage.setItem('dmd_manual', JSON.stringify(updated));
+                return updated;
+              });
+            } else if (type === 'review') {
+              const key = (data.platform || '').toLowerCase();
+              if (key) {
+                setReviewPlatformData(prev => {
+                  const updated = { ...prev, [key]: { ...prev[key], rating: data.rating ?? prev[key]?.rating, count: data.count ?? prev[key]?.count, fetchedAt: new Date().toISOString(), source: 'captain_kpi' } };
+                  localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
+                  return updated;
+                });
+              }
+            } else if (type === 'wix') {
+              setWixData(prev => {
+                const updated = { ...prev, ...data };
+                localStorage.setItem('dmd_wix', JSON.stringify(updated));
+                return updated;
+              });
+            }
+          } catch { /* malformed JSON — ignore silently */ }
+        }
+        setChatMessages(m => [...m, { role: 'assistant', content: cleanReply }]);
+      }
     } catch {
       setChatMessages(m => [...m, { role: 'assistant', content: "My circuits are jammed! 🔧 Make sure GEMINI_API_KEY is set in your Vercel project. Get a free key at aistudio.google.com — I'll be back once fed." }]);
     }
