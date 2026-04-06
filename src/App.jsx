@@ -3249,6 +3249,7 @@ Other rules:
     { id: 'survey',       label: 'SurveyMonkey',  icon: ThumbsUp    },
     { id: 'integrations', label: 'Integrations',  icon: Plug        },
     { id: 'import',       label: 'Data Import',   icon: Upload      },
+    { id: 'custom',       label: 'Custom Metrics', icon: Layers      },
     { id: 'ai-tools',     label: 'AI Tools',      icon: Bot         },
   ];
 
@@ -7978,6 +7979,109 @@ Other rules:
             </div>
           </>
         )}
+
+        {/* ══════════════════ CUSTOM METRICS ══════════════════ */}
+        {activeTab === 'custom' && (() => {
+          const categories = Object.keys(customMetrics);
+          return (
+            <>
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className={`text-2xl font-black ${txt}`}>Custom Metrics</h2>
+                  <p className={`text-sm ${subtl} mt-1`}>Data saved by Captain KPI that doesn't fit standard categories</p>
+                </div>
+                {categories.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Clear ALL custom metrics? This cannot be undone.')) {
+                        setCustomMetrics({});
+                        localStorage.removeItem('dmd_custom_metrics');
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-xs font-black transition-colors"
+                  >
+                    <Trash2 size={12} /> Clear All
+                  </button>
+                )}
+              </div>
+
+              {categories.length === 0 ? (
+                <div className={`${card} p-12 rounded-[2.5rem] flex flex-col items-center justify-center text-center gap-4`}>
+                  <Layers size={40} className={subtl} />
+                  <div>
+                    <p className={`font-black ${txt}`}>No custom metrics yet</p>
+                    <p className={`text-sm ${subtl} mt-1`}>Upload a file to Captain KPI and any data that doesn't fit Social, Ads, Email, Reviews, or Website will appear here automatically.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {categories.map(cat => {
+                    const rows = (customMetrics[cat] || []);
+                    const latest = rows[rows.length - 1] || {};
+                    const latestVal = latest.value != null ? latest.value : '—';
+                    const unit = latest.unit || '';
+                    return (
+                      <div key={cat} className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
+                        <div className="flex items-center justify-between mb-5">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-purple-500/15 flex items-center justify-center">
+                              <Tag size={18} className="text-purple-500" />
+                            </div>
+                            <div>
+                              <h3 className={`font-black ${txt} capitalize`}>{cat}</h3>
+                              <p className={`text-xs ${subtl}`}>{rows.length} entr{rows.length === 1 ? 'y' : 'ies'}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`text-2xl font-black ${txt}`}>{typeof latestVal === 'number' ? Number(latestVal).toLocaleString() : latestVal}{unit ? <span className={`text-base font-bold ${subtl} ml-1`}>{unit}</span> : null}</div>
+                            <div className={`text-xs ${subtl}`}>Latest{latest.period ? ` · ${latest.period}` : ''}</div>
+                          </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className={`border-b ${brd}`}>
+                                {['Label', 'Value', 'Unit', 'Period', 'Notes', 'Saved', ''].map(h => (
+                                  <th key={h} className={`text-left text-[11px] font-black uppercase tracking-widest ${subtl} pb-2 pr-4`}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((row, i) => (
+                                <tr key={i} className={`border-b ${brd} last:border-0`}>
+                                  <td className={`py-2 pr-4 font-bold ${txt}`}>{row.label || '—'}</td>
+                                  <td className={`py-2 pr-4 font-black text-teal-500`}>{row.value != null ? row.value : '—'}</td>
+                                  <td className={`py-2 pr-4 ${subtl}`}>{row.unit || '—'}</td>
+                                  <td className={`py-2 pr-4 ${subtl}`}>{row.period || '—'}</td>
+                                  <td className={`py-2 pr-4 ${subtl} max-w-[200px] truncate`}>{row.notes || '—'}</td>
+                                  <td className={`py-2 pr-4 ${subtl} text-xs`}>{row._savedAt || '—'}</td>
+                                  <td className="py-2">
+                                    <button
+                                      onClick={() => {
+                                        setCustomMetrics(prev => {
+                                          const updated = { ...prev, [cat]: prev[cat].filter((_, j) => j !== i) };
+                                          if (updated[cat].length === 0) delete updated[cat];
+                                          localStorage.setItem('dmd_custom_metrics', JSON.stringify(updated));
+                                          return updated;
+                                        });
+                                      }}
+                                      className="text-rose-400 hover:text-rose-300 transition-colors"
+                                    ><Trash2 size={13} /></button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* Footer */}
         <div className={`mt-12 pt-6 border-t ${brd} flex flex-col md:flex-row justify-between items-center gap-3 no-print`}>
