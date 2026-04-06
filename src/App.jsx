@@ -2094,7 +2094,7 @@ RULES:
 - After ALL blocks, write exactly one word: Saved.
 - No listing, no apologies, no explanation. Just blocks then: Saved.`;
 
-    const systemPrompt = pendingAttachments.length > 0 ? extractionPrompt : `You are Captain KPI 🫡 — a dynamic, intelligent marketing analytics assistant for Destiny Springs Healthcare (behavioral health / mental health clinic, Scottsdale/Surprise AZ). You are witty, sharp, and occasionally hilarious — but always helpful, specific, and professional. Keep responses under 300 words unless the user asks for more. Use bullet points for lists. Always end with 1-3 clear, specific action items.
+    const chatPrompt = `You are Captain KPI 🫡 — a dynamic, intelligent marketing analytics assistant for Destiny Springs Healthcare (behavioral health / mental health clinic, Scottsdale/Surprise AZ). You are witty, sharp, and occasionally hilarious — but always helpful, specific, and professional. Keep responses under 300 words unless the user asks for more. Use bullet points for lists. Always end with 1-3 clear, specific action items.
 
 ══ GOALS & KPI TRACKING ══
 ${goalsStr}
@@ -2244,6 +2244,8 @@ Other rules:
 - If a field is unknown, omit it rather than guessing
 - NEVER say "I'll save" or "I would save" or "I can save" — just SAVE IT by emitting the block`;
 
+    const systemPrompt = pendingAttachments.length > 0 ? extractionPrompt : chatPrompt;
+
     try {
       const r = await fetch('/api/chat', {
         method: 'POST',
@@ -2370,13 +2372,27 @@ Other rules:
           } catch { failedCount++; }
         });
 
+        // Helper: fall back to Captain KPI chat mode for the same file(s)
+        const fallbackToChat = async () => {
+          const chatR = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              systemPrompt: chatPrompt,
+              messages: updatedMsgs.slice(-12),
+              files: pendingAttachments.map(a => ({ base64: a.base64, text: a.text, mimeType: a.mimeType, name: a.name })),
+              maxTokens: 3000,
+            }),
+          });
+          const chatData = await chatR.json();
+          return chatData.reply || 'I read the file but had trouble generating a response. Try asking me a specific question about it.';
+        };
+
         let displayReply;
         if (pendingAttachments.length > 0) {
-          if (reply.trim() === 'NO_DATA') {
-            displayReply = `ℹ️ **Nothing to save.** This file contains recommendations or strategy notes — not recorded metrics. Captain KPI only saves real measured numbers (follower counts, ad spend, rankings, scores, etc.). Nothing was added to the dashboard.`;
-          } else if (updateBlocks.length === 0) {
-            const preview = cleanReply.slice(0, 200).replace(/\n/g, ' ');
-            displayReply = `⚠️ **No data was saved.** The file was processed but no save blocks were generated.\n\n_Model said:_ "${preview}${cleanReply.length > 200 ? '…' : ''}"\n\nTry re-attaching just ONE file at a time, starting with the CSV.`;
+          if (reply.trim() === 'NO_DATA' || updateBlocks.length === 0) {
+            // No extractable data — switch to Captain KPI chat mode so the user still gets value
+            displayReply = await fallbackToChat();
           } else if (failedCount > 0 && savedCount === 0) {
             displayReply = '⚠️ **No data was saved.** Save blocks were found but the JSON was malformed. Please try again.';
           } else {
