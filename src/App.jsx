@@ -2375,16 +2375,30 @@ Other rules:
           alert: 'Alerts',
           insight: 'News & Insights',
         };
+        // Try to repair common JSON issues before giving up
+        const tryParseJSON = (raw) => {
+          try { return JSON.parse(raw); } catch { /* try repairs */ }
+          // Fix trailing commas before ] or }
+          let fixed = raw.replace(/,\s*([\]}])/g, '$1');
+          try { return JSON.parse(fixed); } catch { /* try more */ }
+          // Fix unescaped newlines/tabs/carriage returns inside strings
+          fixed = fixed.replace(/[\n\r\t]/g, ' ');
+          try { return JSON.parse(fixed); } catch { /* give up */ }
+          return null;
+        };
+
         let savedCount = 0;
         let failedCount = 0;
         const savedSections = new Set();
         updateBlocks.forEach(match => {
-          try {
-            const parsed = JSON.parse(match[1].trim());
+          const parsed = tryParseJSON(match[1].trim());
+          if (parsed) {
             applyUpdate(parsed);
             savedCount++;
             if (parsed.type) savedSections.add(parsed.type);
-          } catch { failedCount++; }
+          } else {
+            failedCount++;
+          }
         });
 
         // Helper: fall back to Captain KPI chat mode for the same file(s)
@@ -2418,7 +2432,8 @@ Other rules:
             // No extractable data — switch to Captain KPI chat mode so the user still gets value
             displayReply = await fallbackToChat();
           } else if (failedCount > 0 && savedCount === 0) {
-            displayReply = '⚠️ **No data was saved.** Save blocks were found but the JSON was malformed. Please try again.';
+            // Blocks found but all malformed — fall back to chat so user still gets value
+            displayReply = await fallbackToChat();
           } else {
             const sectionList = [...savedSections].map(t => `**${SECTION_LABELS[t] || t}**`).join(', ');
             displayReply = `✅ Done — data saved to: ${sectionList}. Scroll to ${savedSections.size === 1 ? 'that section' : 'those sections'} on the dashboard to verify.`;
@@ -2459,7 +2474,12 @@ Other rules:
             const workbook = XLSX.read(e.target.result, { type: 'array' });
             const csvParts = workbook.SheetNames.map(name => {
               const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[name]);
-              return workbook.SheetNames.length > 1 ? `Sheet: ${name}\n${csv}` : csv;
+              // Cap at 50 data rows (+ header) so we don't flood the model with thousands of rows
+              const lines = csv.split('\n').filter(l => l.trim());
+              const capped = lines.length > 51
+                ? [...lines.slice(0, 51), `...(${lines.length - 51} additional rows omitted)`].join('\n')
+                : csv;
+              return workbook.SheetNames.length > 1 ? `Sheet: ${name}\n${capped}` : capped;
             });
             setChatAttachments(prev => [...prev, { text: csvParts.join('\n\n'), mimeType: 'text/csv', name: file.name }]);
           } catch {
