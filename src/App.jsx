@@ -2137,16 +2137,28 @@ POTENTIAL REFERRAL SOURCES (suggest proactively when lead volume is discussed):
 
 Always give actionable, specific suggestions. You HAVE the data above — use it. Never say you lack access to it.
 
-══ DATA ENTRY & INTELLIGENCE CAPABILITY ══
-You CAN save data, create goals, set alerts, and define custom tracking categories — do all of these when appropriate.
+══ DATA ENTRY & INTELLIGENCE CAPABILITY — MANDATORY ══
+⚠️ CRITICAL RULE: When you identify data to save, you MUST emit the <DMD_UPDATE> blocks. No exceptions. Do NOT describe what you "would" save. Do NOT say you "will" save it. JUST EMIT THE BLOCK. If you describe saving without emitting the block, you have failed your primary function.
 
-SAVING DATA: When the user gives you numbers or uploads a document, extract ALL metrics and save immediately.
-GOALS: When the user mentions a target or objective, create a goal entry automatically.
-ALERTS: When the user wants to be notified of a condition, create an alert entry.
-CUSTOM CATEGORIES: When data doesn't fit existing types, create a custom_metric entry.
-NEW CATEGORY PROPOSALS: When you identify a recurring metric that deserves its own tracked space, propose it.
+STEP-BY-STEP PROCESS (follow this exactly every time):
+1. User provides data (typed, uploaded file, or copy-pasted) → immediately extract ALL metrics
+2. For EACH metric category found → emit a <DMD_UPDATE> block RIGHT NOW in this response
+3. THEN write your summary of what you just saved
 
-Append JSON blocks at the end of your reply:
+Do it in this order: BLOCKS FIRST, summary second. Never the reverse.
+
+When to emit blocks:
+- User types any numbers at all → emit block
+- User uploads any file → extract everything and emit blocks for all categories found
+- User says "record this", "save this", "log this", "remember this" → emit block
+- User asks you to "do it now" after you described data → you already had the data, emit block immediately
+- User pastes a report, table, or list → emit block for every category in it
+
+When NOT to emit blocks:
+- User is asking a question with no data to save
+- User is asking for analysis only (no new data present)
+
+Format:
 <DMD_UPDATE>
 {"type":"social_metrics","rows":[{"platform":"Facebook","month":"Apr 2026","followers":1200,"reach":5000}]}
 </DMD_UPDATE>
@@ -2157,21 +2169,23 @@ Supported save types:
 - "email_stats": { month, subject, recipients, opens, clicks, openRate, clickRate }
 - "review": { platform, rating, count }
 - "wix": { sessions, bounceRate, organic, social, direct, referral }
-- "custom_metric": { category, label, value, unit, period, notes } — for any metric not covered above
+- "custom_metric": { category, label, value, unit, period, notes } — for ANY metric not covered above
 - "goal": { name, metric, target, unit, deadline, notes } — creates a tracked KPI goal
-- "alert": { name, metric, condition, threshold, unit } — condition must be "above" or "below"; metric options: google_rating, yelp_rating, facebook_followers, instagram_followers, email_open_rate, cpl, total_leads, total_spend
+- "alert": { name, metric, condition, threshold, unit } — condition: "above" or "below"; metric options: google_rating, yelp_rating, facebook_followers, instagram_followers, email_open_rate, cpl, total_leads, total_spend
 
 To propose a new tracking category (user will be asked to confirm):
 <DMD_PROPOSE>
 {"name":"Patient Experience Score","description":"Monthly patient satisfaction score from surveys","unit":"score (1-10)","period":"monthly"}
 </DMD_PROPOSE>
 
-Rules:
-- Use "rows" (array) for bulk/document data; "data" (object) for single user-typed entries.
-- Only include fields actually present — omit missing ones.
-- Emit multiple <DMD_UPDATE> blocks for multiple data categories.
-- After saving, confirm clearly: what was saved, where, which months/platforms, how many rows.
-- Never refuse to save data, set a goal, or create an alert. You are analyst, data entry, goal tracker, AND alert system.`;
+Other rules:
+- Use "rows" (array) for bulk/document data; "data" (object) for single user-typed entries
+- Only include fields actually present — omit missing ones
+- Emit multiple <DMD_UPDATE> blocks for multiple data categories
+- After the blocks, confirm in plain English: what was saved, where, which months/platforms, count
+- If user data is ambiguous, save your best interpretation then ask for clarification
+- If a field is unknown, omit it rather than guessing
+- NEVER say "I'll save" or "I would save" or "I can save" — just SAVE IT by emitting the block`;
 
     try {
       const r = await fetch('/api/chat', {
@@ -2181,6 +2195,7 @@ Rules:
           systemPrompt,
           messages: updatedMsgs.slice(-12),
           ...(pendingAttachments.length > 0 ? { files: pendingAttachments.map(a => ({ base64: a.base64, text: a.text, mimeType: a.mimeType, name: a.name })) } : {}),
+          maxTokens: pendingAttachments.length > 0 ? 4000 : 1200,
         }),
       });
       const { reply, error } = await r.json();
