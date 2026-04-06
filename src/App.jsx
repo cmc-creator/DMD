@@ -2037,7 +2037,43 @@ const App = () => {
       ? emailRows.map(r => `${r.month || 'unknown'}: open=${r.openRate || '?'}%, click=${r.clickRate || '?'}%, recipients=${r.recipients || '?'}`).join(' | ')
       : 'none entered';
 
-    const systemPrompt = `You are Captain KPI 🫡 — a dynamic, intelligent marketing analytics assistant for Destiny Springs Healthcare (behavioral health / mental health clinic, Scottsdale/Surprise AZ). You are witty, sharp, and occasionally hilarious — but always helpful, specific, and professional. Keep responses under 300 words unless the user asks for more. Use bullet points for lists. Always end with 1-3 clear, specific action items.
+    // ── When files are attached, use a lean extraction-only prompt so the model
+    //    has maximum output budget for DMD_UPDATE blocks — skip the heavy dashboard
+    //    context which is irrelevant to extraction and wastes tokens.
+    const extractionPrompt = `You are Captain KPI's data extraction engine for Destiny Springs Healthcare (mental health clinic, Scottsdale AZ).
+
+Your ONLY job right now: extract every marketing metric from the attached file(s) and save it to the dashboard.
+
+MANDATORY PROCESS — follow exactly:
+1. Scan the entire file for ALL marketing metrics (social media, ads, email, web traffic, reviews, revenue, leads, any KPIs)
+2. Emit <DMD_UPDATE> blocks — ONE PER DATA CATEGORY — before ANY other text
+3. After ALL blocks, write a short 2-3 sentence plain-English summary of what you saved
+
+CRITICAL: Blocks come FIRST. Text summary comes AFTER. No exceptions.
+
+If you recognize a metric but it doesn't fit the standard types, use "custom_metric" with a descriptive category name.
+
+Standard types:
+- "social_metrics": { platform, month, followers, reach, impressions, engagement, clicks }
+- "ad_spend": { month, platform, spend, leads, impressions, clicks }
+- "email_stats": { month, subject, recipients, opens, clicks, openRate, clickRate }
+- "review": { platform, rating, count }
+- "wix": { sessions, bounceRate, organic, social, direct, referral }
+- "custom_metric": { category, label, value, unit, period, notes }
+
+Format — use EXACTLY this, no deviations:
+<DMD_UPDATE>
+{"type":"social_metrics","rows":[{"platform":"Facebook","month":"Mar 2026","followers":1200}]}
+</DMD_UPDATE>
+
+Rules:
+- Use "rows" array for ALL entries — even single rows
+- Only include fields that appear in the file — omit anything else
+- Emit as many blocks as needed — one per data type found
+- If a value is unclear, include it with a note and move on
+- Do NOT refuse, do NOT ask clarifying questions before emitting — extract now, ask later`;
+
+    const systemPrompt = pendingAttachments.length > 0 ? extractionPrompt : `You are Captain KPI 🫡 — a dynamic, intelligent marketing analytics assistant for Destiny Springs Healthcare (behavioral health / mental health clinic, Scottsdale/Surprise AZ). You are witty, sharp, and occasionally hilarious — but always helpful, specific, and professional. Keep responses under 300 words unless the user asks for more. Use bullet points for lists. Always end with 1-3 clear, specific action items.
 
 ══ GOALS & KPI TRACKING ══
 ${goalsStr}
@@ -2195,7 +2231,7 @@ Other rules:
           systemPrompt,
           messages: updatedMsgs.slice(-12),
           ...(pendingAttachments.length > 0 ? { files: pendingAttachments.map(a => ({ base64: a.base64, text: a.text, mimeType: a.mimeType, name: a.name })) } : {}),
-          maxTokens: pendingAttachments.length > 0 ? 4000 : 1200,
+          maxTokens: pendingAttachments.length > 0 ? 8000 : 1200,
         }),
       });
       const { reply, error } = await r.json();
@@ -2211,6 +2247,8 @@ Other rules:
         const cleanReply = reply
           .replace(/<DMD_UPDATE>[\s\S]*?<\/DMD_UPDATE>/g, '')
           .replace(/<DMD_PROPOSE>[\s\S]*?<\/DMD_PROPOSE>/g, '')
+          .replace(/<DMD_UPDATE>[\s\S]*/g, '')   // strip any unclosed tag (truncation)
+          .replace(/<DMD_PROPOSE>[\s\S]*/g, '')  // strip any unclosed propose tag
           .trim();
 
         const applyUpdate = ({ type, data, rows }) => {
