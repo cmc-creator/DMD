@@ -2750,10 +2750,18 @@ Other rules:
     if (!total) return null;
     return { promoters, passives, detractors, score: Math.round(((promoters - detractors) / total) * 100) };
   })();
+  // NPS fallback: scan customMetrics for any row whose label or category includes "NPS"
+  const _customNps = (() => {
+    const rows = Object.values(customMetrics).flat().filter(r => /nps/i.test(r.label || r.category || ''));
+    const latest = rows.sort((a, b) => new Date(b._savedAt || 0) - new Date(a._savedAt || 0))[0];
+    const n = latest?.value != null ? Number(latest.value) : null;
+    return Number.isFinite(n) ? Math.round(n) : null;
+  })();
+
   // Patch placeholder metrics with computed values
   Object.assign(metrics, {
     googleScore:        _avgRating ? _avgRating + ' ★' : '—',
-    nps:                _latestSurveyNps != null ? String(_latestSurveyNps) : (_surveyNpsScore != null ? String(_surveyNpsScore) : '—'),
+    nps:                _latestSurveyNps != null ? String(_latestSurveyNps) : (_surveyNpsScore != null ? String(_surveyNpsScore) : (_customNps != null ? String(_customNps) : '—')),
     videoViews:         (_tikLive.recentViews || _ttLive.recentViews) ? Number(_tikLive.recentViews || _ttLive.recentViews).toLocaleString() : '—',
     tiktokVelocity:     _ttVideoCount ? String(_ttVideoCount) : '—',
     blogVelocity:       _blogCount ? String(_blogCount) : '—',
