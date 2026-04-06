@@ -1,5 +1,5 @@
-// api/vision.js GÇö AI-powered screenshot data extractor
-// Accepts an image (base64) and uses Gemini 2.5 Flash Vision to extract
+// api/vision.js ΓÇö AI-powered screenshot data extractor
+// Accepts an image (base64) and uses Gemini 2.0 Flash Vision to extract
 // structured marketing metrics from any screenshot.
 //
 // POST /api/vision
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
 
   const systemPrompt = `You are a precise marketing data extractor for a healthcare marketing dashboard.
 Your job is to look at screenshots from any digital marketing platform and extract structured data.
-Always respond with valid JSON only GÇö no markdown, no explanation, just the JSON object.`;
+Always respond with valid JSON only ΓÇö no markdown, no explanation, just the JSON object.`;
 
   const userPrompt = `${context ? `Context: ${context}\n\n` : ''}Analyze this screenshot and extract ALL visible marketing metrics.
 
@@ -89,7 +89,7 @@ Return a JSON object with these fields (use null for any not visible):
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${key}`,
       {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
