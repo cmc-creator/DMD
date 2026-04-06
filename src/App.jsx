@@ -2063,7 +2063,8 @@ RULES:
 - "rows" array always — even for a single row
 - Emit one block per data type, multiple blocks total if multiple types exist
 - Metric doesn't fit the types above? Use "custom_metric" with a clear category name
-- Do NOT say "I'll save" or "the blocks have been emitted" — just emit them and summarize after`;
+- After ALL blocks write exactly one word on its own line: Saved.
+- Do NOT list what was saved. Do NOT apologize. Do NOT explain. Just: Saved.`;
 
     const systemPrompt = pendingAttachments.length > 0 ? extractionPrompt : `You are Captain KPI 🫡 — a dynamic, intelligent marketing analytics assistant for Destiny Springs Healthcare (behavioral health / mental health clinic, Scottsdale/Surprise AZ). You are witty, sharp, and occasionally hilarious — but always helpful, specific, and professional. Keep responses under 300 words unless the user asks for more. Use bullet points for lists. Always end with 1-3 clear, specific action items.
 
@@ -2311,21 +2312,41 @@ Other rules:
           }
         };
 
+        const SECTION_LABELS = {
+          social_metrics: 'Social Metrics',
+          ad_spend: 'Ad Spend',
+          email_stats: 'Email Marketing',
+          review: 'Review Platforms',
+          wix: 'Website Traffic',
+          custom_metric: 'Custom Metrics',
+          goal: 'Goals',
+          alert: 'Alerts',
+        };
         let savedCount = 0;
         let failedCount = 0;
+        const savedSections = new Set();
         updateBlocks.forEach(match => {
-          try { applyUpdate(JSON.parse(match[1].trim())); savedCount++; } catch { failedCount++; }
+          try {
+            const parsed = JSON.parse(match[1].trim());
+            applyUpdate(parsed);
+            savedCount++;
+            if (parsed.type) savedSections.add(parsed.type);
+          } catch { failedCount++; }
         });
 
-        let displayReply = cleanReply;
+        let displayReply;
         if (pendingAttachments.length > 0) {
           if (updateBlocks.length === 0) {
-            displayReply = (displayReply ? displayReply + '\n\n' : '') + '⚠️ **No data was saved.** The model did not emit valid save blocks. Please try sending the file again — if it keeps happening, try a smaller or simpler file.';
+            displayReply = '⚠️ **No data was saved.** The file was processed but no recognizable metrics were found. Try a CSV, Excel, or plain-text report.';
           } else if (failedCount > 0 && savedCount === 0) {
-            displayReply = (displayReply ? displayReply + '\n\n' : '') + '⚠️ **No data was saved.** Save blocks were found but contained malformed JSON. Please try again.';
-          } else if (failedCount > 0) {
-            displayReply += `\n\n⚠️ ${failedCount} block(s) had malformed JSON and were skipped. ${savedCount} block(s) saved successfully.`;
+            displayReply = '⚠️ **No data was saved.** Save blocks were found but the JSON was malformed. Please try again.';
+          } else {
+            const sectionList = [...savedSections].map(t => `**${SECTION_LABELS[t] || t}**`).join(', ');
+            displayReply = `✅ Done — data saved to: ${sectionList}. Scroll to ${savedSections.size === 1 ? 'that section' : 'those sections'} on the dashboard to verify.`;
+            if (failedCount > 0) displayReply += ` (${failedCount} block(s) skipped — malformed JSON)`;
           }
+        } else {
+          displayReply = cleanReply;
         }
         setChatMessages(m => [...m, { role: 'assistant', content: displayReply }]);
       }
