@@ -1,5 +1,5 @@
 // /api/chat.js ΓÇö Google Gemini proxy for Captain KPI chatbot + AI data analysis
-// Supports text AND vision (image) inputs via Gemini 2.5 Flash multimodal.
+// Supports text AND vision (image) inputs via Gemini 2.0 Flash multimodal.
 // Requires GEMINI_API_KEY env var in Vercel project settings.
 // Get a free key at: aistudio.google.com ΓåÆ Get API Key
 
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       configured: !!key,
       key_length: (key || '').length,
       key_prefix: key ? key.slice(0, 6) + '...' : 'NOT SET',
-      model: 'gemini-2.5-flash (with fallbacks)',
+      model: 'gemini-2.0-flash (with fallbacks)',
     });
   }
 
@@ -29,25 +29,29 @@ export default async function handler(req, res) {
     });
   }
 
-  const { messages = [], systemPrompt, maxTokens, imageBase64, imageMimeType } = req.body || {};
+  const { messages = [], systemPrompt, maxTokens, imageBase64, imageMimeType, textContent, fileName } = req.body || {};
   if (!messages.length) return res.status(400).json({ error: 'No messages provided' });
 
   const system = systemPrompt ||
     "You are Captain KPI ≡ƒ½í ΓÇö a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a mental health clinic in Scottsdale, AZ. Be helpful, concise, and funny but professional.";
+
+  // Text/CSV files: inline content, PDFs/images: inlineData
+  const TEXT_TYPES = ['text/plain', 'text/csv', 'text/tab-separated-values'];
+  const isTextFile = imageMimeType && TEXT_TYPES.includes(imageMimeType);
 
   // Build Gemini contents array from OpenAI-style messages
   const contents = messages.map((m, idx) => {
     const isLast = idx === messages.length - 1;
     const parts  = [];
 
-    // Attach image to the last user message if provided
-    if (isLast && m.role === 'user' && imageBase64 && imageMimeType) {
-      parts.push({
-        inlineData: {
-          mimeType: imageMimeType,
-          data:     imageBase64,
-        },
-      });
+    if (isLast && m.role === 'user') {
+      if (isTextFile && textContent) {
+        // Append file content as readable text
+        parts.push({ text: `📄 File: ${fileName || 'document'}\n\n${textContent}` });
+      } else if (imageBase64 && imageMimeType) {
+        // PDF, image, or other binary — send as inlineData (Gemini supports PDF natively)
+        parts.push({ inlineData: { mimeType: imageMimeType, data: imageBase64 } });
+      }
     }
 
     parts.push({ text: m.content || '' });
@@ -60,14 +64,15 @@ export default async function handler(req, res) {
 
   // Try models in order — fall back on quota/rate errors
   const MODELS = [
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash-latest',
   ];
 
   const payload = JSON.stringify({
     system_instruction: { parts: [{ text: system }] },
     contents,
-    generationConfig: { maxOutputTokens: maxTokens || 800, temperature: 0.7 },
+    generationConfig: { maxOutputTokens: maxTokens || (imageBase64 || textContent ? 2000 : 800), temperature: 0.7 },
   });
 
   let lastError = 'Gemini API error';

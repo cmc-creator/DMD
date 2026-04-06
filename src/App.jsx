@@ -1925,7 +1925,10 @@ const App = () => {
 
   // ── Sir Clicks-a-Lot chat message sender ────────────────────────────────────
   const sendChatMessage = async (prefill) => {
-    const text = (prefill || chatInput).trim() || (chatAttachment ? `I've attached a file: ${chatAttachment.name}. Please analyze it.` : '');
+    const defaultMsg  = chatAttachment
+      ? `Please analyze this file (${chatAttachment.name}) and extract all marketing data you find. Save each data category to the dashboard automatically.`
+      : '';
+    const text = (prefill || chatInput).trim() || defaultMsg;
     if (!text || chatLoading) return;
     const pendingAttachment = chatAttachment;
     const userMsg = { role: 'user', content: text };
@@ -2051,9 +2054,18 @@ Always give actionable, specific suggestions. You HAVE the data above — use it
 ══ DATA ENTRY CAPABILITY ══
 You CAN add or update data directly in the dashboard. When the user gives you numbers or stats to record, DO IT — don't tell them to go use the import tab. Just save it and confirm.
 
-To save data, append a JSON block at the very end of your reply in this exact format (no extra text after it):
+When the user uploads a document (CSV, PDF, spreadsheet, report), your job is to:
+1. Extract ALL recognizable marketing metrics from it.
+2. Categorize each piece of data into the correct type below.
+3. Emit one <DMD_UPDATE> block per data category found (you can emit multiple blocks in one response).
+4. Summarize what you saved in plain English — be specific about what went where.
+
+To save data, append JSON blocks at the very end of your reply in this exact format:
 <DMD_UPDATE>
-{"type":"social_metrics","data":{"platform":"Facebook","month":"Mar 2026","followers":1200,"reach":5000,"impressions":8000,"engagement":3.2,"clicks":120}}
+{"type":"social_metrics","rows":[{"platform":"Facebook","month":"Mar 2026","followers":1200,"reach":5000},{"platform":"Instagram","month":"Mar 2026","followers":890}]}
+</DMD_UPDATE>
+<DMD_UPDATE>
+{"type":"ad_spend","rows":[{"month":"Mar 2026","platform":"Google Ads","spend":3000,"leads":45}]}
 </DMD_UPDATE>
 
 Supported types and their field shapes:
@@ -2064,9 +2076,10 @@ Supported types and their field shapes:
 - "wix": { sessions, bounceRate, organic, social, direct, referral } — updates Wix traffic
 
 Rules:
-- Only emit one <DMD_UPDATE> block per response.
-- Only include fields the user actually provided; omit the rest.
-- After saving, confirm naturally in your reply text (e.g. "Done! I've logged those Facebook stats for March.").
+- Use "rows" (array) for bulk data from documents; use "data" (object) for single entries typed by the user.
+- Only include fields actually present in the source; omit missing ones.
+- Emit multiple <DMD_UPDATE> blocks if the document contains multiple data categories.
+- After saving, summarize clearly: which tabs were updated, what months/platforms, how many rows.
 - If the user gives partial info, save what you have and ask for the rest.
 - Never refuse to save data the user provides. You are both analyst AND data entry.`;
 
@@ -2077,55 +2090,70 @@ Rules:
         body: JSON.stringify({
           systemPrompt,
           messages: updatedMsgs.slice(-12),
-          ...(pendingAttachment ? { imageBase64: pendingAttachment.base64, imageMimeType: pendingAttachment.mimeType } : {}),
+          ...(pendingAttachment?.base64
+            ? { imageBase64: pendingAttachment.base64, imageMimeType: pendingAttachment.mimeType }
+            : pendingAttachment?.text
+            ? { textContent: pendingAttachment.text, imageMimeType: pendingAttachment.mimeType, fileName: pendingAttachment.name }
+            : {}),
         }),
       });
       const { reply, error } = await r.json();
       if (error) {
         setChatMessages(m => [...m, { role: 'assistant', content: `Oops: ${error}` }]);
       } else {
-        // Parse and apply any embedded data update
-        const updateMatch = reply.match(/<DMD_UPDATE>\s*([\s\S]*?)\s*<\/DMD_UPDATE>/);
-        const cleanReply  = reply.replace(/<DMD_UPDATE>[\s\S]*?<\/DMD_UPDATE>/g, '').trim();
-        if (updateMatch) {
-          try {
-            const { type, data } = JSON.parse(updateMatch[1].trim());
-            if (type === 'social_metrics') {
-              setManualData(prev => {
-                const updated = { ...prev, social_metrics: [...(prev.social_metrics || []), { ...data, _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' }] };
-                localStorage.setItem('dmd_manual', JSON.stringify(updated));
+        // Parse and apply ALL embedded data update blocks
+        const updateBlocks = [...reply.matchAll(/<DMD_UPDATE>\s*([\s\S]*?)\s*<\/DMD_UPDATE>/g)];
+        const cleanReply   = reply.replace(/<DMD_UPDATE>[\s\S]*?<\/DMD_UPDATE>/g, '').trim();
+
+        const applyUpdate = ({ type, data, rows }) => {
+          // Support both single `data` object and `rows` array for bulk imports
+          const entries = rows || (data ? [data] : []);
+          if (!entries.length) return;
+
+          if (type === 'social_metrics') {
+            setManualData(prev => {
+              const stamp = { _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' };
+              const updated = { ...prev, social_metrics: [...(prev.social_metrics || []), ...entries.map(e => ({ ...e, ...stamp }))] };
+              localStorage.setItem('dmd_manual', JSON.stringify(updated));
+              return updated;
+            });
+          } else if (type === 'ad_spend') {
+            setManualData(prev => {
+              const stamp = { _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' };
+              const updated = { ...prev, ad_spend: [...(prev.ad_spend || []), ...entries.map(e => ({ ...e, ...stamp }))] };
+              localStorage.setItem('dmd_manual', JSON.stringify(updated));
+              return updated;
+            });
+          } else if (type === 'email_stats') {
+            setManualData(prev => {
+              const stamp = { _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' };
+              const updated = { ...prev, email_stats: [...(prev.email_stats || []), ...entries.map(e => ({ ...e, ...stamp }))] };
+              localStorage.setItem('dmd_manual', JSON.stringify(updated));
+              return updated;
+            });
+          } else if (type === 'review') {
+            entries.forEach(entry => {
+              const key = (entry.platform || '').toLowerCase();
+              if (!key) return;
+              setReviewPlatformData(prev => {
+                const updated = { ...prev, [key]: { ...prev[key], rating: entry.rating ?? prev[key]?.rating, count: entry.count ?? prev[key]?.count, fetchedAt: new Date().toISOString(), source: 'captain_kpi' } };
+                localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
                 return updated;
               });
-            } else if (type === 'ad_spend') {
-              setManualData(prev => {
-                const updated = { ...prev, ad_spend: [...(prev.ad_spend || []), { ...data, _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' }] };
-                localStorage.setItem('dmd_manual', JSON.stringify(updated));
-                return updated;
-              });
-            } else if (type === 'email_stats') {
-              setManualData(prev => {
-                const updated = { ...prev, email_stats: [...(prev.email_stats || []), { ...data, _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' }] };
-                localStorage.setItem('dmd_manual', JSON.stringify(updated));
-                return updated;
-              });
-            } else if (type === 'review') {
-              const key = (data.platform || '').toLowerCase();
-              if (key) {
-                setReviewPlatformData(prev => {
-                  const updated = { ...prev, [key]: { ...prev[key], rating: data.rating ?? prev[key]?.rating, count: data.count ?? prev[key]?.count, fetchedAt: new Date().toISOString(), source: 'captain_kpi' } };
-                  localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
-                  return updated;
-                });
-              }
-            } else if (type === 'wix') {
-              setWixData(prev => {
-                const updated = { ...prev, ...data };
-                localStorage.setItem('dmd_wix', JSON.stringify(updated));
-                return updated;
-              });
-            }
-          } catch { /* malformed JSON — ignore silently */ }
-        }
+            });
+          } else if (type === 'wix') {
+            setWixData(prev => {
+              const updated = { ...prev, ...entries[0] };
+              localStorage.setItem('dmd_wix', JSON.stringify(updated));
+              return updated;
+            });
+          }
+        };
+
+        updateBlocks.forEach(match => {
+          try { applyUpdate(JSON.parse(match[1].trim())); } catch { /* malformed JSON — ignore */ }
+        });
+
         setChatMessages(m => [...m, { role: 'assistant', content: cleanReply }]);
       }
     } catch {
@@ -2136,9 +2164,11 @@ Rules:
 
   const handleChatFileSelect = (file) => {
     if (!file) return;
-    const allowed = ['image/png','image/jpeg','image/webp','image/gif','application/pdf','text/plain','text/csv'];
+    const textTypes = ['text/plain', 'text/csv', 'text/tab-separated-values'];
+    const binaryTypes = ['image/png','image/jpeg','image/webp','image/gif','application/pdf'];
+    const allowed = [...textTypes, ...binaryTypes];
     if (!allowed.includes(file.type)) {
-      setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ Unsupported file type. You can attach images (PNG, JPG, WebP, GIF), PDFs, or plain text/CSV files.` }]);
+      setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ Unsupported file type. You can attach images (PNG, JPG, WebP, GIF), PDFs, or text/CSV files.` }]);
       return;
     }
     if (file.size > 15 * 1024 * 1024) {
@@ -2146,11 +2176,18 @@ Rules:
       return;
     }
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target.result.split(',')[1];
-      setChatAttachment({ base64, mimeType: file.type, name: file.name });
-    };
-    reader.readAsDataURL(file);
+    if (textTypes.includes(file.type)) {
+      reader.onload = (e) => {
+        setChatAttachment({ text: e.target.result, mimeType: file.type, name: file.name });
+      };
+      reader.readAsText(file);
+    } else {
+      reader.onload = (e) => {
+        const base64 = e.target.result.split(',')[1];
+        setChatAttachment({ base64, mimeType: file.type, name: file.name });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const savePlatformData = (platformKey) => {
