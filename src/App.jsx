@@ -2042,29 +2042,41 @@ const App = () => {
     //    context which is irrelevant to extraction and wastes tokens.
     const extractionPrompt = `You are a data extraction API for the Destiny Springs Healthcare marketing dashboard.
 
-YOUR RESPONSE MUST START WITH A <DMD_UPDATE> BLOCK. Your very first character is "<". No greeting. No apology. No "here are the updates". No preamble of any kind. Begin extracting immediately.
+YOUR RESPONSE MUST START WITH A <DMD_UPDATE> BLOCK. Your very first character is "<". No greeting. No apology. No preamble. Begin extracting immediately.
 
-Scan the attached file for ALL marketing metrics and emit one <DMD_UPDATE> block per data category found. After ALL blocks, write 1-2 sentences summarizing what was extracted.
+Scan the file for ALL metrics. For each one, choose the MOST SPECIFIC type below before falling back to custom_metric.
 
-SUPPORTED TYPES (only include fields actually in the file):
-- "social_metrics" → rows: platform, month, followers, reach, impressions, engagement, clicks
-- "ad_spend" → rows: month, platform, spend, leads, impressions, clicks
-- "email_stats" → rows: month, subject, recipients, opens, clicks, openRate, clickRate
-- "review" → rows: platform, rating, count
-- "wix" → rows: sessions, bounceRate, organic, social, direct, referral
-- "custom_metric" → rows: category, label, value, unit, period, notes
+══ TYPE DECISION GUIDE ══
 
-EXACT FORMAT:
+Use "social_metrics" when you see: followers, fans, likes (page-level), reach, impressions, engagement rate, post clicks, shares, comments — for Facebook, Instagram, LinkedIn, TikTok, Twitter/X, YouTube, Pinterest, etc.
+  Fields → rows: [{ platform, month, followers, reach, impressions, engagement, clicks }]
+
+Use "ad_spend" when you see: ad budget, spend, cost, CPC, CPM, ROAS, leads from ads, conversions from ads, ad impressions, ad clicks, CTR — for Google Ads, Meta Ads, TikTok Ads, etc.
+  Fields → rows: [{ month, platform, spend, leads, impressions, clicks }]
+
+Use "email_stats" when you see: email sends, open rate, click rate, recipients, subject line, list size, unsubscribes, bounces — for Mailchimp, Constant Contact, HubSpot, etc.
+  Fields → rows: [{ month, subject, recipients, opens, clicks, openRate, clickRate }]
+
+Use "review" when you see: star rating, review count, average rating — for Google, Yelp, Facebook, Healthgrades, Zocdoc, etc.
+  Fields → rows: [{ platform, rating, count }]
+
+Use "wix" when you see: website sessions, visits, page views, bounce rate, traffic source breakdown (organic, social, direct, referral).
+  Fields → rows: [{ sessions, bounceRate, organic, social, direct, referral }]
+
+Use "custom_metric" ONLY for metrics that genuinely do not fit any type above — e.g. facility capacity, staff count, call volume, appointment requests, patient satisfaction scores, revenue, specific KPIs with no social/ad/email/web/review angle.
+  Fields → rows: [{ category, label, value, unit, period, notes }]
+
+══ FORMAT ══
 <DMD_UPDATE>
 {"type":"social_metrics","rows":[{"platform":"Facebook","month":"Mar 2026","followers":1200}]}
 </DMD_UPDATE>
 
 RULES:
-- "rows" array always — even for a single row
-- Emit one block per data type, multiple blocks total if multiple types exist
-- Metric doesn't fit the types above? Use "custom_metric" with a clear category name
-- After ALL blocks write exactly one word on its own line: Saved.
-- Do NOT list what was saved. Do NOT apologize. Do NOT explain. Just: Saved.`;
+- One block per type — combine all rows of the same type into one block
+- "rows" array always, even for a single entry
+- Only include fields present in the file — omit the rest
+- After ALL blocks, write exactly one word: Saved.
+- No listing, no apologies, no explanation. Just blocks then: Saved.`;
 
     const systemPrompt = pendingAttachments.length > 0 ? extractionPrompt : `You are Captain KPI 🫡 — a dynamic, intelligent marketing analytics assistant for Destiny Springs Healthcare (behavioral health / mental health clinic, Scottsdale/Surprise AZ). You are witty, sharp, and occasionally hilarious — but always helpful, specific, and professional. Keep responses under 300 words unless the user asks for more. Use bullet points for lists. Always end with 1-3 clear, specific action items.
 
