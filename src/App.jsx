@@ -2079,8 +2079,13 @@ Use "seo_rankings" for: actual Google Search Console data — queries, clicks, i
 Use "wix" for: actual recorded website sessions, page views, bounce rate, traffic sources.
   Fields → rows: [{ sessions, bounceRate, organic, social, direct, referral }]
 
-Use "custom_metric" ONLY for real measured values that don't fit above — e.g. actual patient count, actual call volume, actual NPS score, actual bed occupancy. The "value" field MUST be a real number from the file.
+Use "custom_metric" ONLY for real measured values that don't fit above — e.g. actual patient count, actual call volume, actual NPS score, actual bed occupancy. The "value" field MUST be a real number from the file. If the value would be a word — "Defined", "TBD", "To be tracked", "N/A", "Yes", "No", or ANY non-numeric string — DO NOT emit that row. Skip it entirely.
   Fields → rows: [{ category, label, value, unit, period, notes }]
+
+Use "insight" when the file is a strategy document, audit, recommendations, or optimization plan with NO real measured numbers. Summarize the key themes into 1-3 insight rows. Do NOT invent custom_metric values for things described as goals or planned KPIs — emit an insight block instead.
+  Fields → rows: [{ title, body, source, tag }] where tag is one of: seo, social, ads, reputation, content, strategy, patient-experience
+
+If the file contains NO real measured data AND has no meaningful strategic content (e.g. blank file, unrelated document), respond with exactly: NO_DATA
 
 ══ FORMAT ══
 <DMD_UPDATE>
@@ -2395,7 +2400,16 @@ Other rules:
             }),
           });
           const chatData = await chatR.json();
-          return chatData.reply || 'I read the file but had trouble generating a response. Try asking me a specific question about it.';
+          const chatReply = chatData.reply || 'I read the file but had trouble generating a response. Try asking me a specific question about it.';
+          // Parse and apply any insight blocks the chat response emits
+          const chatBlocks = [...chatReply.matchAll(/<DMD_UPDATE>\s*([\s\S]*?)\s*<\/DMD_UPDATE>/g)];
+          chatBlocks.forEach(match => {
+            try { applyUpdate(JSON.parse(match[1].trim())); } catch { /* ignore malformed */ }
+          });
+          return chatReply
+            .replace(/<DMD_UPDATE>[\s\S]*?<\/DMD_UPDATE>/g, '')
+            .replace(/<DMD_UPDATE>[\s\S]*/g, '')
+            .trim();
         };
 
         let displayReply;
