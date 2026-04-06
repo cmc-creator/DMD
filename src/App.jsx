@@ -2596,6 +2596,10 @@ Other rules:
     costPerLead: '—',
     totalLeads: '—',
     leadsGrowth: null,
+    gscClicks: '—',
+    gscImpressions: '—',
+    gscAvgPosition: '—',
+    gscAvgCtr: '—',
   };
   const toNum = (v) => {
     const n = parseFloat(String(v ?? '').replace(/,/g, '').replace(/[^0-9.-]/g, ''));
@@ -2767,6 +2771,15 @@ Other rules:
       return (sessions > 0 && _totalLeads > 0)
         ? (_totalLeads / sessions * 100).toFixed(2) + '%'
         : '—';
+    })(),
+    gscClicks:          _seoData.length ? _seoData.reduce((s, e) => s + toNum(e.clicks), 0).toLocaleString() : '—',
+    gscImpressions:     _seoData.length ? _seoData.reduce((s, e) => s + toNum(e.searchVol), 0).toLocaleString() : '—',
+    gscAvgPosition:     (() => { const wr = _seoData.filter(e => toNum(e.rank) > 0); return wr.length ? (wr.reduce((s, e) => s + toNum(e.rank), 0) / wr.length).toFixed(1) : '—'; })(),
+    gscAvgCtr:          (() => {
+      const withCtr = _seoData.filter(e => e.ctr);
+      if (!withCtr.length) return '—';
+      const avg = withCtr.reduce((s, e) => s + parseFloat(String(e.ctr).replace('%','')), 0) / withCtr.length;
+      return avg.toFixed(1) + '%';
     })(),
   });
 
@@ -3942,6 +3955,10 @@ Other rules:
                 { title: 'Cost Per Lead', value: metrics.costPerLead, trend: null, icon: TrendingDown, color: 'bg-indigo-600', sub: 'Blended Paid Acquisition', onClick: () => setActiveTab('ads') },
                 { title: 'Site Conversion', value: metrics.siteConversion, trend: null, icon: MousePointer, color: 'bg-teal-600', sub: 'Visitor to Lead Rate', onClick: () => setActiveTab('seo') },
                 { title: 'NPS Score', value: metrics.nps, trend: null, icon: ThumbsUp, color: 'bg-amber-600', sub: 'Latest imported survey NPS', onClick: () => setActiveTab('survey') },
+                { title: 'GSC Clicks', value: metrics.gscClicks, trend: null, icon: MousePointer, color: 'bg-blue-600', sub: 'Google Search Clicks (28d)', onClick: () => setActiveTab('seo') },
+                { title: 'GSC Impressions', value: metrics.gscImpressions, trend: null, icon: Eye, color: 'bg-indigo-500', sub: 'Search Impressions (28d)', onClick: () => setActiveTab('seo') },
+                { title: 'Avg Position', value: metrics.gscAvgPosition, trend: null, icon: TrendingUp, color: 'bg-teal-700', sub: 'Google Search Avg Rank', onClick: () => setActiveTab('seo') },
+                { title: 'Avg CTR', value: metrics.gscAvgCtr, trend: null, icon: Target, color: 'bg-emerald-700', sub: 'Search Click-Through Rate', onClick: () => setActiveTab('seo') },
               ].filter(c => hasMetricValue(c.value));
 
               if (kpiCards.length === 0) {
