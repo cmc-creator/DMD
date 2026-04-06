@@ -79,7 +79,7 @@ export default async function handler(req, res) {
   const payload = JSON.stringify({
     system_instruction: { parts: [{ text: system }] },
     contents,
-    generationConfig: { maxOutputTokens: maxTokens || (allFiles.length > 0 ? 8000 : 1200), temperature: 0.7 },
+    generationConfig: { maxOutputTokens: maxTokens || (allFiles.length > 0 ? 8000 : 3000), temperature: 0.7 },
   });
 
   let lastError = 'Gemini API error';

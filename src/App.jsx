@@ -2223,7 +2223,7 @@ Other rules:
           systemPrompt,
           messages: updatedMsgs.slice(-12),
           ...(pendingAttachments.length > 0 ? { files: pendingAttachments.map(a => ({ base64: a.base64, text: a.text, mimeType: a.mimeType, name: a.name })) } : {}),
-          maxTokens: pendingAttachments.length > 0 ? 8000 : 1200,
+          maxTokens: pendingAttachments.length > 0 ? 8000 : 3000,
         }),
       });
       const { reply, error } = await r.json();
