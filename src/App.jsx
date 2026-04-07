@@ -24,27 +24,25 @@ const ResponsiveContainer = ({ minWidth = 0, minHeight = 1, ...props }) => (
   <RechartsResponsiveContainer minWidth={minWidth} minHeight={minHeight} {...props} />
 );
 
-// ─── Captain KPI avatar — inline SVG bot face ──────────────────────────────
+// ─── Captain KPI avatar — precision targeting reticle ──────────────────────
 const CaptainKPI = ({ size = 28 }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Body / head */}
-    <rect x="5" y="11" width="30" height="24" rx="8" fill="#6d28d9"/>
-    {/* Visor stripe */}
-    <rect x="5" y="15" width="30" height="9" rx="3" fill="#4c1d95"/>
-    {/* Eyes */}
-    <circle cx="15" cy="20" r="3" fill="#a78bfa"/>
-    <circle cx="25" cy="20" r="3" fill="#a78bfa"/>
-    <circle cx="16" cy="20.8" r="1.2" fill="white"/>
-    <circle cx="26" cy="20.8" r="1.2" fill="white"/>
-    {/* Smile */}
-    <path d="M14 29 Q20 34 26 29" stroke="#c4b5fd" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
-    {/* Antenna */}
-    <rect x="18" y="4" width="4" height="7" rx="2" fill="#7c3aed"/>
-    <circle cx="20" cy="3.5" r="3" fill="#ddd6fe"/>
-    <circle cx="20" cy="3.5" r="1.5" fill="#7c3aed"/>
-    {/* Cap brim */}
-    <rect x="3" y="10" width="34" height="4" rx="2" fill="#5b21b6"/>
-    <rect x="0" y="12" width="40" height="2" rx="1" fill="#4c1d95"/>
+    {/* Outer ring */}
+    <circle cx="20" cy="20" r="17" stroke="#C9A84C" strokeWidth="0.8" opacity="0.35"/>
+    {/* Inner ring */}
+    <circle cx="20" cy="20" r="10" stroke="#C9A84C" strokeWidth="1.5"/>
+    {/* Crosshair — outer segments */}
+    <line x1="20" y1="2" x2="20" y2="9.5" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round"/>
+    <line x1="20" y1="30.5" x2="20" y2="38" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round"/>
+    <line x1="2" y1="20" x2="9.5" y2="20" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round"/>
+    <line x1="30.5" y1="20" x2="38" y2="20" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round"/>
+    {/* Inner tick marks at 45° */}
+    <line x1="13" y1="13" x2="14.8" y2="14.8" stroke="#C9A84C" strokeWidth="1" strokeLinecap="round" opacity="0.55"/>
+    <line x1="27" y1="13" x2="25.2" y2="14.8" stroke="#C9A84C" strokeWidth="1" strokeLinecap="round" opacity="0.55"/>
+    <line x1="13" y1="27" x2="14.8" y2="25.2" stroke="#C9A84C" strokeWidth="1" strokeLinecap="round" opacity="0.55"/>
+    <line x1="27" y1="27" x2="25.2" y2="25.2" stroke="#C9A84C" strokeWidth="1" strokeLinecap="round" opacity="0.55"/>
+    {/* Center dot */}
+    <circle cx="20" cy="20" r="2.5" fill="#C9A84C"/>
   </svg>
 );
 
@@ -8599,7 +8597,7 @@ Other rules:
         <div className="fixed bottom-6 right-6 z-50">
         <button
           onClick={() => setChatOpen(o => !o)}
-          className="relative h-14 w-14 rounded-full bg-gradient-to-br from-[#5C3D11] to-[#C9A84C] shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform no-print"
+          className="relative h-14 w-14 rounded-full bg-[#C9A84C] shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform no-print"
           title="Captain KPI — AI Marketing Assistant"
         >
           {chatOpen ? <X size={22} /> : <CaptainKPI size={30} />}
@@ -8613,22 +8611,22 @@ Other rules:
         {chatOpen && (
           <div
             className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 flex flex-col rounded-3xl shadow-2xl overflow-hidden no-print"
-            style={{ maxHeight: '70vh', border: darkMode ? '1px solid rgba(201,168,76,0.3)' : '1px solid rgba(201,168,76,0.2)', background: darkMode ? '#170D03' : '#FDF8EC' }}
+            style={{ maxHeight: '70vh', border: darkMode ? '1px solid rgba(201,168,76,0.25)' : '1px solid rgba(201,168,76,0.18)', background: darkMode ? '#0F0F14' : '#FAFAF8' }}
           >
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-[#2C1605] to-[#8B6B0E] flex-shrink-0">
+            <div className="flex items-center gap-3 px-4 py-3 bg-[#13131A] border-b border-[#C9A84C]/20 flex-shrink-0">
               <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 p-1">
                 <CaptainKPI size={32} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-black text-white leading-tight">Captain KPI 🫡</p>
-                <p className="text-[10px] text-[#E8C86D]">AI Marketing Officer · Powered by Gemini</p>
+                <p className="text-[10px] text-[#C9A84C]/70">AI Marketing Officer · Powered by Gemini</p>
               </div>
               <button onClick={() => setChatOpen(false)} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><X size={16} /></button>
             </div>
 
             {/* Tab strip */}
-            <div className="flex flex-shrink-0 bg-black/60 px-3 pt-1.5 gap-0.5 border-b border-white/10">
+            <div className="flex flex-shrink-0 bg-[#0D0D12] px-3 pt-1.5 gap-0.5 border-b border-white/[0.06]">
               {[['chat','Chat'],['goals',`Goals${dmdGoals.length > 0 ? ` (${dmdGoals.length})` : ''}`],['alerts',`Alerts${triggeredAlerts.length > 0 ? ` 🔴${triggeredAlerts.length}` : dmdAlerts.length > 0 ? ` (${dmdAlerts.length})` : ''}`]].map(([tab, label]) => (
                 <button key={tab} onClick={() => setChatTab(tab)}
                   className={`text-[11px] px-3 py-1.5 rounded-t-lg font-semibold transition-colors ${chatTab === tab ? 'bg-[#3D2210]/80 text-[#D4AF37]' : 'text-[#8B7355] hover:text-[#C9A84C]'}`}
@@ -8816,7 +8814,7 @@ Other rules:
 
             {/* Input — shown on Chat tab only */}
             {chatTab === 'chat' && (
-            <div className={`flex flex-col gap-1.5 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/10 bg-black/40' : 'border-t border-[#E8D5B0]/50 bg-white'}`}>
+            <div className={`flex flex-col gap-1.5 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/[0.06] bg-[#0D0D12]' : 'border-t border-[#E8D5B0]/50 bg-white'}`}>
               {/* Proposed new tracking category from Captain KPI */}
               {proposedCategory && (
                 <div className={`p-2.5 rounded-xl border border-[#C9A84C]/40 ${darkMode ? 'bg-[#3D2210]/30' : 'bg-[#FBF5E0]'}`}>
