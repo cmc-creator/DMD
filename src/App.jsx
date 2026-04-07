@@ -2063,6 +2063,9 @@ For each real metric found, choose the MOST SPECIFIC type:
 
 Use "social_metrics" for: actual recorded followers, reach, impressions, engagement rate — for Facebook, Instagram, LinkedIn, TikTok, YouTube, etc.
   Fields → rows: [{ platform, month, followers, reach, impressions, engagement, clicks }]
+  IMPORTANT: Use these exact platform names: "Facebook", "Instagram", "TikTok", "LinkedIn", "YouTube"
+  "month" must be a string like "Mar 2026" or "2026-03" — use the report date or period
+  "reach" = total people reached or impressions; "engagement" = likes+comments+shares as a number or rate; "followers" = total follower/fan count
 
 Use "ad_spend" for: actual recorded ad budget, spend, CPC, CPM, ROAS, leads from ads — for Google Ads, Meta Ads, TikTok Ads, etc.
   Fields → rows: [{ month, platform, spend, leads, impressions, clicks }]
@@ -2076,8 +2079,9 @@ Use "review" for: actual recorded star ratings and review counts — for Google,
 Use "seo_rankings" for: actual Google Search Console data — queries, clicks, impressions, CTR, position.
   Fields → rows: [{ keyword, rank, clicks, searchVol, ctr, prevRank }]
 
-Use "wix" for: actual recorded website sessions, page views, bounce rate, traffic sources.
+Use "wix" for: actual recorded website sessions, page views, bounce rate, traffic sources from Wix Analytics, Google Analytics, or any web analytics export.
   Fields → rows: [{ sessions, bounceRate, organic, social, direct, referral }]
+  "sessions" = total visits/sessions as a number; "bounceRate" = bounce rate as a number (e.g. 42.5 not "42.5%"); "organic" / "social" / "direct" / "referral" = traffic source breakdown as percentage numbers or visit counts
 
 Use "custom_metric" for any real measured numeric value that doesn't fit the types above. This includes — but is not limited to:
   - Patient experience / survey scores: NPS, CSAT, satisfaction ratings, likelihood to recommend, response counts
@@ -2822,8 +2826,23 @@ Other rules:
     const mojibake = (s.match(/Ã.|Â.|â.|ðŸ|�/g) || []).length;
     return (controls / len) > 0.01 || (replacement / len) > 0.01 || (mojibake / len) > 0.02;
   };
+  // Normalize platform key to canonical name for _latestSocial lookup
+  const _normPlatform = (p) => {
+    const s = String(p || '').toLowerCase().trim();
+    if (s.includes('facebook') || s === 'fb' || s === 'meta') return 'Facebook';
+    if (s.includes('instagram') || s === 'ig') return 'Instagram';
+    if (s.includes('tiktok') || s === 'tt') return 'TikTok';
+    if (s.includes('linkedin') || s === 'li') return 'LinkedIn';
+    if (s.includes('youtube') || s === 'yt') return 'YouTube';
+    // Preserve original casing if no match
+    return String(p || '');
+  };
   const _latestSocial = {};
-  _socialMet.forEach(e => { if (!_latestSocial[e.platform] || (e.month || '') > (_latestSocial[e.platform].month || '')) _latestSocial[e.platform] = e; });
+  _socialMet.forEach(e => {
+    const key = _normPlatform(e.platform);
+    if (!_latestSocial[key] || (e.month || '') > (_latestSocial[key].month || ''))
+      _latestSocial[key] = e;
+  });
     const _surveyEntries = (() => {
       const rows = Array.isArray(manualData.survey_results) ? manualData.survey_results : [];
       const stamp = (entry) => {
@@ -2954,7 +2973,7 @@ Other rules:
     { platform: 'Facebook',  color: '#1877F2', reach: toNum(_latestSocial['Facebook']?.reach  || _metaLive.reach), engagement: toNum(_latestSocial['Facebook']?.engagement), clicks: toNum(_latestSocial['Facebook']?.clicks), followers: toNum(_fbLive.followers || _latestSocial['Facebook']?.followers || _metaLive.fanCount), posts: null,  videos: null, totalLikes: toNum(_fbLive.likes) },
     { platform: 'Instagram', color: '#E4405F', reach: toNum(_latestSocial['Instagram']?.reach), engagement: toNum(_latestSocial['Instagram']?.engagement), clicks: toNum(_latestSocial['Instagram']?.clicks), followers: toNum(_igLive.followers || _metaLive.instagramFollowers || _latestSocial['Instagram']?.followers), posts: toNum(_igLive.posts || _metaLive.instagramPosts), videos: null, totalLikes: null },
     { platform: 'LinkedIn',  color: '#0A66C2', reach: toNum(_latestSocial['LinkedIn']?.reach), engagement: toNum(_latestSocial['LinkedIn']?.engagement), clicks: toNum(_latestSocial['LinkedIn']?.clicks), followers: toNum(_liLive.followers || _latestSocial['LinkedIn']?.followers), posts: null, videos: null, totalLikes: null },
-    { platform: 'TikTok',    color: '#00f2ea', reach: toNum(_latestSocial['TikTok']?.reach || _tikLive.recentViews), engagement: 0, clicks: 0, followers: toNum(_ttLive.followers || _tikLive.followers || _latestSocial['TikTok']?.followers), posts: null, videos: toNum(_ttLive.videos || _tikLive.videos), totalLikes: toNum(_ttLive.likes || _tikLive.totalLikes) },
+    { platform: 'TikTok',    color: '#00f2ea', reach: toNum(_latestSocial['TikTok']?.reach || _tikLive.recentViews), engagement: toNum(_latestSocial['TikTok']?.engagement) || 0, clicks: toNum(_latestSocial['TikTok']?.clicks) || 0, followers: toNum(_ttLive.followers || _tikLive.followers || _latestSocial['TikTok']?.followers), posts: null, videos: toNum(_ttLive.videos || _tikLive.videos), totalLikes: toNum(_ttLive.likes || _tikLive.totalLikes) },
   ];
 
   // ── Weekly Engagement Trend ──────────────────────────────────────────────────
