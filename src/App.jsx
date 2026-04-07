@@ -79,6 +79,55 @@ const sectionColorMap = {
 };
 const cc = (c, a) => `rgba(${c.r},${c.g},${c.b},${a})`;
 
+// Render markdown-lite: bold, bullets, numbered lists, headings, line breaks
+function ChatMarkdown({ content, className }) {
+  const lines = (content || '').split('\n');
+  const elements = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) { elements.push(<div key={i} className="h-2" />); i++; continue; }
+    // ## Heading
+    if (/^#{1,3}\s/.test(line)) {
+      elements.push(<p key={i} className="font-black text-[13px] mt-2 mb-0.5">{renderInline(line.replace(/^#{1,3}\s/, ''))}</p>);
+      i++; continue;
+    }
+    // Bullet: *, -, •
+    if (/^[\*\-•]\s/.test(line.trim())) {
+      elements.push(
+        <div key={i} className="flex gap-1.5 items-start">
+          <span className="mt-[3px] shrink-0 opacity-60">•</span>
+          <span>{renderInline(line.trim().replace(/^[\*\-•]\s/, ''))}</span>
+        </div>
+      );
+      i++; continue;
+    }
+    // Numbered list
+    if (/^\d+\.\s/.test(line.trim())) {
+      const num = line.trim().match(/^(\d+)\.\s/)[1];
+      elements.push(
+        <div key={i} className="flex gap-1.5 items-start">
+          <span className="mt-[3px] shrink-0 opacity-60 font-bold">{num}.</span>
+          <span>{renderInline(line.trim().replace(/^\d+\.\s/, ''))}</span>
+        </div>
+      );
+      i++; continue;
+    }
+    elements.push(<p key={i} className="leading-relaxed">{renderInline(line)}</p>);
+    i++;
+  }
+  return <div className={`space-y-0.5 text-[13px] ${className || ''}`}>{elements}</div>;
+}
+function renderInline(text) {
+  // Split on **bold** markers
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((p, i) =>
+    p.startsWith('**') && p.endsWith('**')
+      ? <strong key={i}>{p.slice(2, -2)}</strong>
+      : p
+  );
+}
+
 const card  = 'glass-card';
 const txt   = 'text-slate-900 dark:text-slate-100';
 const txt2  = 'text-slate-600 dark:text-slate-300';
@@ -8617,7 +8666,7 @@ Other rules:
                         ? 'bg-[#8B6B0E] text-white rounded-tr-sm'
                         : darkMode ? 'bg-white/10 text-[#E8D5A3] rounded-tl-sm' : 'bg-white text-slate-800 rounded-tl-sm shadow-sm'
                     }`}>
-                      {m.content}
+                      {m.role === 'assistant' ? <ChatMarkdown content={m.content} /> : m.content}
                     </div>
                   </div>
                   {m.role === 'assistant' && i > 0 && (
