@@ -28,22 +28,31 @@ const ResponsiveContainer = ({ minWidth = 0, minHeight = 1, ...props }) => (
 // ─── Captain KPI avatar — precision targeting reticle ──────────────────────
 const CaptainKPI = ({ size = 28 }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Outer ring */}
-    <circle cx="20" cy="20" r="17" stroke="#C9A84C" strokeWidth="0.8" opacity="0.35"/>
-    {/* Inner ring */}
-    <circle cx="20" cy="20" r="10" stroke="#C9A84C" strokeWidth="1.5"/>
-    {/* Crosshair — outer segments */}
-    <line x1="20" y1="2" x2="20" y2="9.5" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round"/>
-    <line x1="20" y1="30.5" x2="20" y2="38" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round"/>
-    <line x1="2" y1="20" x2="9.5" y2="20" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round"/>
-    <line x1="30.5" y1="20" x2="38" y2="20" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round"/>
-    {/* Inner tick marks at 45° */}
-    <line x1="13" y1="13" x2="14.8" y2="14.8" stroke="#C9A84C" strokeWidth="1" strokeLinecap="round" opacity="0.55"/>
-    <line x1="27" y1="13" x2="25.2" y2="14.8" stroke="#C9A84C" strokeWidth="1" strokeLinecap="round" opacity="0.55"/>
-    <line x1="13" y1="27" x2="14.8" y2="25.2" stroke="#C9A84C" strokeWidth="1" strokeLinecap="round" opacity="0.55"/>
-    <line x1="27" y1="27" x2="25.2" y2="25.2" stroke="#C9A84C" strokeWidth="1" strokeLinecap="round" opacity="0.55"/>
-    {/* Center dot */}
-    <circle cx="20" cy="20" r="2.5" fill="#C9A84C"/>
+    {/* Ears */}
+    <ellipse cx="8" cy="27" rx="2.2" ry="3" fill="#FDDBB4"/>
+    <ellipse cx="32" cy="27" rx="2.2" ry="3" fill="#FDDBB4"/>
+    {/* Face */}
+    <circle cx="20" cy="27" r="12" fill="#FDDBB4"/>
+    {/* Hat crown */}
+    <rect x="11" y="3" width="18" height="13" rx="3" fill="#0D2B45"/>
+    {/* Hat brim */}
+    <rect x="6" y="14.5" width="28" height="4" rx="2" fill="#0D2B45"/>
+    {/* Gold hat band */}
+    <rect x="11" y="14.5" width="18" height="1.8" fill="#C9A84C"/>
+    {/* Star badge */}
+    <path d="M20 5.5 L21 8.2 L23.9 8.2 L21.6 9.9 L22.5 12.6 L20 10.9 L17.5 12.6 L18.4 9.9 L16.1 8.2 L19 8.2 Z" fill="#C9A84C"/>
+    {/* Eyes */}
+    <circle cx="16.5" cy="26" r="2.2" fill="#1C1009"/>
+    <circle cx="23.5" cy="26" r="2.2" fill="#1C1009"/>
+    <circle cx="17.3" cy="25.2" r="0.8" fill="white"/>
+    <circle cx="24.3" cy="25.2" r="0.8" fill="white"/>
+    {/* Eyebrows */}
+    <path d="M14 22.8 Q16.5 21.3 19 22.8" stroke="#7A4800" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+    <path d="M21 22.8 Q23.5 21.3 26 22.8" stroke="#7A4800" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+    {/* Mustache */}
+    <path d="M16 29.5 Q18 28 20 29 Q22 28 24 29.5" stroke="#C9A84C" strokeWidth="2.2" strokeLinecap="round" fill="none"/>
+    {/* Smile */}
+    <path d="M17.5 32.5 Q20 35.5 22.5 32.5" stroke="#C07050" strokeWidth="1.3" strokeLinecap="round" fill="none"/>
   </svg>
 );
 
@@ -249,6 +258,7 @@ const App = () => {
   const [aiInsights, setAiInsights]             = useState('');
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [chatOpen, setChatOpen]                 = useState(false);
+  const [chatMinimized, setChatMinimized]       = useState(false);
   const [chatMessages, setChatMessages]         = useState([{ role: 'assistant', content: "Reporting for duty! 🫡 I'm **Captain KPI**, your marketing analytics officer. Fire away — ask me about the data, what to post, how to get more reviews, or why your bounce rate looks like a trampoline." }]);
   const [chatInput, setChatInput]               = useState('');
   const [chatLoading, setChatLoading]           = useState(false);
@@ -9113,7 +9123,7 @@ Other rules:
         {/* Floating toggle button */}
         <div className="fixed bottom-6 right-6 z-50">
         <button
-          onClick={() => setChatOpen(o => !o)}
+          onClick={() => { if (!chatOpen) setChatMinimized(false); setChatOpen(o => !o); }}
           className="relative h-14 w-14 rounded-full bg-[#C9A84C] shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform no-print"
           title="Captain KPI — AI Marketing Assistant"
         >
@@ -9139,9 +9149,11 @@ Other rules:
                 <p className="text-sm font-black text-white leading-tight">Captain KPI 🫡</p>
                 <p className="text-[10px] text-[#C9A84C]/70">AI Marketing Officer · Powered by Gemini</p>
               </div>
+              <button onClick={() => setChatMinimized(m => !m)} title={chatMinimized ? 'Restore' : 'Minimize'} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><ChevronDown size={16} className={`transition-transform duration-200 ${chatMinimized ? 'rotate-180' : ''}`} /></button>
               <button onClick={() => setChatOpen(false)} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><X size={16} /></button>
             </div>
-
+            {!chatMinimized && (
+            <>
             {/* Tab strip */}
             <div className="flex flex-shrink-0 bg-[#0D0D12] px-3 pt-1.5 gap-0.5 border-b border-white/[0.06]">
               {[['chat','Chat'],['goals',`Goals${dmdGoals.length > 0 ? ` (${dmdGoals.length})` : ''}`],['alerts',`Alerts${triggeredAlerts.length > 0 ? ` 🔴${triggeredAlerts.length}` : dmdAlerts.length > 0 ? ` (${dmdAlerts.length})` : ''}`]].map(([tab, label]) => (
@@ -9419,6 +9431,8 @@ Other rules:
                 </button>
               </div>
             </div>
+            )}
+            </>
             )}
           </div>
         )}
