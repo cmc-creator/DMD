@@ -2112,6 +2112,7 @@ Q14 Feel better than when admitted → label "Felt Better Than Admitted (% Yes)"
 Q16 Understand discharge plan → label "Discharge Plan Understanding (% Yes)", value = Yes / Total × 100, unit = "%"
 Q19 NPS overall → label "Patient NPS (Overall)", value = round((Promoters/Total - Detractors/Total) × 100), unit = "NPS"
 Q19 NPS per unit → one row each: label "Patient NPS - Lotus", "Patient NPS - Monarch", "Patient NPS - Phoenix", "Patient NPS - Cicada", "Patient NPS - Koi", value = the NET PROMOTER SCORE shown OR calculate (Promoters% - Detractors%) as an integer, unit = "NPS"
+Q19 NPS breakdown counts → three rows: label "Patient NPS Promoters", value = Promoters count (not %), unit = "respondents"; label "Patient NPS Passives", value = Passives count, unit = "respondents"; label "Patient NPS Detractors", value = Detractors count, unit = "respondents"
 Survey volume → label "Survey Respondents", value = total unique respondents (Q1 Total), unit = "patients"
 
 Round all percentages to 1 decimal place. All values must be numbers — never strings.
@@ -2879,7 +2880,19 @@ Other rules:
       promoters: _surveyOverview.promoters,
       passives: _surveyOverview.passives,
       detractors: _surveyOverview.detractors,
-    } : null;
+    } : (() => {
+      // Fallback: read promoter/passive/detractor counts saved via Captain KPI custom_metrics
+      const allRows = Object.values(customMetrics).flat();
+      const find = (pattern) => {
+        const row = allRows.filter(r => pattern.test(r.label || '')).sort((a, b) => new Date(b._savedAt || 0) - new Date(a._savedAt || 0))[0];
+        return row ? Number(row.value) : null;
+      };
+      const p = find(/promoter/i);
+      const pa = find(/passive/i);
+      const d = find(/detractor/i);
+      if (p != null && pa != null && d != null && (p + pa + d) > 0) return { promoters: p, passives: pa, detractors: d };
+      return null;
+    })();
   const _reviewNpsBreakdown = (() => {
     if (!_reviews.length) return null;
     const promoters = _reviews.filter(r => Number(r.rating) >= 4).length;
@@ -3149,6 +3162,15 @@ Other rules:
     .map(([term, count]) => ({ term, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
+
+  // Fallback: derive voice themes from patient-experience insights saved via Captain KPI
+  const insightVoiceThemes = surveyThemes.length === 0
+    ? dmdInsights
+        .filter(i => i.tag === 'patient-experience' || (i.body || '').toLowerCase().includes('patient'))
+        .slice(0, 6)
+        .map(i => ({ term: i.title, count: null, body: i.body, isInsight: true }))
+    : [];
+  const activeVoiceThemes = surveyThemes.length > 0 ? surveyThemes : insightVoiceThemes;
   const surveyRawRows = surveyTotals.rawRows.filter(r => r.response || r.nps != null || r.satisfaction != null);
   const surveyVisibleRows = surveySearch.trim()
     ? surveyRawRows.filter(r => (`${r.response} ${r.survey}`).toLowerCase().includes(surveySearch.toLowerCase()))
@@ -4679,12 +4701,15 @@ Other rules:
 
               <div className={`lg:col-span-4 ${card} p-8 rounded-[2.5rem]`}>
                 <SectionHeader icon={MessageSquare} color="text-rose-500" title="Survey Voice Snapshot" subtitle="Most frequent open-text themes" />
-                {surveyThemes.length > 0 ? (
+                {activeVoiceThemes.length > 0 ? (
                   <div className="space-y-3">
-                    {surveyThemes.slice(0, 6).map(theme => (
+                    {activeVoiceThemes.slice(0, 6).map(theme => (
                       <div key={theme.term} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                         <span className={`text-sm font-black ${txt}`}>{theme.term}</span>
-                        <span className="text-xs font-black text-rose-500">{theme.count} mentions</span>
+                        {theme.count != null
+                          ? <span className="text-xs font-black text-rose-500">{theme.count} mentions</span>
+                          : <span className="text-xs font-black text-rose-500 max-w-[55%] text-right line-clamp-2 leading-snug">{(theme.body || '').slice(0, 80)}{(theme.body || '').length > 80 ? '…' : ''}</span>
+                        }
                       </div>
                     ))}
                   </div>
