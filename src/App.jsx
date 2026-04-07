@@ -3290,30 +3290,67 @@ Other rules:
   ];
 
   const _ratingNum = _avgRating ? Number(_avgRating) : null;
-  const milestones = [
-    { title: 'Omnichannel Pro',    desc: 'Managing 3+ platforms simultaneously',    icon: Activity,    earned: socialAnalytics.length >= 2 || _adSpend.length > 0, date: 'Achieved' },
-    { title: 'Content Machine',    desc: 'Publishing consistent content',            icon: FileText,    earned: _blogCount >= 1 || _totalSocialPosts >= 10,           date: _blogCount >= 1 || _totalSocialPosts >= 10 ? 'Achieved' : 'Upcoming' },
-    { title: 'TikTok Trailblazer', desc: 'Reach video view milestone',               icon: PlayCircle,  earned: _tiktokPosts.length >= 4,                             date: _tiktokPosts.length >= 4 ? 'Achieved' : 'Upcoming' },
-    { title: 'SEO Climber',        desc: 'Rank top 5 on target keywords',            icon: Search,      earned: seoKeywords.some(k=>k.pos > 0 && k.pos <= 5),        date: seoKeywords.some(k=>k.pos > 0 && k.pos <= 5) ? 'Achieved' : 'Upcoming' },
-    { title: 'Lead Magnet',        desc: 'Hit monthly lead goal',                    icon: Target,      earned: _totalLeads >= 50,                                    date: _totalLeads >= 50 ? 'Achieved' : 'Upcoming' },
-    { title: 'Email Pro',          desc: 'Launched email campaign program',          icon: Mail,        earned: _emailStats.length >= 1,                              date: _emailStats.length >= 1 ? 'Achieved' : 'Upcoming' },
-    { title: 'Paid Ads Champion',  desc: 'Running active paid campaigns',            icon: Megaphone,   earned: _adSpend.length >= 1,                                 date: _adSpend.length >= 1 ? 'Achieved' : 'Upcoming' },
-    { title: 'Review Reviver',     desc: 'Improve Google rating',                   icon: Star,        earned: !!(_ratingNum && _ratingNum >= 4.0),                  date: (_ratingNum && _ratingNum >= 4.0) ? 'Achieved' : 'Upcoming' },
-    { title: '5-Star Elite',       desc: 'Maintain 4.5+ avg 60 days',               icon: Award,       earned: !!(_ratingNum && _ratingNum >= 4.5),                  date: (_ratingNum && _ratingNum >= 4.5) ? 'Achieved' : 'Upcoming' },
-    { title: 'Data Driven',        desc: 'Tracking across 5+ data sources',         icon: BarChart3,   earned: (Object.values(connections).filter(Boolean).length + (destinyData ? 1 : 0)) >= 2, date: 'Achieved' },
-    { title: 'Viral Moment',       desc: '50k+ video views / month',                icon: Zap,         earned: Number(_tikLive.recentViews || 0) >= 50000,           date: Number(_tikLive.recentViews || 0) >= 50000 ? 'Achieved' : 'Upcoming' },
-    { title: 'Growth Architect',   desc: '500+ leads driven',                       icon: TrendingUp,  earned: _totalLeads >= 500,                                   date: _totalLeads >= 500 ? 'Achieved' : 'Upcoming' },
+
+  // ── Real computed achievement stats ─────────────────────────────────────────
+  const _totalFollowers   = socialAnalytics.reduce((s, p) => s + (p.followers || 0), 0);
+  const _totalReach       = _socialMet.reduce((s, e) => s + toNum(e.reach), 0);
+  const _totalEngagement  = _socialMet.reduce((s, e) => s + toNum(e.engagement), 0);
+  const _avgEmailOpen     = _emailStats.length
+    ? (_emailStats.reduce((s, e) => s + (toNum(e.sent) ? toNum(e.opened) / toNum(e.sent) : 0), 0) / _emailStats.length * 100)
+    : 0;
+  const _totalEmailSent   = _emailStats.reduce((s, e) => s + toNum(e.sent), 0);
+  const _wixSessions      = toNum(_gaLive.sessions) || toNum(_wixLive.sessions) || 0;
+  const _top5Keywords     = seoKeywords.filter(k => k.pos > 0 && k.pos <= 5).length;
+  const _avgKeywordRank   = seoKeywords.filter(k=>k.pos>0).length
+    ? (seoKeywords.filter(k=>k.pos>0).reduce((s,k) => s + k.pos, 0) / seoKeywords.filter(k=>k.pos>0).length).toFixed(1)
+    : null;
+  const _platformCount    = socialAnalytics.filter(p => p.followers > 0 || p.posts > 0 || p.reach > 0).length
+    + (_adSpend.some(a => (a.platform || '').includes('Google')) ? 1 : 0)
+    + (_emailStats.length > 0 ? 1 : 0);
+  const _tikViews         = toNum(_tikLive.recentViews || _ttLive.recentViews);
+  const _convRate         = (_wixSessions > 0 && _totalLeads > 0) ? (_totalLeads / _wixSessions * 100).toFixed(2) : null;
+  const _cpl              = (_totalSpend > 0 && _totalLeads > 0) ? (_totalSpend / _totalLeads).toFixed(0) : null;
+
+  const myStats = [
+    { label: 'Total Leads Generated',  value: _totalLeads || 0,         icon: Target,      color: 'text-rose-500',    target: 500,  suffix: '' },
+    { label: 'Social Posts Published', value: _totalSocialPosts || 0,   icon: Share2,      color: 'text-blue-500',    target: 200,  suffix: '' },
+    { label: 'Total Followers',        value: _totalFollowers || 0,     icon: Users,       color: 'text-violet-500',  target: 10000,suffix: '' },
+    { label: 'Email Campaigns',        value: _emailStats.length || 0,  icon: Mail,        color: 'text-teal-500',    target: 12,   suffix: '' },
+    { label: 'Blog Posts Written',     value: _blogCount || 0,          icon: FileText,    color: 'text-purple-500',  target: 20,   suffix: '' },
+    { label: 'TikTok Videos',          value: _ttVideoCount || 0,       icon: PlayCircle,  color: 'text-pink-500',    target: 50,   suffix: '' },
+    { label: 'Website Sessions',       value: _wixSessions || 0,        icon: Globe,       color: 'text-emerald-500', target: 5000, suffix: '' },
+    { label: 'Reviews Managed',        value: _totalReviewCount || 0,   icon: Star,        color: 'text-amber-500',   target: 100,  suffix: '' },
+    { label: 'Avg Google Rating',      value: _avgRating ? Number(_avgRating) : 0, icon: Star, color: 'text-yellow-500', target: 5, suffix: '★' },
+    { label: 'Paid Campaigns',         value: _adSpend.length || 0,     icon: Megaphone,   color: 'text-indigo-500',  target: 24,   suffix: '' },
+    { label: 'Keywords Tracked',       value: seoKeywords.length || 0,  icon: Search,      color: 'text-sky-500',     target: 25,   suffix: '' },
+    { label: 'Omnichannel Reach',      value: _totalReach || 0,         icon: Activity,    color: 'text-orange-500',  target: 100000, suffix: '' },
   ];
 
+  const milestones = [
+    { title: 'Omnichannel Pro',    desc: `${_platformCount} active channel${_platformCount !== 1 ? 's' : ''} managed`,              icon: Activity,    earned: _platformCount >= 2 },
+    { title: 'Content Machine',    desc: `${_blogCount + _totalSocialPosts} pieces published`,                                        icon: FileText,    earned: _blogCount >= 1 || _totalSocialPosts >= 10 },
+    { title: 'TikTok Trailblazer', desc: _ttVideoCount > 0 ? `${_ttVideoCount} videos produced` : 'Reach 4+ TikToks',                icon: PlayCircle,  earned: _ttVideoCount >= 4 },
+    { title: 'SEO Climber',        desc: _top5Keywords > 0 ? `${_top5Keywords} keyword${_top5Keywords !== 1 ? 's' : ''} in top 5` : 'Get a keyword to top 5', icon: Search, earned: _top5Keywords >= 1 },
+    { title: 'Lead Magnet',        desc: _totalLeads > 0 ? `${_totalLeads} leads generated` : 'Generate 50+ leads',                  icon: Target,      earned: _totalLeads >= 50 },
+    { title: 'Email Pro',          desc: _emailStats.length > 0 ? `${_emailStats.length} campaigns · ${_avgEmailOpen > 0 ? _avgEmailOpen.toFixed(1) + '% open rate' : 'tracking open rates'}` : 'Launch email program', icon: Mail, earned: _emailStats.length >= 1 },
+    { title: 'Paid Ads Champion',  desc: _adSpend.length > 0 ? `$${_totalSpend.toLocaleString()} managed${_cpl ? ' · $' + _cpl + ' CPL' : ''}` : 'Launch paid campaigns', icon: Megaphone, earned: _adSpend.length >= 1 },
+    { title: 'Review Reviver',     desc: _ratingNum ? `${_ratingNum}★ avg across ${_totalReviewCount} review${_totalReviewCount !== 1 ? 's' : ''}` : 'Reach 4.0+ rating', icon: Star, earned: !!(_ratingNum && _ratingNum >= 4.0) },
+    { title: '5-Star Elite',       desc: _ratingNum && _ratingNum >= 4.5 ? `${_ratingNum}★ — elite standing` : 'Maintain 4.5+ rating', icon: Award, earned: !!(_ratingNum && _ratingNum >= 4.5) },
+    { title: 'Data Driven',        desc: `${_platformCount + (_wixSessions > 0 ? 1 : 0)} data sources connected`,                    icon: BarChart3,   earned: _platformCount >= 2 || _wixSessions > 0 },
+    { title: 'Viral Moment',       desc: _tikViews > 0 ? `${_tikViews.toLocaleString()} video views` : 'Hit 50k+ video views',       icon: Zap,         earned: _tikViews >= 50000 },
+    { title: 'Growth Architect',   desc: _convRate ? `${_convRate}% site conversion rate` : 'Drive 500+ leads',                      icon: TrendingUp,  earned: _totalLeads >= 500 || (_convRate && parseFloat(_convRate) >= 2) },
+  ];
+
+  // Skill score: each skill reflects real data volume + quality
   const skillRadar = [
-    { skill: 'SEO',          score: Math.min(100, seoKeywords.length * 20) },
-    { skill: 'Social Media', score: Math.min(100, _socialMet.length * 15 + (socialAnalytics.some(p=>p.followers>0) ? 25 : 0)) },
-    { skill: 'Content',      score: Math.min(100, _tiktokPosts.length * 10) },
-    { skill: 'Email Mktg',   score: Math.min(100, _emailStats.length * 20 + (_mailLive.subscribers ? 30 : 0)) },
-    { skill: 'Paid Ads',     score: Math.min(100, _adSpend.length * 15) },
-    { skill: 'Web Design',   score: destinyData?.website?.wordCount > 1000 ? 60 : destinyData?.website ? 30 : 0 },
-    { skill: 'Analytics',    score: (_gaLive.sessions || _wixLive.sessions) ? 80 : 0 },
-    { skill: 'Video',        score: 0 },
+    { skill: 'SEO',          score: Math.min(100, (seoKeywords.length * 10) + (_top5Keywords * 15) + (_seoData.reduce((s,e)=>s+toNum(e.clicks),0) > 100 ? 20 : 0)) },
+    { skill: 'Social Media', score: Math.min(100, Math.min(40, _socialMet.length * 8) + (socialAnalytics.some(p=>p.followers>0) ? 20 : 0) + (_totalReach > 1000 ? 20 : 0) + (_totalEngagement > 0 ? 20 : 0)) },
+    { skill: 'Content',      score: Math.min(100, (_blogCount * 12) + (_ttVideoCount * 8) + (_totalSocialPosts > 50 ? 20 : _totalSocialPosts > 10 ? 10 : 0)) },
+    { skill: 'Email Mktg',   score: Math.min(100, (_emailStats.length * 20) + (_avgEmailOpen > 25 ? 20 : 0) + (_mailLive.subscribers ? 20 : 0)) },
+    { skill: 'Paid Ads',     score: Math.min(100, (_adSpend.length * 15) + (_totalLeads >= 50 ? 20 : 0) + (_cpl && parseFloat(_cpl) < 100 ? 15 : 0)) },
+    { skill: 'Web & SEO',    score: Math.min(100, (_wixSessions > 2000 ? 50 : _wixSessions > 500 ? 30 : _wixSessions > 0 ? 15 : 0) + (destinyData?.website ? 30 : 0) + (_convRate && parseFloat(_convRate) >= 1 ? 20 : 0)) },
+    { skill: 'Analytics',    score: Math.min(100, (_gaLive.sessions || _wixLive.sessions ? 40 : 0) + (metricsHistory.length * 5) + (_platformCount * 10)) },
+    { skill: 'Video',        score: Math.min(100, (_ttVideoCount * 12) + (_tikViews > 10000 ? 30 : _tikViews > 0 ? 15 : 0)) },
   ];
 
   // ── Client ROI data ─────────────────────────────────────────────────────────
@@ -3767,7 +3804,7 @@ Other rules:
 
 {activeTab === 'overview' && (
           <>
-            {/* ── My Achievements Showcase ─────────────────────────────────── */}
+            {/* ── Achievements Showcase ─────────────────────────────────── */}
             <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div className="flex items-center gap-3">
@@ -3775,8 +3812,10 @@ Other rules:
                     <Trophy className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h3 className={`font-black text-lg ${txt}`}>My Achievements</h3>
-                    <p className={`text-xs ${subtl}`}>Full-funnel digital marketing — ongoing at Destiny Springs Healthcare</p>
+                    <h3 className={`font-black text-lg ${txt}`}>Achievements</h3>
+                    <p className={`text-xs ${subtl}`}>
+                      {milestones.filter(m=>m.earned).length} of {milestones.length} badges earned · computed from live data
+                    </p>
                   </div>
                 </div>
                 <button onClick={() => setActiveTab('achievements')} className={`text-xs font-bold text-[#C9A84C] hover:text-[#D4AF37] transition-colors`}>View All →</button>
@@ -3784,24 +3823,26 @@ Other rules:
               {/* Earned badges row */}
               <div className="flex flex-wrap gap-2 mb-4">
                 {milestones.filter(m => m.earned).map(m => (
-                  <div key={m.title} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#C9A84C]/10 border border-[#C9A84C]/20">
+                  <div key={m.title} title={m.desc} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#C9A84C]/10 border border-[#C9A84C]/20 cursor-default">
                     <m.icon size={12} className="text-[#C9A84C]" />
                     <span className="text-[11px] font-black text-[#C9A84C]">{m.title}</span>
                   </div>
                 ))}
                 {milestones.filter(m => m.earned).length === 0 && (
-                  <p className={`text-xs ${subtl}`}>Badges unlock as you log data. Keep going!</p>
+                  <p className={`text-xs ${subtl}`}>Badges unlock as you import data. Connect integrations or import data to get started.</p>
                 )}
               </div>
-              {/* Top stats row */}
+              {/* Top stats row — real computed values */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {myStats.filter(s => ['Total Leads','Social Posts','Email Campaigns','Reviews Managed'].includes(s.label)).map(s => (
+                {myStats.filter(s => ['Total Leads Generated','Total Followers','Website Sessions','Reviews Managed'].includes(s.label)).map(s => (
                   <div key={s.label} className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-1.5">
                       <s.icon size={13} className={s.color} />
                       <span className={`text-[11px] font-black uppercase tracking-widest ${subtl}`}>{s.label}</span>
                     </div>
-                    <div className={`text-2xl font-black ${txt}`}>{Number.isFinite(Number(s.value)) ? Number(s.value).toLocaleString() : s.value || '—'}</div>
+                    <div className={`text-2xl font-black ${txt}`}>
+                      {s.value > 0 ? Number(s.value).toLocaleString() + (s.suffix || '') : <span className={subtl}>—</span>}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -3815,7 +3856,7 @@ Other rules:
                     <CheckSquare className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h3 className={`font-black text-lg ${txt}`}>My Action Items</h3>
+                    <h3 className={`font-black text-lg ${txt}`}>Action Items</h3>
                     <p className={`text-xs ${subtl}`}>
                       {aiTasks.length === 0
                         ? 'Ask Captain KPI for recommendations, then click 📋 Tasks to add them here'
@@ -5848,48 +5889,57 @@ Other rules:
           </>
         )}
 
-        {/* ══════════════════ MY ACHIEVEMENTS ══════════════════ */}
+        {/* ══════════════════ ACHIEVEMENTS ══════════════════ */}
         {activeTab === 'achievements' && (
           <>
             <div className="bg-gradient-to-r from-[#0D0D12] via-[#1A1820] to-[#0D0D12] border border-[#C9A84C]/25 rounded-[2.5rem] p-8 text-white mb-8 flex flex-col md:flex-row items-center gap-6">
               <div className="h-20 w-20 rounded-full bg-[#C9A84C]/15 border-2 border-[#C9A84C]/40 flex items-center justify-center shrink-0">
                 <Trophy size={40} className="text-[#C9A84C]" />
               </div>
-              <div>
-                <h2 className="text-2xl font-black uppercase tracking-tight text-white">My Digital Marketing Achievements</h2>
-                <p className="text-white/60 mt-1 text-sm">Full-funnel Digital Marketing · Social Media · Website Management · Blog Writing · SEO · Paid Ads</p>
-                <p className="text-[#C9A84C]/70 text-xs mt-2 italic">Ongoing · Destiny Springs Healthcare</p>
+              <div className="flex-1">
+                <h2 className="text-2xl font-black uppercase tracking-tight text-white">Digital Marketing Achievements</h2>
+                <p className="text-white/60 mt-1 text-sm">Full-funnel · Social · SEO · Paid Ads · Email · Content · Video — Destiny Springs Healthcare</p>
+                <p className="text-[#C9A84C]/60 text-xs mt-1 italic">All metrics computed live from your connected data</p>
                 <div className="flex flex-wrap gap-2 mt-3">
                   {milestones.filter(m => m.earned).map(m => (
-                    <span key={m.title} className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-[#C9A84C]/15 border border-[#C9A84C]/30 text-[#C9A84C] font-black">
+                    <span key={m.title} title={m.desc} className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-[#C9A84C]/15 border border-[#C9A84C]/30 text-[#C9A84C] font-black cursor-default">
                       <m.icon size={10} /> {m.title}
                     </span>
                   ))}
                 </div>
               </div>
               <div className="ml-auto shrink-0 text-right hidden md:block">
-                <div className="text-4xl font-black text-[#C9A84C]">{(_totalLeads || 312).toLocaleString()}</div>
-                <div className="text-white/50 text-xs font-black uppercase">Total Leads Generated</div>
-                <div className="text-2xl font-black text-white mt-2">{milestones.filter(m => m.earned).length}<span className="text-sm text-white/40">/{milestones.length}</span></div>
+                <div className="text-4xl font-black text-[#C9A84C]">{_totalLeads > 0 ? _totalLeads.toLocaleString() : '—'}</div>
+                <div className="text-white/50 text-xs font-black uppercase">Leads Generated</div>
+                <div className="text-2xl font-black text-white mt-3">{milestones.filter(m => m.earned).length}<span className="text-sm text-white/40">/{milestones.length}</span></div>
                 <div className="text-white/50 text-xs font-black uppercase">Badges Earned</div>
+                {_totalFollowers > 0 && <><div className="text-2xl font-black text-[#C9A84C] mt-3">{_totalFollowers.toLocaleString()}</div><div className="text-white/50 text-xs font-black uppercase">Total Followers</div></>}
               </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {myStats.map(s => {
-                const numericValue = Number.isFinite(Number(s.value)) ? Number(s.value) : 0;
+                const numericValue = Number(s.value) || 0;
                 const pct = s.target > 0 ? Math.min(100, Math.round((numericValue / s.target) * 100)) : 0;
+                const displayVal = numericValue > 0
+                  ? (s.suffix === '★' ? numericValue.toFixed(1) : numericValue.toLocaleString()) + (s.suffix || '')
+                  : '—';
                 return (
                   <div key={s.label} className={`${card} p-5 rounded-2xl`}>
                     <div className="flex items-center gap-2 mb-2">
                       <s.icon size={16} className={s.color} />
                       <span className={`text-[11px] font-black uppercase ${subtl} tracking-widest`}>{s.label}</span>
                     </div>
-                    <div className={`text-3xl font-black ${txt} mb-1`}>{Number.isFinite(Number(s.value)) ? Number(s.value).toLocaleString() : s.value || 0}</div>
-                    <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2">
-                      <div className="h-full bg-[#C9A84C] rounded-full" style={{ width: `${pct}%` }}></div>
-                    </div>
-                    <div className={`text-[11px] ${subtl} mt-1`}>{s.target > 0 ? `${pct}% of ${s.target} goal` : `${numericValue} total`}</div>
+                    <div className={`text-3xl font-black ${numericValue > 0 ? txt : subtl} mb-1`}>{displayVal}</div>
+                    {numericValue > 0 && (
+                      <>
+                        <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2">
+                          <div className="h-full bg-[#C9A84C] rounded-full" style={{ width: `${pct}%` }}></div>
+                        </div>
+                        <div className={`text-[11px] ${subtl} mt-1`}>{pct}% of {s.target > 1000 ? s.target.toLocaleString() : s.target} goal</div>
+                      </>
+                    )}
+                    {numericValue === 0 && <div className={`text-[11px] ${subtl} mt-1`}>No data yet — import to populate</div>}
                   </div>
                 );
               })}
@@ -5897,21 +5947,21 @@ Other rules:
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <div className={`${card} p-8 rounded-[2.5rem]`}>
-                <SectionHeader icon={BarChart3} color="text-[#C9A84C]" title="Skill Proficiency" subtitle="Digital Marketing Stack" />
+                <SectionHeader icon={BarChart3} color="text-[#C9A84C]" title="Skill Proficiency" subtitle="Computed from live data across all channels" />
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart data={skillRadar} margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
                       <PolarGrid stroke={grid} />
                       <PolarAngleAxis dataKey="skill" tick={{ fill: tick, fontSize: 11, fontWeight: 700 }} />
                       <Radar name="Proficiency" dataKey="score" stroke="#C9A84C" fill="#C9A84C" fillOpacity={0.2} strokeWidth={2} />
-                      <Tooltip contentStyle={tipStyle} />
+                      <Tooltip contentStyle={tipStyle} formatter={(v) => [v + '/100', 'Score']} />
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
               <div className={`${card} p-8 rounded-[2.5rem]`}>
-                <SectionHeader icon={Award} color="text-[#C9A84C]" title="Milestone Badges" subtitle="Earned & In Progress" />
+                <SectionHeader icon={Award} color="text-[#C9A84C]" title="Milestone Badges" subtitle="Auto-computed from your real data" />
                 <div className="grid grid-cols-2 gap-2.5">
                   {milestones.map(m => (
                     <div key={m.title} className={`p-3 rounded-2xl border ${m.earned ? 'bg-[#C9A84C]/10 border-[#C9A84C]/30' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 opacity-40'}`}>
