@@ -2264,7 +2264,7 @@ Supported save types:
 - "custom_metric": { category, label, value, unit, period, notes } — for ANY metric not covered above
 - "goal": { name, metric, target, unit, deadline, notes } — creates a tracked KPI goal
 - "alert": { name, metric, condition, threshold, unit } — condition: "above" or "below"; metric options: google_rating, yelp_rating, facebook_followers, instagram_followers, email_open_rate, cpl, total_leads, total_spend
-- "insight": { title, body, source, tag } — save a key finding, recommendation, or highlight to the Overview News feed. Use for: notable takeaways from uploaded docs, competitor intel, strategic priorities, market observations. "tag" can be: "seo", "social", "ads", "reputation", "content", "strategy", "patient-experience". "source" is the file name or topic.
+- "insight": { title, body, source, tag } — save a key finding, recommendation, or highlight to the Overview News feed. Use for: notable takeaways from uploaded docs, competitor intel, strategic priorities, market observations. "tag" can be: "seo", "social", "ads", "reputation", "content", "strategy", "patient-experience". "source" is the file name or topic. NEVER use insight to acknowledge receiving a file — only save it if it contains a real finding or recommendation worth tracking. Do NOT emit an insight that says things like "report received", "data provided", "file uploaded", "ready to extract", or "metrics identified".
 
 To propose a new tracking category (user will be asked to confirm):
 <DMD_PROPOSE>
@@ -2391,6 +2391,13 @@ Other rules:
               return updated;
             });
           } else if (type === 'insight') {
+            // Filter out meta/receipt-style insights that are just acknowledgements of receiving a file
+            const receiptPhrases = ['report received', 'data received', 'file received', 'data provided', 'file uploaded', 'ready to extract', 'metrics identified', 'survey received', 'document received'];
+            const isReceipt = entries.some(e => {
+              const text = ((e.title || '') + ' ' + (e.body || '')).toLowerCase();
+              return receiptPhrases.some(p => text.includes(p));
+            });
+            if (isReceipt) return;
             setDmdInsights(prev => {
               const newItems = entries.map(e => ({ ...e, id: Date.now() + Math.random(), createdAt: new Date().toISOString() }));
               const updated = [...newItems, ...prev].slice(0, 20); // keep latest 20
