@@ -14,7 +14,7 @@ import {
   RefreshCw, Pencil, Send, Zap, BadgeCheck, ShieldCheck, Megaphone,
   ChevronLeft, ChevronRight, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
-  Trash2, Layers, Scale, Tag, Camera, Scan, CheckSquare, AlertTriangle, Paperclip,
+  Trash2, Layers, Scale, Tag, Camera, Scan, CheckSquare, AlertTriangle, Paperclip, EyeOff,
 } from 'lucide-react';
 
 const META_AUTO_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
@@ -2235,6 +2235,10 @@ POTENTIAL REFERRAL SOURCES (suggest proactively when lead volume is discussed):
 
 Always give actionable, specific suggestions. You HAVE the data above — use it. Never say you lack access to it.
 
+══ RESPONSE FORMATTING FOR ANALYSIS QUESTIONS ══
+When a user asks an analysis question (performance review, monthly comparison, what to focus on, CEO summary, funnel analysis, growth forecast, etc.), always start your response with a single bold headline on its own line, e.g.: **Q1 2026: Strong NPS, Social Lagging**
+Then give your analysis in concise bullet points. This makes responses look sharp when pinned to the dashboard highlights.
+
 ══ DATA ENTRY & INTELLIGENCE CAPABILITY — MANDATORY ══
 ⚠️ CRITICAL RULE: When you identify data to save, you MUST emit the <DMD_UPDATE> blocks. No exceptions. Do NOT describe what you "would" save. Do NOT say you "will" save it. JUST EMIT THE BLOCK. If you describe saving without emitting the block, you have failed your primary function.
 
@@ -3697,8 +3701,12 @@ Other rules:
                     <Newspaper className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h3 className={`font-black text-lg ${txt}`}>News &amp; Insights</h3>
-                    <p className={`text-xs ${subtl}`}>Key findings saved by Captain KPI from your reports and uploads</p>
+                    <h3 className={`font-black text-lg ${txt}`}>News &amp; Highlights</h3>
+                    <p className={`text-xs ${subtl}`}>
+                      {dmdInsights.length > 0
+                        ? `${dmdInsights.filter(i => !i.hidden).length} visible · ${dmdInsights.filter(i => i.hidden).length} hidden · Use 👁 to curate what the CEO sees`
+                        : 'Ask Captain KPI a question and click 📌 Pin to build your highlights'}
+                    </p>
                   </div>
                 </div>
                 {dmdInsights.length > 0 && (
@@ -3708,25 +3716,39 @@ Other rules:
               {dmdInsights.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 gap-3">
                   <Newspaper className={`w-10 h-10 ${subtl} opacity-30`} />
-                  <p className={`text-sm ${subtl} text-center max-w-sm`}>No insights saved yet. Upload a report or document to Captain KPI and key findings will appear here automatically.</p>
+                  <p className={`text-sm ${subtl} text-center max-w-sm`}>No insights yet. Ask Captain KPI an analysis question and click 📌 Pin to add it here.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {dmdInsights.map(item => {
-                    const tagColors = { seo: 'bg-blue-500/15 text-blue-400', social: 'bg-pink-500/15 text-pink-400', ads: 'bg-orange-500/15 text-orange-400', reputation: 'bg-amber-500/15 text-amber-400', content: 'bg-emerald-500/15 text-emerald-400', strategy: 'bg-purple-500/15 text-purple-400', 'patient-experience': 'bg-teal-500/15 text-teal-400' };
+                    const tagColors = { seo: 'bg-blue-500/15 text-blue-400', social: 'bg-pink-500/15 text-pink-400', ads: 'bg-orange-500/15 text-orange-400', reputation: 'bg-amber-500/15 text-amber-400', content: 'bg-emerald-500/15 text-emerald-400', strategy: 'bg-purple-500/15 text-purple-400', 'patient-experience': 'bg-teal-500/15 text-teal-400', analysis: 'bg-indigo-500/15 text-indigo-400' };
                     const tagColor = tagColors[item.tag] || 'bg-slate-500/15 text-slate-400';
+                    const isHidden = item.hidden === true;
                     return (
-                      <div key={item.id} className="flex gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                      <div key={item.id} className={`flex gap-3 p-4 rounded-2xl transition-opacity ${isHidden ? 'opacity-40 bg-slate-100 dark:bg-slate-800/30' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             {item.tag && <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${tagColor}`}>{item.tag}</span>}
+                            {item.pinned && <span className="text-[10px] text-amber-400">📌</span>}
                             {item.source && <span className={`text-[10px] ${subtl}`}>{item.source}</span>}
+                            {isHidden && <span className="text-[10px] text-slate-400 italic">hidden from overview</span>}
                             <span className={`text-[10px] ${subtl} ml-auto`}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : ''}</span>
                           </div>
                           {item.title && <p className={`text-sm font-bold ${txt} mb-0.5`}>{item.title}</p>}
                           {item.body && <p className={`text-sm ${subtl} leading-relaxed`}>{item.body}</p>}
                         </div>
-                        <button onClick={() => { const u = dmdInsights.filter(i => i.id !== item.id); setDmdInsights(u); localStorage.setItem('dmd_insights', JSON.stringify(u)); }} className={`${subtl} hover:text-rose-400 flex-shrink-0 transition-colors`}><X className="w-4 h-4" /></button>
+                        <div className="flex flex-col gap-1 flex-shrink-0">
+                          <button
+                            title={isHidden ? 'Show on Overview' : 'Hide from Overview'}
+                            onClick={() => {
+                              const updated = dmdInsights.map(i => i.id === item.id ? { ...i, hidden: !i.hidden } : i);
+                              setDmdInsights(updated);
+                              localStorage.setItem('dmd_insights', JSON.stringify(updated));
+                            }}
+                            className={`transition-colors ${isHidden ? 'text-slate-300 hover:text-emerald-400' : `${subtl} hover:text-amber-400`}`}
+                          >{isHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}</button>
+                          <button onClick={() => { const u = dmdInsights.filter(i => i.id !== item.id); setDmdInsights(u); localStorage.setItem('dmd_insights', JSON.stringify(u)); }} className={`${subtl} hover:text-rose-400 transition-colors`}><X className="w-4 h-4" /></button>
+                        </div>
                       </div>
                     );
                   })}
@@ -8599,13 +8621,30 @@ Other rules:
                     </div>
                   </div>
                   {m.role === 'assistant' && i > 0 && (
-                    <div className="flex gap-1 mt-1 ml-9">
+                    <div className="flex gap-1 mt-1 ml-9 items-center">
                       <button onClick={() => setChatFeedback(prev => ({ ...prev, [i]: prev[i] === 'up' ? null : 'up' }))}
                         className={`text-[11px] px-1.5 py-0.5 rounded transition-colors ${ chatFeedback[i] === 'up' ? 'text-emerald-400' : darkMode ? 'text-white/20 hover:text-white/50' : 'text-slate-200 hover:text-slate-400'}`}
                         title="Helpful">👍</button>
                       <button onClick={() => setChatFeedback(prev => ({ ...prev, [i]: prev[i] === 'down' ? null : 'down' }))}
                         className={`text-[11px] px-1.5 py-0.5 rounded transition-colors ${ chatFeedback[i] === 'down' ? 'text-rose-400' : darkMode ? 'text-white/20 hover:text-white/50' : 'text-slate-200 hover:text-slate-400'}`}
                         title="Not helpful">👎</button>
+                      <button
+                        title="Pin to Highlights on Overview"
+                        onClick={() => {
+                          const content = m.content || '';
+                          const headlineMatch = content.match(/^\*\*([^*]+)\*\*/);
+                          const title = headlineMatch ? headlineMatch[1].trim() : content.split('\n')[0].replace(/^[#*]+\s*/, '').slice(0, 80).trim();
+                          const body = content.replace(/^\*\*[^*]+\*\*\n?/, '').replace(/\*\*/g, '').slice(0, 400).trim();
+                          const newInsight = { id: Date.now() + Math.random(), title, body, tag: 'analysis', source: 'Captain KPI', createdAt: new Date().toISOString(), hidden: false, pinned: true };
+                          setDmdInsights(prev => {
+                            const updated = [newInsight, ...prev].slice(0, 20);
+                            localStorage.setItem('dmd_insights', JSON.stringify(updated));
+                            return updated;
+                          });
+                          setChatFeedback(prev => ({ ...prev, [`pinned_${i}`]: true }));
+                        }}
+                        className={`text-[11px] px-2 py-0.5 rounded-lg transition-colors font-semibold ${ chatFeedback[`pinned_${i}`] ? 'text-amber-400' : darkMode ? 'text-white/20 hover:text-amber-300' : 'text-slate-200 hover:text-amber-500'}`}
+                      >{chatFeedback[`pinned_${i}`] ? '📌 Pinned' : '📌 Pin'}</button>
                     </div>
                   )}
                 </div>
@@ -8624,12 +8663,14 @@ Other rules:
               {chatMessages.length === 1 && !chatLoading && (
                 <div className="space-y-1.5 pt-1">
                   {[
+                    'Create a CEO summary of this month\'s performance',
+                    'What\'s our biggest growth opportunity right now?',
                     'Analyze my data and flag anything unusual',
+                    'Which unit had the best patient satisfaction?',
                     'Compare last month to this month',
-                    'Where should I focus this month?',
-                    'Forecast my follower growth',
-                    'Set a goal for Google reviews',
-                    "What's my cost per lead?",
+                    'Where should I focus my budget this month?',
+                    'What should I present to leadership this week?',
+                    'How is our online reputation trending?',
                   ].map(s => (
                     <button key={s} onClick={() => sendChatMessage(s)}
                       className={`w-full text-left text-[12px] px-3 py-2 rounded-xl border transition-colors ${darkMode ? 'border-white/10 text-purple-200 hover:bg-white/10' : 'border-purple-100 text-purple-700 hover:bg-purple-50'}`}>
