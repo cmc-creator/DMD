@@ -29,26 +29,24 @@ const ResponsiveContainer = ({ minWidth = 0, minHeight = 1, ...props }) => (
 const CaptainKPI = ({ size = 28 }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
     {/* Outer circle — dark navy */}
-    <circle cx="20" cy="20" r="19" fill="#0D2B45" stroke="#C9A84C" strokeWidth="1.5"/>
-    {/* Inner guide ring */}
-    <circle cx="20" cy="20" r="13.5" stroke="#C9A84C" strokeWidth="0.5" strokeDasharray="2 2.5" opacity="0.45"/>
-    {/* Intercardinal points (NE/NW/SE/SW) — small, faint gold */}
-    <path d="M30 10 L23 17.5 L19.5 17.5 L26.5 10 Z" fill="#C9A84C" opacity="0.32"/>
-    <path d="M10 10 L13.5 17.5 L17 17.5 L10 10 Z" fill="#C9A84C" opacity="0.32"/>
-    <path d="M30 30 L23 22.5 L19.5 22.5 L26.5 30 Z" fill="#C9A84C" opacity="0.22"/>
-    <path d="M10 30 L13.5 22.5 L17 22.5 L10 30 Z" fill="#C9A84C" opacity="0.22"/>
-    {/* Cardinal N — gold kite */}
-    <path d="M20 4 L22.5 16 L20 18.5 L17.5 16 Z" fill="#C9A84C"/>
-    {/* Cardinal S — slate kite */}
-    <path d="M20 36 L22.5 24 L20 21.5 L17.5 24 Z" fill="#8FA3BB"/>
-    {/* Cardinal E — gold kite */}
-    <path d="M36 20 L24 17.5 L21.5 20 L24 22.5 Z" fill="#C9A84C"/>
-    {/* Cardinal W — slate kite */}
-    <path d="M4 20 L16 17.5 L18.5 20 L16 22.5 Z" fill="#8FA3BB"/>
+    <circle cx="20" cy="20" r="19.5" fill="#0D2B45" stroke="#C9A84C" strokeWidth="1.2"/>
+    {/* Intercardinal blades (NE/NW/SE/SW) */}
+    <path d="M20 20 L28.5 11.5 L25 20 Z" fill="#C9A84C" opacity="0.5"/>
+    <path d="M20 20 L11.5 11.5 L20 25 Z" fill="#C9A84C" opacity="0.3"/>
+    <path d="M20 20 L28.5 28.5 L20 25 Z" fill="#C9A84C" opacity="0.3"/>
+    <path d="M20 20 L11.5 28.5 L15 20 Z" fill="#C9A84C" opacity="0.5"/>
+    {/* Cardinal N — tall gold kite */}
+    <path d="M20 2 L24 19 L20 21.5 L16 19 Z" fill="#C9A84C"/>
+    {/* Cardinal S — tall slate kite */}
+    <path d="M20 38 L24 21 L20 18.5 L16 21 Z" fill="#8FA3BB"/>
+    {/* Cardinal E — wide gold kite */}
+    <path d="M38 20 L21 16 L18.5 20 L21 24 Z" fill="#C9A84C"/>
+    {/* Cardinal W — wide slate kite */}
+    <path d="M2 20 L19 16 L21.5 20 L19 24 Z" fill="#8FA3BB"/>
     {/* Center hub */}
-    <circle cx="20" cy="20" r="4" fill="#C9A84C"/>
-    <circle cx="20" cy="20" r="2.4" fill="#0D2B45"/>
-    <circle cx="20" cy="20" r="1.1" fill="#C9A84C"/>
+    <circle cx="20" cy="20" r="4.2" fill="#C9A84C"/>
+    <circle cx="20" cy="20" r="2.6" fill="#0D2B45"/>
+    <circle cx="20" cy="20" r="1.2" fill="#C9A84C"/>
   </svg>
 );
 
