@@ -9113,10 +9113,10 @@ Other rules:
         <div className="fixed bottom-6 right-6 z-50">
         <button
           onClick={() => { if (!chatOpen) setChatMinimized(false); setChatOpen(o => !o); }}
-          className="relative h-14 w-14 rounded-full bg-[#C9A84C] shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform no-print"
+          className="relative h-14 w-14 rounded-full bg-[#0D2B45] shadow-2xl overflow-hidden flex items-center justify-center hover:scale-110 active:scale-95 transition-transform no-print"
           title="Captain KPI — AI Marketing Assistant"
         >
-          {chatOpen ? <X size={22} /> : <CaptainKPI size={30} />}
+          {chatOpen ? <X size={22} className="text-white" /> : <CaptainKPI size={56} />}
           {!chatOpen && triggeredAlerts.length > 0 && (
             <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-rose-500 text-[10px] font-bold flex items-center justify-center text-white shadow-lg">{triggeredAlerts.length}</span>
           )}
