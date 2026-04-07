@@ -2079,13 +2079,20 @@ Use "seo_rankings" for: actual Google Search Console data — queries, clicks, i
 Use "wix" for: actual recorded website sessions, page views, bounce rate, traffic sources.
   Fields → rows: [{ sessions, bounceRate, organic, social, direct, referral }]
 
-Use "custom_metric" ONLY for real measured values that don't fit above — e.g. actual patient count, actual call volume, actual NPS score, actual bed occupancy. The "value" field MUST be a real number from the file. If the value would be a word — "Defined", "TBD", "To be tracked", "N/A", "Yes", "No", or ANY non-numeric string — DO NOT emit that row. Skip it entirely.
+Use "custom_metric" for any real measured numeric value that doesn't fit the types above. This includes — but is not limited to:
+  - Patient experience / survey scores: NPS, CSAT, satisfaction ratings, likelihood to recommend, response counts
+  - SurveyMonkey, Qualtrics, or any survey platform exports with numeric results
+  - Call volume, patient admissions, bed occupancy, conversion rates, appointment counts
+  - Any percentage, average, score, or count that was actually measured
+  The "value" field MUST be a real number. If the value is a word — "Defined", "TBD", "N/A", "Yes", "No" — skip that row.
   Fields → rows: [{ category, label, value, unit, period, notes }]
+  Example: {"category":"Patient Experience","label":"Net Promoter Score","value":72,"unit":"NPS","period":"YTD 2026"}
+  Example: {"category":"Patient Experience","label":"Overall Satisfaction","value":4.3,"unit":"/5","period":"Q1 2026"}
 
-Use "insight" when the file is a strategy document, audit, recommendations, or optimization plan with NO real measured numbers. Summarize the key themes into 1-3 insight rows. Do NOT invent custom_metric values for things described as goals or planned KPIs — emit an insight block instead.
+Use "insight" ONLY when the file has NO real numeric data whatsoever — e.g. pure strategy docs, written narratives, recommendation reports. Do NOT emit insight instead of custom_metric when real numbers are present.
   Fields → rows: [{ title, body, source, tag }] where tag is one of: seo, social, ads, reputation, content, strategy, patient-experience
 
-If the file contains NO real measured data AND has no meaningful strategic content (e.g. blank file, unrelated document), respond with exactly: NO_DATA
+If the file contains NO real measured data AND no meaningful strategic content, respond with exactly: NO_DATA
 
 ══ FORMAT ══
 <DMD_UPDATE>
@@ -2442,6 +2449,10 @@ Other rules:
             .trim();
         };
 
+        // Types that represent real metric data vs. meta/structural types
+        const METRIC_TYPES = new Set(['social_metrics','ad_spend','email_stats','review','wix','seo_rankings','custom_metric']);
+        const savedMetricSections = [...savedSections].filter(t => METRIC_TYPES.has(t));
+
         let displayReply;
         if (pendingAttachments.length > 0) {
           if (reply.trim() === 'NO_DATA' || updateBlocks.length === 0) {
@@ -2449,6 +2460,10 @@ Other rules:
             displayReply = await fallbackToChat();
           } else if (failedCount > 0 && savedCount === 0) {
             // Blocks found but all malformed — fall back to chat so user still gets value
+            displayReply = await fallbackToChat();
+          } else if (savedMetricSections.length === 0 && savedCount > 0) {
+            // Only insight/goal/alert blocks saved — no actual metric data extracted.
+            // Fall back to chat WITH the file so the model can try to find real numbers.
             displayReply = await fallbackToChat();
           } else {
             const sectionList = [...savedSections].map(t => `**${SECTION_LABELS[t] || t}**`).join(', ');
