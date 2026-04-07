@@ -3526,16 +3526,17 @@ Other rules:
   // ─── Drag-and-drop section ordering ─────────────────────────────────────────
   const TAB_SECTIONS = {
     overview:     ['ov-achievements','ov-action-items','ov-news','ov-destiny','ov-kpis','ov-patient-sat','ov-brand-health','ov-trend','ov-competitor','ov-historical','ov-weekly-brief','ov-nps-wix','ov-ux-content'],
-    social:       ['soc-cards','soc-performance','soc-detail','soc-charts','soc-engagement'],
-    seo:          ['seo-kpis','seo-keywords','seo-pages','seo-blog'],
-    ads:          ['ads-kpis','ads-campaigns','ads-chart'],
-    email:        ['email-kpis','email-campaigns','email-chart'],
-    reviews:      ['rev-summary','rev-platforms','rev-list'],
-    achievements: ['ach-hero','ach-stats','ach-milestones'],
-    pipeline:     ['pipe-header','pipe-action'],
-    survey:       ['sur-overview','sur-units','sur-voice','sur-raw'],
-    roi:          ['roi-settings','roi-results'],
-    calendar:     ['cal-view','cal-content'],
+    social:       ['soc-snapshot','soc-breakdown','soc-intelligence','soc-engagement','soc-content','soc-quickadd'],
+    seo:          ['seo-kpis','seo-keywords','seo-blog','seo-tiktok','seo-quickadd'],
+    ads:          ['ads-kpis','ads-channels','ads-trend','ads-quickadd'],
+    email:        ['email-kpis','email-live','email-campaigns','email-chart','email-quickadd'],
+    pipeline:     ['pipe-stats','pipe-actions','pipe-google'],
+    achievements: ['ach-hero','ach-kpis','ach-skills','ach-growth'],
+    roi:          ['roi-settings','roi-kpis','roi-chart','roi-breakdown','roi-summary'],
+    calendar:     ['cal-toolbar','cal-form','cal-status','cal-calendar'],
+    reviews:      ['rev-kpis','rev-platforms','rev-trend','rev-recent'],
+    survey:       ['sur-kpis','sur-report','sur-trend','sur-questions','sur-raw'],
+    intel:        ['intel-kpis','intel-tabs','intel-news','intel-scraper','intel-rss'],
   };
   const getTabOrder = (tab) => widgetOrder[tab] || TAB_SECTIONS[tab] || [];
   const sectionCSSOrder = (tab, id) => {
@@ -5402,8 +5403,9 @@ Other rules:
 
         {/* ══════════════════ SOCIAL ══════════════════ */}
         {activeTab === 'social' && (
-          <>
+          <div className="flex flex-col">
             {/* Live Social Snapshot */}
+            <DS id="soc-snapshot" tab="social">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               {socialAnalytics.map(s => {
                 const hasLiveData = s.followers > 0;
@@ -5443,8 +5445,10 @@ Other rules:
                 );
               })}
             </div>
+            </DS>
 
             {/* Live Social Stats — detailed breakdown per platform */}
+            <DS id="soc-breakdown" tab="social">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-5">
                 <SectionHeader icon={Activity} color="text-purple-500" title="Live Social Performance" subtitle="Followers, posts & engagement — synced from each platform" />
@@ -5630,7 +5634,9 @@ Other rules:
                 })()}
               </div>
             </div>
+            </DS>
 
+            <DS id="soc-intelligence" tab="social">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Share2} color="text-blue-500" title="Social Intelligence" subtitle="Platform Reach vs. Engagement Depth" />
               <div className="h-80">
@@ -5651,6 +5657,8 @@ Other rules:
                 )}
               </div>
             </div>
+            </DS>
+            <DS id="soc-engagement" tab="social">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Activity} color="text-purple-500" title="Weekly Engagement by Platform" subtitle="Last 4 Weeks" />
               <div className="h-72">
@@ -5673,7 +5681,9 @@ Other rules:
                 )}
               </div>
             </div>
+            </DS>
             {/* ── Recent Content from Meta Graph API ───────────────────────── */}
+            <DS id="soc-content" tab="social">
             {(_metaLive.igPosts?.length > 0 || _metaLive.fbPosts?.length > 0) && (
               <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                 <SectionHeader icon={Share2} color="text-pink-500" title="Recent Content" subtitle="Latest posts pulled via Meta Graph API" />
@@ -5754,7 +5764,9 @@ Other rules:
               </div>
             )}
 
+            </DS>
             {/* Quick-Add: Social Metrics */}
+            <DS id="soc-quickadd" tab="social">
             <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
               <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowQuickAdd(p => !p)}>
                 <div className="flex items-center gap-3">
@@ -5781,18 +5793,22 @@ Other rules:
                 </div>
               )}
             </div>
-          </>
+            </DS>
+          </div>
         )}
 
         {/* ══════════════════ SEO & CONTENT ══════════════════ */}
         {activeTab === 'seo' && (
-          <>
+          <div className="flex flex-col">
+            <DS id="seo-kpis" tab="seo">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Organic Growth"  value={_wixLive.organic ? _wixLive.organic + '%' : '—'} trend={_wixLive.organic ? '+' + _wixLive.organic + '%' : null} icon={TrendingUp} color="bg-teal-600"   sub="Organic Traffic Share"   />
               <StatCard title="Avg Position"    value={seoKeywords.length ? (seoKeywords.reduce((s,k)=>s+k.pos,0)/seoKeywords.length).toFixed(1) : '—'} trend={seoKeywords.length > 1 ? null : null} icon={Search} color="bg-blue-600" sub="Google SERP Average" />
               <StatCard title="Blog Posts / Mo" value={metrics.blogVelocity} trend={null} icon={FileText}  color="bg-purple-600" sub="Monthly Production"   />
               <StatCard title="Avg Read Time"   value={metrics.avgReadTime} trend={null} icon={Clock}    color="bg-amber-600"  sub="Content Engagement"   />
             </div>
+            </DS>
+            <DS id="seo-keywords" tab="seo">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Search} color="text-blue-500" title="Keyword Rankings" subtitle="Top AZ Healthcare Keywords" />
               <div className="overflow-x-auto">
@@ -5824,6 +5840,8 @@ Other rules:
                 </table>
               </div>
             </div>
+            </DS>
+            <DS id="seo-blog" tab="seo">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={FileText} color="text-purple-500" title="Top Blog Performance" subtitle="Views, Read Time & Social Shares" />
               <div className="space-y-4">
@@ -5845,6 +5863,8 @@ Other rules:
                 ))}
               </div>
             </div>
+            </DS>
+            <DS id="seo-tiktok" tab="seo">
             <div className={`${card} p-7 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={PlayCircle} color="text-pink-500" title="TikTok Velocity" subtitle="Short-Form Video Production" />
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -5860,7 +5880,9 @@ Other rules:
                 ))}
               </div>
             </div>
+            </DS>
             {/* Quick-Add: SEO Rankings */}
+            <DS id="seo-quickadd" tab="seo">
             <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
               <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowQuickAdd(p => !p)}>
                 <div className="flex items-center gap-3">
@@ -5883,18 +5905,22 @@ Other rules:
                 </div>
               )}
             </div>
-          </>
+            </DS>
+          </div>
         )}
 
         {/* ══════════════════ PAID ADS ══════════════════ */}
         {activeTab === 'ads' && (
-          <>
+          <div className="flex flex-col">
+            <DS id="ads-kpis" tab="ads">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Total Ad Spend"    value={_totalSpend > 0 ? '$'+_totalSpend.toLocaleString() : '---'}  trend={null} icon={Target}      color="bg-indigo-600" sub="Monthly Budget"      onClick={() => setActiveTab('import')} />
               <StatCard title="Total Leads"       value={_totalLeads > 0 ? _totalLeads.toLocaleString() : '---'}        trend={null} icon={Users}       color="bg-teal-600"  sub="From Paid Channels" onClick={() => setActiveTab('import')} />
               <StatCard title="Avg CPL"           value={metrics.costPerLead}                                             trend={null} icon={TrendingDown} color="bg-blue-600" sub="Cost Per Lead" />
               <StatCard title="Total Impressions" value={_totalImpressions > 0 ? _totalImpressions.toLocaleString() : '---'} trend={null} icon={Eye}  color="bg-amber-600" sub="Paid Visibility" />
             </div>
+            </DS>
+            <DS id="ads-channels" tab="ads">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={BarChart3} color="text-indigo-500" title="Paid Channel Performance" subtitle="Google, Meta & LinkedIn Ads" />
               <div className="overflow-x-auto">
@@ -5925,6 +5951,8 @@ Other rules:
                 </table>
               </div>
             </div>
+            </DS>
+            <DS id="ads-trend" tab="ads">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={TrendingUp} color="text-teal-500" title="Lead Volume Trend" subtitle="6-Month Monthly Lead Growth" />
               <div className="h-64">
@@ -5939,7 +5967,9 @@ Other rules:
                 </ResponsiveContainer>
               </div>
             </div>
+            </DS>
             {/* Quick-Add: Ad Spend */}
+            <DS id="ads-quickadd" tab="ads">
             <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
               <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowQuickAdd(p => !p)}>
                 <div className="flex items-center gap-3">
@@ -5966,12 +5996,14 @@ Other rules:
                 </div>
               )}
             </div>
-          </>
+            </DS>
+          </div>
         )}
 
         {/* ══════════════════ EMAIL ══════════════════ */}
         {activeTab === 'email' && (
-          <>
+          <div className="flex flex-col">
+            <DS id="email-kpis" tab="email">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Avg Open Rate"  value={_mailLive.openRate  || metrics.emailOpenRate} trend={null} icon={Mail}         color="bg-teal-600"   sub={_mailLive.listName ? `${_mailLive.listName} · Mailchimp` : 'All Campaigns'} />
               <StatCard title="Subscribers"    value={_mailLive.subscribers ? Number(_mailLive.subscribers).toLocaleString() : (emailCampaigns.reduce((s,c)=>s+c.sent,0)>0 ? emailCampaigns.reduce((s,c)=>s+c.sent,0).toLocaleString() : '---')} trend={null} icon={Users} color="bg-purple-600" sub={_mailLive.subscribers ? 'Mailchimp Audience' : 'Total Emails Sent'} />
@@ -6022,6 +6054,8 @@ Other rules:
                 </div>
               </div>
             )}
+            </DS>
+            <DS id="email-campaigns" tab="email">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Mail} color="text-teal-500" title="Email Campaign Performance" subtitle="Sends, Opens, Clicks & Conversions" />
               <div className="overflow-x-auto">
@@ -6047,6 +6081,8 @@ Other rules:
                 </table>
               </div>
             </div>
+            </DS>
+            <DS id="email-chart" tab="email">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={BarChart3} color="text-purple-500" title="Opens vs. Clicks by Campaign" />
               <div className="h-64">
@@ -6064,7 +6100,9 @@ Other rules:
                 </ResponsiveContainer>
               </div>
             </div>
+            </DS>
             {/* Quick-Add: Email Campaign */}
+            <DS id="email-quickadd" tab="email">
             <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
               <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowQuickAdd(p => !p)}>
                 <div className="flex items-center gap-3">
@@ -6087,12 +6125,14 @@ Other rules:
                 </div>
               )}
             </div>
-          </>
+            </DS>
+          </div>
         )}
 
         {/* ══════════════════ PIPELINE ══════════════════ */}
         {activeTab === 'pipeline' && (
-          <>
+          <div className="flex flex-col">
+            <DS id="pipe-stats" tab="pipeline">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               {[
                 { label: 'High Priority',   dot: 'bg-rose-500',  key: 'high',   desc: 'Urgent action items' },
@@ -6109,6 +6149,8 @@ Other rules:
                 </div>
               ))}
             </div>
+            </DS>
+            <DS id="pipe-actions" tab="pipeline">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={CheckCircle} color="text-teal-500" title="Action Pipeline" subtitle="Upcoming Tasks & Deliverables" />
               <div className="space-y-3">
@@ -6139,12 +6181,14 @@ Other rules:
                 <div className="h-10 w-10 rounded-full bg-teal-600 border-2 border-slate-800 flex items-center justify-center text-[13px] font-black">0</div>
               </div>
             </div>
-          </>
+            </DS>
+          </div>
         )}
 
         {/* ══════════════════ ACHIEVEMENTS ══════════════════ */}
         {activeTab === 'achievements' && (
-          <>
+          <div className="flex flex-col">
+            <DS id="ach-hero" tab="achievements">
             <div className="bg-gradient-to-r from-[#0D0D12] via-[#1A1820] to-[#0D0D12] border border-[#C9A84C]/25 rounded-[2.5rem] p-8 text-white mb-8 flex flex-col md:flex-row items-center gap-6">
               <div className="h-20 w-20 rounded-full bg-[#C9A84C]/15 border-2 border-[#C9A84C]/40 flex items-center justify-center shrink-0">
                 <Trophy size={40} className="text-[#C9A84C]" />
@@ -6170,6 +6214,8 @@ Other rules:
               </div>
             </div>
 
+            </DS>
+            <DS id="ach-kpis" tab="achievements">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {myStats.map(s => {
                 const numericValue = Number(s.value) || 0;
@@ -6198,6 +6244,8 @@ Other rules:
               })}
             </div>
 
+            </DS>
+            <DS id="ach-skills" tab="achievements">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <div className={`${card} p-8 rounded-[2.5rem]`}>
                 <SectionHeader icon={BarChart3} color="text-[#C9A84C]" title="Skill Proficiency" subtitle="Computed from live data across all channels" />
@@ -6227,6 +6275,8 @@ Other rules:
               </div>
             </div>
 
+            </DS>
+            <DS id="ach-growth" tab="achievements">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={TrendingUp} color="text-[#C9A84C]" title="Growth I've Driven Month-Over-Month" subtitle="Sessions, Leads & Reach" />
               <div className="h-64">
@@ -6243,13 +6293,15 @@ Other rules:
                 </ResponsiveContainer>
               </div>
             </div>
-          </>
+            </DS>
+          </div>
         )}
 
         {/* ══════════════════ CLIENT ROI ══════════════════ */}
         {activeTab === 'roi' && (
-          <>
+          <div className="flex flex-col">
             {/* ROI settings bar */}
+            <DS id="roi-settings" tab="roi">
             <div className={`${card} p-5 rounded-[2rem] mb-6 flex flex-wrap items-center gap-6`}>
               <span className={`text-sm font-black ${muted} uppercase tracking-wider`}>ROI Settings</span>
               <label className="flex items-center gap-2">
@@ -6283,6 +6335,8 @@ Other rules:
               {!_avgLeadValue && <span className={`text-xs ${subtl} italic`}>Enter avg patient value to unlock ROI calculations</span>}
             </div>
 
+            </DS>
+            <DS id="roi-kpis" tab="roi">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Est. Revenue Potential" value={_revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : '—'} trend={null} icon={DollarSign} color="bg-teal-600"    sub="Based on avg value / lead"  />
               <StatCard title="Total Mktg Spend"       value={_totalSpend > 0 ? '$' + _totalSpend.toLocaleString() : '—'}            trend={null} icon={Target}     color="bg-indigo-600"  sub="All paid channels"          />
@@ -6290,6 +6344,8 @@ Other rules:
               <StatCard title="Agency Cost Savings"    value={_agencySavings}                                                         trend={null} icon={ShieldCheck} color="bg-amber-600"  sub="vs. Full Agency Retainer"   />
             </div>
 
+            </DS>
+            <DS id="roi-chart" tab="roi">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={DollarSign} color="text-teal-500" title="Marketing Spend vs. Revenue Impact" subtitle="6-Month Monthly Comparison" />
               <div className="h-72">
@@ -6307,6 +6363,8 @@ Other rules:
               </div>
             </div>
 
+            </DS>
+            <DS id="roi-breakdown" tab="roi">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={BarChart3} color="text-indigo-500" title="ROI by Channel" subtitle="Leads, Cost-Per-Lead & Return" />
               <div className="overflow-x-auto">
@@ -6340,6 +6398,9 @@ Other rules:
               </div>
             </div>
 
+            </DS>
+            <DS id="roi-summary" tab="roi">
+            </DS>\n            <DS id="roi-summary" tab="roi">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[
                 { label: 'Total Leads × Avg Patient Value', value: _revenuePotential > 0 ? '$' + _revenuePotential.toLocaleString() : '—', icon: DollarSign, color: 'text-teal-500',    sub: 'Estimated patient revenue potential' },
@@ -6354,12 +6415,14 @@ Other rules:
                 </div>
               ))}
             </div>
-          </>
+            </DS>
+          </div>
         )}
 
         {/* ══════════════════ CONTENT CALENDAR ══════════════════ */}
         {activeTab === 'calendar' && (
-          <>
+          <div className="flex flex-col">
+            <DS id="cal-toolbar" tab="calendar">
             {/* ── Toolbar: view toggle + type filter + schedule button ── */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div className="flex items-center gap-2 flex-wrap">
@@ -6387,7 +6450,8 @@ Other rules:
                 <Plus size={14} /> Schedule Post
               </button>
             </div>
-
+            </DS>
+            <DS id="cal-form" tab="calendar">
             {/* ── Schedule Post form ── */}
             {showAddPost && (
               <div className={`${card} p-6 rounded-[2rem] mb-6`} style={{ borderColor: 'rgba(13,148,136,0.35)' }}>
@@ -6434,7 +6498,8 @@ Other rules:
                 </div>
               </div>
             )}
-
+            </DS>
+            <DS id="cal-status" tab="calendar">
             {/* ── Status summary chips ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               {[
@@ -6449,7 +6514,8 @@ Other rules:
                 </div>
               ))}
             </div>
-
+            </DS>
+            <DS id="cal-calendar" tab="calendar">
             {/* ── Content Calendar card ── */}
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
@@ -6587,19 +6653,22 @@ Other rules:
                 </div>
               )}
             </div>
-          </>
+            </DS>
+          </div>
         )}
 
         {/* ══════════════════ REVIEWS ══════════════════ */}
         {activeTab === 'reviews' && (
-          <>
+          <div className="flex flex-col">
+            <DS id="rev-kpis" tab="reviews">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Overall Rating"    value={_avgRating ? _avgRating + ' ★' : '—'} trend={null} icon={Star} color="bg-amber-500" sub={_platformEntries.length ? 'Weighted Avg — All Platforms' : 'Google Business Profile'} />
               <StatCard title="Total Reviews"     value={_totalReviewCount || '—'} trend={null} icon={MessageSquare} color="bg-teal-600" sub={_platformEntries.length ? `Across ${_platformEntries.length} platform${_platformEntries.length!==1?'s':''}` : 'All Time'} />
               <StatCard title="Best Platform"     value={_bestPlatform ? _bestPlatform[0].charAt(0).toUpperCase()+_bestPlatform[0].slice(1) : '—'} trend={null} icon={Trophy} color="bg-emerald-600" sub={_bestPlatform ? _bestPlatform[1].rating+' ★ · '+Number(_bestPlatform[1].count).toLocaleString()+' reviews' : 'No platform data'} />
               <StatCard title="Most Reviews"      value={_mostReviewsPlatform ? Number(_mostReviewsPlatform[1].count).toLocaleString() : '—'} trend={null} icon={ThumbsUp} color="bg-purple-600" sub={_mostReviewsPlatform ? _mostReviewsPlatform[0].charAt(0).toUpperCase()+_mostReviewsPlatform[0].slice(1) : 'No platform data'} />
             </div>
-
+            </DS>
+            <DS id="rev-platforms" tab="reviews">
             {/* ── Multi-Platform Review Tracker ── */}
             <div className={`${card} p-6 rounded-[2rem] mb-8`}>
               <div className="flex items-center justify-between mb-5">
@@ -6754,6 +6823,8 @@ Other rules:
               </div>
             </div>
 
+            </DS>
+            <DS id="rev-trend" tab="reviews">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={TrendingUp} color="text-amber-500" title="Google Rating Trend" subtitle="6-Month Review & Rating Growth" />
               <div className="h-64">
@@ -6776,6 +6847,8 @@ Other rules:
               </div>
             </div>
 
+            </DS>
+            <DS id="rev-recent" tab="reviews">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <div className={`${card} p-6 rounded-[2rem]`}>
                 <SectionHeader icon={Star} color="text-amber-500" title="Recent Reviews" subtitle="Latest Google Business Reviews" />
@@ -6839,20 +6912,22 @@ Other rules:
                 </div>
               </div>
             </div>
-
-          </>
+            </DS>
+          </div>
         )}
 
         {/* ══════════════════ SURVEYMONKEY ══════════════════ */}
         {activeTab === 'survey' && (
-          <>
+          <div className="flex flex-col">
+            <DS id="sur-kpis" tab="survey">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Survey Imports" value={surveyEntries.length || '—'} trend={null} icon={Upload} color="bg-amber-500" sub="Saved SurveyMonkey snapshots" />
               <StatCard title="Total Responses" value={surveyTotals.totalResponses ? Number(surveyTotals.totalResponses).toLocaleString() : '—'} trend={null} icon={Users} color="bg-teal-600" sub="Across all imported surveys" />
               <StatCard title="Weighted NPS" value={surveyAvgNps != null ? surveyAvgNps : '—'} trend={null} icon={ThumbsUp} color="bg-emerald-600" sub="Weighted by response volume" />
               <StatCard title="Avg Satisfaction" value={surveyAvgSatisfaction != null ? surveyAvgSatisfaction : '—'} trend={null} icon={Star} color="bg-indigo-600" sub="Weighted average score" />
             </div>
-
+            </DS>
+            <DS id="sur-report" tab="survey">
             {/* ── Patient Satisfaction Report (Captain KPI extracted from PDF) ── */}
             {(() => {
               const sqRows = manualData.survey_quality || [];
@@ -6940,9 +7015,10 @@ Other rules:
                 </button>
               </div>
             )}
-
+            </DS>
             {surveyEntries.length > 0 && (
               <>
+                <DS id="sur-trend" tab="survey">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                   <div className={`${card} p-6 md:p-8 rounded-[2.5rem]`}>
                     <SectionHeader icon={TrendingUp} color="text-amber-500" title="Survey Trend" subtitle="Responses, NPS, and satisfaction over time" />
@@ -6990,6 +7066,8 @@ Other rules:
                   </div>
                 </div>
 
+                </DS>
+                <DS id="sur-questions" tab="survey">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                   <div className={`${card} p-6 rounded-[2rem]`}>
                     <SectionHeader icon={Award} color="text-indigo-500" title="Question Ranking" subtitle="Highest and lowest scored questions" />
@@ -7038,6 +7116,8 @@ Other rules:
                   </div>
                 </div>
 
+                </DS>
+                <DS id="sur-raw" tab="survey">
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                     <SectionHeader icon={FileText} color="text-slate-500" title="Raw Response Explorer" subtitle="Search imported responses by text and survey snapshot" />
@@ -7074,9 +7154,10 @@ Other rules:
                     Showing {Math.min(80, surveyVisibleRows.length)} of {surveyVisibleRows.length} response rows.
                   </p>
                 </div>
+                </DS>
               </>
             )}
-          </>
+          </div>
         )}
 
         {/* ══════════════════ INTEL ══════════════════ */}
@@ -7091,7 +7172,8 @@ Other rules:
             'behavioral health Arizona',
           ];
           return (
-            <>
+            <div className="flex flex-col">
+              <DS id="intel-kpis" tab="intel">
               {/* KPI row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
                 {[
@@ -7108,6 +7190,8 @@ Other rules:
                 ))}
               </div>
 
+              </DS>
+              <DS id="intel-tabs" tab="intel">
               {/* Sub-tab switcher */}
               <div className="flex gap-2 mb-6 flex-wrap">
                 {[
@@ -7122,6 +7206,8 @@ Other rules:
                 ))}
               </div>
 
+              </DS>
+              <DS id="intel-news" tab="intel">
               {/* ── News Feed ── */}
               {intelSubTab === 'news' && (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
@@ -7192,6 +7278,8 @@ Other rules:
                 </div>
               )}
 
+              </DS>
+              <DS id="intel-scraper" tab="intel">
               {/* ── Web Page Scraper ── */}
               {intelSubTab === 'scraper' && (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
@@ -7521,6 +7609,8 @@ Other rules:
                 </div>
               )}
 
+              </DS>
+              <DS id="intel-rss" tab="intel">
               {intelSubTab === 'rss' && (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <SectionHeader icon={Rss} color="text-orange-500" title="RSS / Atom Feed Reader" subtitle="Pull blog posts and updates from any RSS or Atom feed URL" />
@@ -7653,7 +7743,8 @@ Other rules:
                   )}
                 </div>
               )}
-            </>
+            </DS>
+            </div>
           );
         })()}
 
