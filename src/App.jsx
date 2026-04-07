@@ -198,6 +198,29 @@ const sanitizeManualDataForSurvey = (rawManual) => {
   };
 };
 
+// DragCtx — lets the module-level DS component read drag state/functions from App
+// without being re-defined on every App render (which caused input focus loss)
+const DragCtx = React.createContext(null);
+const DS = ({ id, tab, children }) => {
+  const ctx = React.useContext(DragCtx);
+  if (!ctx) return <div>{children}</div>;
+  const { sectionCSSOrder, makeDrag, layoutMode, sectionDragOver } = ctx;
+  return (
+    <div
+      style={sectionCSSOrder(tab, id)}
+      className={layoutMode ? `relative group${sectionDragOver === id ? ' outline outline-2 outline-[#C9A84C]/60 rounded-[2.5rem]' : ''}` : ''}
+      {...(layoutMode ? makeDrag(tab, id) : {})}
+    >
+      {layoutMode && (
+        <div className="absolute -top-1 -left-1 z-30 bg-[#C9A84C] text-slate-900 text-[9px] font-black px-2 py-1 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none flex items-center gap-1 select-none">
+          <GripVertical size={10} /> drag to reorder
+        </div>
+      )}
+      {children}
+    </div>
+  );
+};
+
 const App = () => {
   const [activeTab, setActiveTab]               = useState('overview');
   const [darkMode, setDarkMode]                 = useState(true);
@@ -3566,22 +3589,6 @@ Other rules:
       } catch {}
     },
   });
-  // DS = DraggableSection wrapper — thin flex-order + drag handle container
-  const DS = ({ id, tab, children }) => (
-    <div
-      style={sectionCSSOrder(tab, id)}
-      className={layoutMode ? `relative group${sectionDragOver === id ? ' outline outline-2 outline-[#C9A84C]/60 rounded-[2.5rem]' : ''}` : ''}
-      {...(layoutMode ? makeDrag(tab, id) : {})}
-    >
-      {layoutMode && (
-        <div className="absolute -top-1 -left-1 z-30 bg-[#C9A84C] text-slate-900 text-[9px] font-black px-2 py-1 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none flex items-center gap-1 select-none">
-          <GripVertical size={10} /> drag to reorder
-        </div>
-      )}
-      {children}
-    </div>
-  );
-
   // ─── Override Panel (slide-in drawer) ────────────────────────────────────────
   const OverridePanel = () => {
     const [ovTab, setOvTab] = React.useState('social');
@@ -3787,6 +3794,7 @@ Other rules:
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
+    <DragCtx.Provider value={{ sectionCSSOrder, makeDrag, layoutMode, sectionDragOver }}>
     <div className="dashboard-shell font-sans">
 
       {/* Mobile overlay backdrop */}
@@ -9524,6 +9532,7 @@ Other rules:
         );
       })()}
     </div>
+    </DragCtx.Provider>
   );
 };
 
