@@ -28,31 +28,27 @@ const ResponsiveContainer = ({ minWidth = 0, minHeight = 1, ...props }) => (
 // ─── Captain KPI avatar — precision targeting reticle ──────────────────────
 const CaptainKPI = ({ size = 28 }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Ears */}
-    <ellipse cx="8" cy="27" rx="2.2" ry="3" fill="#FDDBB4"/>
-    <ellipse cx="32" cy="27" rx="2.2" ry="3" fill="#FDDBB4"/>
-    {/* Face */}
-    <circle cx="20" cy="27" r="12" fill="#FDDBB4"/>
-    {/* Hat crown */}
-    <rect x="11" y="3" width="18" height="13" rx="3" fill="#0D2B45"/>
-    {/* Hat brim */}
-    <rect x="6" y="14.5" width="28" height="4" rx="2" fill="#0D2B45"/>
-    {/* Gold hat band */}
-    <rect x="11" y="14.5" width="18" height="1.8" fill="#C9A84C"/>
-    {/* Star badge */}
-    <path d="M20 5.5 L21 8.2 L23.9 8.2 L21.6 9.9 L22.5 12.6 L20 10.9 L17.5 12.6 L18.4 9.9 L16.1 8.2 L19 8.2 Z" fill="#C9A84C"/>
-    {/* Eyes */}
-    <circle cx="16.5" cy="26" r="2.2" fill="#1C1009"/>
-    <circle cx="23.5" cy="26" r="2.2" fill="#1C1009"/>
-    <circle cx="17.3" cy="25.2" r="0.8" fill="white"/>
-    <circle cx="24.3" cy="25.2" r="0.8" fill="white"/>
-    {/* Eyebrows */}
-    <path d="M14 22.8 Q16.5 21.3 19 22.8" stroke="#7A4800" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
-    <path d="M21 22.8 Q23.5 21.3 26 22.8" stroke="#7A4800" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
-    {/* Mustache */}
-    <path d="M16 29.5 Q18 28 20 29 Q22 28 24 29.5" stroke="#C9A84C" strokeWidth="2.2" strokeLinecap="round" fill="none"/>
-    {/* Smile */}
-    <path d="M17.5 32.5 Q20 35.5 22.5 32.5" stroke="#C07050" strokeWidth="1.3" strokeLinecap="round" fill="none"/>
+    {/* Outer circle — dark navy */}
+    <circle cx="20" cy="20" r="19" fill="#0D2B45" stroke="#C9A84C" strokeWidth="1.5"/>
+    {/* Inner guide ring */}
+    <circle cx="20" cy="20" r="13.5" stroke="#C9A84C" strokeWidth="0.5" strokeDasharray="2 2.5" opacity="0.45"/>
+    {/* Intercardinal points (NE/NW/SE/SW) — small, faint gold */}
+    <path d="M30 10 L23 17.5 L19.5 17.5 L26.5 10 Z" fill="#C9A84C" opacity="0.32"/>
+    <path d="M10 10 L13.5 17.5 L17 17.5 L10 10 Z" fill="#C9A84C" opacity="0.32"/>
+    <path d="M30 30 L23 22.5 L19.5 22.5 L26.5 30 Z" fill="#C9A84C" opacity="0.22"/>
+    <path d="M10 30 L13.5 22.5 L17 22.5 L10 30 Z" fill="#C9A84C" opacity="0.22"/>
+    {/* Cardinal N — gold kite */}
+    <path d="M20 4 L22.5 16 L20 18.5 L17.5 16 Z" fill="#C9A84C"/>
+    {/* Cardinal S — slate kite */}
+    <path d="M20 36 L22.5 24 L20 21.5 L17.5 24 Z" fill="#8FA3BB"/>
+    {/* Cardinal E — gold kite */}
+    <path d="M36 20 L24 17.5 L21.5 20 L24 22.5 Z" fill="#C9A84C"/>
+    {/* Cardinal W — slate kite */}
+    <path d="M4 20 L16 17.5 L18.5 20 L16 22.5 Z" fill="#8FA3BB"/>
+    {/* Center hub */}
+    <circle cx="20" cy="20" r="4" fill="#C9A84C"/>
+    <circle cx="20" cy="20" r="2.4" fill="#0D2B45"/>
+    <circle cx="20" cy="20" r="1.1" fill="#C9A84C"/>
   </svg>
 );
 
