@@ -2094,6 +2094,28 @@ Use "insight" ONLY when the file has NO real numeric data whatsoever — e.g. pu
 
 If the file contains NO real measured data AND no meaningful strategic content, respond with exactly: NO_DATA
 
+══ DESTINY SPRINGS PATIENT SATISFACTION SURVEY (SurveyMonkey export) ══
+When you see this specific report, extract ALL of the following as custom_metric rows, category "Patient Satisfaction".
+Use the survey title year or the latest response date as the period (e.g. "YTD 2026").
+Calculate percentages from the TOTAL RESPONDENTS row in each question.
+
+Q4 Overall quality of care → label "Quality of Care (Excellent+Good %)", value = (Excellent count + Good count) / Total × 100, unit = "%"
+Q5 Treated with dignity and respect → label "Dignity & Respect (% Yes)", value = Yes count / Total × 100, unit = "%"
+Q6 Cleanliness → label "Facility Cleanliness (Excellent+Good %)", value = (Excellent + Good) / Total × 100, unit = "%"
+Q7 Comfort → label "Facility Comfort (Excellent+Good %)", value = (Excellent + Good) / Total × 100, unit = "%"
+Q8 Food rating → label "Food Quality (Excellent+Good %)", value = (Excellent + Good) / Total × 100, unit = "%"
+Q9 Felt safe → label "Felt Safe During Stay (% Yes)", value = Yes count / Total × 100, unit = "%"
+Q10 Input on treatment plan → label "Treatment Plan Input (% Yes)", value = Yes / Total × 100, unit = "%"
+Q11 Mindability groups effective → label "Mindability Group Effectiveness (% Yes)", value = Yes / Total × 100, unit = "%"
+Q13 Group therapy → label "Group Therapy (Extremely+Very Helpful %)", value = (Extremely + Very) / Total × 100, unit = "%"
+Q14 Feel better than when admitted → label "Felt Better Than Admitted (% Yes)", value = Yes / Total × 100, unit = "%"
+Q16 Understand discharge plan → label "Discharge Plan Understanding (% Yes)", value = Yes / Total × 100, unit = "%"
+Q19 NPS overall → label "Patient NPS (Overall)", value = round((Promoters/Total - Detractors/Total) × 100), unit = "NPS"
+Q19 NPS per unit → one row each: label "Patient NPS - Lotus", "Patient NPS - Monarch", "Patient NPS - Phoenix", "Patient NPS - Cicada", "Patient NPS - Koi", value = the NET PROMOTER SCORE shown OR calculate (Promoters% - Detractors%) as an integer, unit = "NPS"
+Survey volume → label "Survey Respondents", value = total unique respondents (Q1 Total), unit = "patients"
+
+Round all percentages to 1 decimal place. All values must be numbers — never strings.
+
 ══ FORMAT ══
 <DMD_UPDATE>
 {"type":"social_metrics","rows":[{"platform":"Facebook","month":"Mar 2026","followers":1200}]}
