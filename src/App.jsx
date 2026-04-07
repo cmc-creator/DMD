@@ -3347,12 +3347,12 @@ Other rules:
     Blog:   'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
     Social: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
     TikTok: 'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300',
-    Email:  'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300',
+    Email:  'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   };
 
   const statusColor = {
     published: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
-    scheduled: 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300',
+    scheduled: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
     draft:     'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
     filming:   'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300',
     idea:      'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
@@ -3639,7 +3639,7 @@ Other rules:
                     return (
                       <div className="space-y-4">
                         <div className={`p-4 rounded-2xl text-sm font-bold ${
-                          connected ? 'bg-teal-900/40 text-teal-300 border border-teal-700/40'
+                          connected ? 'bg-amber-900/40 text-amber-300 border border-amber-700/40'
                                     : 'bg-red-900/40 text-red-300 border border-red-700/40'}`}>
                           {connected ? '✅ Connected to Upstash Redis' : '❌ Not connected — env vars missing'}
                         </div>
@@ -3649,7 +3649,7 @@ Other rules:
                             .map(([name, val]) => (
                               <div key={name} className="flex items-center justify-between text-xs">
                                 <span className="text-slate-400 font-mono">{name}</span>
-                                <span className={val ? 'text-teal-400 font-bold' : 'text-red-400 font-bold'}>{val ? '✅ set' : '✗ missing'}</span>
+                                <span className={val ? 'text-[#C9A84C] font-bold' : 'text-red-400 font-bold'}>{val ? '✅ set' : '✗ missing'}</span>
                               </div>
                             ))}
                         </div>
@@ -3721,7 +3721,7 @@ Other rules:
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {dmdInsights.map(item => {
-                    const tagColors = { seo: 'bg-blue-500/15 text-blue-400', social: 'bg-pink-500/15 text-pink-400', ads: 'bg-orange-500/15 text-orange-400', reputation: 'bg-amber-500/15 text-amber-400', content: 'bg-emerald-500/15 text-emerald-400', strategy: 'bg-purple-500/15 text-purple-400', 'patient-experience': 'bg-teal-500/15 text-teal-400', analysis: 'bg-indigo-500/15 text-indigo-400' };
+                    const tagColors = { seo: 'bg-blue-500/15 text-blue-400', social: 'bg-pink-500/15 text-pink-400', ads: 'bg-orange-500/15 text-orange-400', reputation: 'bg-amber-500/15 text-amber-400', content: 'bg-emerald-500/15 text-emerald-400', strategy: 'bg-purple-500/15 text-purple-400', 'patient-experience': 'bg-amber-500/15 text-amber-400', analysis: 'bg-[#C9A84C]/15 text-[#C9A84C]' };
                     const tagColor = tagColors[item.tag] || 'bg-slate-500/15 text-slate-400';
                     const isHidden = item.hidden === true;
                     return (
@@ -3917,7 +3917,7 @@ Other rules:
 
                       {/* Healthgrades profile link */}
                       {hg?.profileUrl && (
-                        <a href={hg.profileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-black">
+                        <a href={hg.profileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-amber-500 hover:text-amber-400 font-black">
                           <ExternalLink size={11} /> View on Healthgrades
                         </a>
                       )}
@@ -3970,8 +3970,8 @@ Other rules:
                           </div>
                           {website.h1 && (
                             <div className="p-3 rounded-2xl bg-teal-50 dark:bg-teal-900/10 border border-teal-200 dark:border-teal-800">
-                              <p className={`text-[11px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-wider mb-1`}>H1</p>
-                              <p className={`text-sm font-black text-teal-700 dark:text-teal-300`}>{website.h1}</p>
+                              <p className={`text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1`}>H1</p>
+                              <p className={`text-sm font-black text-amber-700 dark:text-amber-300`}>{website.h1}</p>
                             </div>
                           )}
                           {website.h2s?.length > 0 && (
@@ -3984,12 +3984,12 @@ Other rules:
                           )}
                           {/* Social links found on the site */}
                           {hasSocialLinks && (
-                            <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800">
-                              <p className={`text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2`}>Social Profiles Found</p>
+                            <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
+                              <p className={`text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-2`}>Social Profiles Found</p>
                               <div className="flex flex-wrap gap-2">
                                 {Object.entries(socialLinks).map(([platform, url]) => (
                                   <a key={platform} href={url} target="_blank" rel="noreferrer"
-                                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800 capitalize flex items-center gap-1">
+                                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800 capitalize flex items-center gap-1">
                                     <ExternalLink size={9} /> {platform}
                                   </a>
                                 ))}
@@ -4017,7 +4017,7 @@ Other rules:
                               <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-2`}>Services Detected</p>
                               <div className="flex flex-wrap gap-1.5">
                                 {website.services.slice(0, 12).map((s, i) => (
-                                  <span key={i} className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 capitalize">{s}</span>
+                                  <span key={i} className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 capitalize">{s}</span>
                                 ))}
                               </div>
                             </div>
@@ -4225,7 +4225,7 @@ Other rules:
                 { title: 'Google Rating', value: metrics.googleScore, trend: metrics.googleTrend, icon: Star, color: 'bg-amber-500', sub: 'Review Cleanup Performance', onClick: () => setActiveTab('reviews') },
                 { title: 'Monthly Sessions', value: metrics.wixSessions, trend: null, icon: Layout, color: 'bg-teal-600', sub: 'Wix Website Traffic', onClick: () => setActiveTab('seo') },
                 { title: 'Avg Read Time', value: metrics.avgReadTime, trend: null, icon: Clock, color: 'bg-emerald-600', sub: 'Blog & Education Retention', onClick: () => setActiveTab('seo') },
-                { title: 'Omnichannel Reach', value: omniReach, trend: null, icon: Activity, color: 'bg-purple-600', sub: _socialMet.reduce((s, e) => s + Number(e.reach || 0), 0) > 0 ? 'Combined Ad / Social' : 'Total Social Audience', onClick: () => setActiveTab('social') },
+                { title: 'Omnichannel Reach', value: omniReach, trend: null, icon: Activity, color: 'bg-[#8B6B0E]', sub: _socialMet.reduce((s, e) => s + Number(e.reach || 0), 0) > 0 ? 'Combined Ad / Social' : 'Total Social Audience', onClick: () => setActiveTab('social') },
                 { title: 'Total Leads', value: metrics.totalLeads, trend: metrics.leadsGrowth, icon: Target, color: 'bg-rose-500', sub: 'Monthly Lead Volume', onClick: () => setActiveTab('pipeline') },
                 { title: 'Cost Per Lead', value: metrics.costPerLead, trend: null, icon: TrendingDown, color: 'bg-indigo-600', sub: 'Blended Paid Acquisition', onClick: () => setActiveTab('ads') },
                 { title: 'Site Conversion', value: metrics.siteConversion, trend: null, icon: MousePointer, color: 'bg-teal-600', sub: 'Visitor to Lead Rate', onClick: () => setActiveTab('seo') },
@@ -4456,14 +4456,14 @@ Other rules:
                   <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
                     <SectionHeader icon={Scale} color="text-purple-500" title="Competitor Intelligence" subtitle={`Live ratings vs. ${comps.length} local behavioral health providers`} />
                     <button onClick={fetchCompetitors} disabled={competitorLoading}
-                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-colors">
+                      className="flex items-center gap-2 px-4 py-2 bg-[#8B6B0E] hover:bg-[#C9A84C] disabled:opacity-50 text-white rounded-xl text-sm font-black transition-colors">
                       <RefreshCw size={13} className={competitorLoading ? 'animate-spin' : ''} />
                       {competitorLoading ? 'Scanning…' : 'Refresh'}
                     </button>
                   </div>
                   {competitorLoading && !competitorData && (
                     <div className="flex items-center gap-3 py-8 justify-center">
-                      <RefreshCw size={18} className="animate-spin text-purple-500" />
+                      <RefreshCw size={18} className="animate-spin text-[#C9A84C]" />
                       <p className={`text-sm font-bold ${subtl}`}>Scraping competitor data… this takes ~30s</p>
                     </div>
                   )}
@@ -4485,14 +4485,14 @@ Other rules:
                         <tbody className={`divide-y ${divdr}`}>
                           {allProviders.map((p, idx) => (
                             <tr key={p.id} className={`${p.isUs ? 'bg-teal-50/60 dark:bg-teal-900/10' : rowCls}`}>
-                              <td className={`py-3 pr-4 text-xs font-black ${p.isUs ? 'text-teal-600 dark:text-teal-400' : subtl}`}>
+                              <td className={`py-3 pr-4 text-xs font-black ${p.isUs ? 'text-amber-600 dark:text-amber-400' : subtl}`}>
                                 {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`}
                               </td>
                               <td className="py-3 pr-4">
                                 <div className="flex items-center gap-2">
-                                  {p.isUs && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300">YOU</span>}
+                                  {p.isUs && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">YOU</span>}
                                   <div>
-                                    <p className={`text-xs font-black ${p.isUs ? 'text-teal-700 dark:text-teal-300' : txt}`}>{p.name}</p>
+                                    <p className={`text-xs font-black ${p.isUs ? 'text-amber-700 dark:text-amber-300' : txt}`}>{p.name}</p>
                                     {p.web && <a href={p.web} target="_blank" rel="noreferrer" className={`text-[10px] ${subtl} hover:text-teal-500`}>{p.web.replace(/https?:\/\//,'').replace(/\//,'')}</a>}
                                   </div>
                                 </div>
@@ -4545,7 +4545,7 @@ Other rules:
                           className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors
                             ${historyPeriod === d
                               ? 'bg-indigo-600 text-white shadow-md'
-                              : `bg-slate-100 dark:bg-slate-800 ${subtl} hover:bg-indigo-100 dark:hover:bg-indigo-900/30`}`}>
+                              : `bg-slate-100 dark:bg-slate-800 ${subtl} hover:bg-amber-100 dark:hover:bg-amber-900/30`}`}>
                           {d === 365 ? '1y' : `${d}d`}
                         </button>
                       ))}
@@ -4728,11 +4728,11 @@ Other rules:
                     subtitle={weeklyDigest.generatedAt
                       ? `Generated ${new Date(weeklyDigest.generatedAt).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`
                       : 'Auto-generated every Monday morning'} />
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-black px-3 py-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-black px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
                     <Zap size={10} /> Captain KPI
                   </span>
                 </div>
-                <div className="p-5 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-700/40">
+                <div className="p-5 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/40">
                   <p className={`text-sm ${txt} whitespace-pre-wrap leading-relaxed`}>{weeklyDigest.text}</p>
                 </div>
                 {weeklyDigest.metrics && (
@@ -4901,15 +4901,15 @@ Other rules:
                 </button>
               </div>
               {aiInsights ? (
-                <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700/40">
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0">
                       <CaptainKPI size={28} />
                     </div>
-                    <span className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">Captain KPI reporting:</span>
+                    <span className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">Captain KPI reporting:</span>
                   </div>
                   <p className={`text-sm ${txt} whitespace-pre-wrap leading-relaxed`}>{aiInsights}</p>
-                  <button onClick={() => setAiInsights('')} className={`mt-3 text-xs ${subtl} hover:text-purple-500 transition-colors`}>Clear analysis</button>
+                  <button onClick={() => setAiInsights('')} className={`mt-3 text-xs ${subtl} hover:text-amber-500 transition-colors`}>Clear analysis</button>
                 </div>
               ) : (
                 <div className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex items-center gap-4`}>
@@ -4995,7 +4995,7 @@ Other rules:
                 <button
                   onClick={fetchDestinyProfile}
                   disabled={destinyLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-black transition-all shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#8B6B0E] hover:bg-[#C9A84C] disabled:opacity-50 text-white text-xs font-black transition-all shrink-0"
                 >
                   <RefreshCw size={11} className={destinyLoading ? 'animate-spin' : ''} />
                   {destinyLoading ? 'Syncing…' : 'Sync Now'}
@@ -8250,12 +8250,12 @@ Other rules:
                 </button>
               </div>
               {aiInsights ? (
-                <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700/40">
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0">
                       <CaptainKPI size={28} />
                     </div>
-                    <span className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">Captain KPI reporting:</span>
+                    <span className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">Captain KPI reporting:</span>
                   </div>
                   <p className={`text-sm ${txt2} whitespace-pre-wrap leading-relaxed`}>{aiInsights}</p>
                 </div>
@@ -8382,14 +8382,14 @@ Other rules:
                 <button
                   onClick={generateAIContent}
                   disabled={aiGenerating}
-                  className={`flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-black hover:bg-purple-500 transition-all ${aiGenerating ? "opacity-60 cursor-not-allowed" : ""}`}
+                  className={`flex items-center gap-2 px-6 py-2.5 bg-[#8B6B0E] text-white rounded-xl text-sm font-black hover:bg-[#C9A84C] transition-all ${aiGenerating ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <Bot size={14} /> {aiGenerating ? "Generating..." : "Generate Content"}
                 </button>
                 {aiOutput && (
                   <button
                     onClick={() => { navigator.clipboard.writeText(aiOutput).catch(()=>{}); }}
-                    className={`flex items-center gap-2 px-4 py-2.5 ${card} ${muted} rounded-xl text-sm font-black border hover:text-purple-500 transition-all`}
+                    className={`flex items-center gap-2 px-4 py-2.5 ${card} ${muted} rounded-xl text-sm font-black border hover:text-[#C9A84C] transition-all`}
                   >
                     <FileText size={13} /> Copy to Clipboard
                   </button>
@@ -8401,7 +8401,7 @@ Other rules:
                 )}
               </div>
               {aiOutput && (
-                <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800">
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
                   <p className={`text-[13px] font-black ${muted} uppercase tracking-wider mb-2`}>Generated Content</p>
                   <pre className={`text-sm ${txt} whitespace-pre-wrap font-sans leading-relaxed`}>{aiOutput}</pre>
                 </div>
@@ -8537,7 +8537,7 @@ Other rules:
         {/* Footer */}
         <div className={`mt-12 pt-6 border-t ${brd} flex flex-col md:flex-row justify-between items-center gap-3 no-print`}>
           <div className="flex items-center gap-2">
-            <Heart size={13} className="text-teal-500 fill-teal-500" />
+            <Heart size={13} className="text-amber-500 fill-amber-500" />
             <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare – Digital Marketing Portal</span>
           </div>
           <span className={`text-[13px] ${subtl} uppercase tracking-wider`}>Powered by DMD &middot; Destiny Springs Healthcare</span>
@@ -8550,7 +8550,7 @@ Other rules:
         <div className="fixed bottom-6 right-6 z-50">
         <button
           onClick={() => setChatOpen(o => !o)}
-          className="relative h-14 w-14 rounded-full bg-gradient-to-br from-purple-700 to-indigo-700 shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform no-print"
+          className="relative h-14 w-14 rounded-full bg-gradient-to-br from-[#5C3D11] to-[#C9A84C] shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-transform no-print"
           title="Captain KPI — AI Marketing Assistant"
         >
           {chatOpen ? <X size={22} /> : <CaptainKPI size={30} />}
@@ -8564,25 +8564,25 @@ Other rules:
         {chatOpen && (
           <div
             className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 flex flex-col rounded-3xl shadow-2xl overflow-hidden no-print"
-            style={{ maxHeight: '70vh', border: darkMode ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(139,92,246,0.2)', background: darkMode ? '#1e1b4b' : '#faf5ff' }}
+            style={{ maxHeight: '70vh', border: darkMode ? '1px solid rgba(201,168,76,0.3)' : '1px solid rgba(201,168,76,0.2)', background: darkMode ? '#170D03' : '#FDF8EC' }}
           >
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-700 to-indigo-700 flex-shrink-0">
+            <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-[#2C1605] to-[#8B6B0E] flex-shrink-0">
               <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 p-1">
                 <CaptainKPI size={32} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-black text-white leading-tight">Captain KPI 🫡</p>
-                <p className="text-[10px] text-purple-200">AI Marketing Officer · Powered by Gemini</p>
+                <p className="text-[10px] text-[#E8C86D]">AI Marketing Officer · Powered by Gemini</p>
               </div>
               <button onClick={() => setChatOpen(false)} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><X size={16} /></button>
             </div>
 
             {/* Tab strip */}
-            <div className="flex flex-shrink-0 bg-purple-950/60 px-3 pt-1.5 gap-0.5 border-b border-white/10">
+            <div className="flex flex-shrink-0 bg-black/60 px-3 pt-1.5 gap-0.5 border-b border-white/10">
               {[['chat','Chat'],['goals',`Goals${dmdGoals.length > 0 ? ` (${dmdGoals.length})` : ''}`],['alerts',`Alerts${triggeredAlerts.length > 0 ? ` 🔴${triggeredAlerts.length}` : dmdAlerts.length > 0 ? ` (${dmdAlerts.length})` : ''}`]].map(([tab, label]) => (
                 <button key={tab} onClick={() => setChatTab(tab)}
-                  className={`text-[11px] px-3 py-1.5 rounded-t-lg font-semibold transition-colors ${chatTab === tab ? 'bg-indigo-900/80 text-white' : 'text-purple-400 hover:text-purple-200'}`}
+                  className={`text-[11px] px-3 py-1.5 rounded-t-lg font-semibold transition-colors ${chatTab === tab ? 'bg-[#3D2210]/80 text-[#D4AF37]' : 'text-[#8B7355] hover:text-[#C9A84C]'}`}
                 >{label}</button>
               ))}
             </div>
@@ -8598,10 +8598,10 @@ Other rules:
             >
               {/* Drag overlay */}
               {chatDragOver && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-purple-400 bg-purple-900/60 backdrop-blur-sm pointer-events-none">
-                  <Paperclip size={28} className="text-purple-300 mb-2" />
-                  <p className="text-purple-200 text-sm font-black">Drop files here</p>
-                  <p className="text-purple-400 text-[11px] mt-1">Images, PDFs, CSV, or text</p>
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#C9A84C] bg-[#3D200A]/80 backdrop-blur-sm pointer-events-none">
+                  <Paperclip size={28} className="text-[#C9A84C] mb-2" />
+                  <p className="text-[#E8D5A3] text-sm font-black">Drop files here</p>
+                  <p className="text-[#C9A84C] text-[11px] mt-1">Images, PDFs, CSV, or text</p>
                 </div>
               )}
               {chatMessages.map((m, i) => (
@@ -8614,8 +8614,8 @@ Other rules:
                     )}
                     <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
                       m.role === 'user'
-                        ? 'bg-purple-600 text-white rounded-tr-sm'
-                        : darkMode ? 'bg-white/10 text-purple-100 rounded-tl-sm' : 'bg-white text-slate-800 rounded-tl-sm shadow-sm'
+                        ? 'bg-[#8B6B0E] text-white rounded-tr-sm'
+                        : darkMode ? 'bg-white/10 text-[#E8D5A3] rounded-tl-sm' : 'bg-white text-slate-800 rounded-tl-sm shadow-sm'
                     }`}>
                       {m.content}
                     </div>
@@ -8654,7 +8654,7 @@ Other rules:
                   <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 mr-2 mt-0.5 bg-white/10">
                     <CaptainKPI size={22} />
                   </div>
-                  <div className={`rounded-2xl rounded-tl-sm px-3 py-2 ${darkMode ? 'bg-white/10 text-purple-300' : 'bg-white text-slate-500 shadow-sm'} text-[13px]`}>
+                  <div className={`rounded-2xl rounded-tl-sm px-3 py-2 ${darkMode ? 'bg-white/10 text-[#C9A84C]' : 'bg-white text-slate-500 shadow-sm'} text-[13px]`}>
                     Typing… ✍️
                   </div>
                 </div>
@@ -8673,7 +8673,7 @@ Other rules:
                     'How is our online reputation trending?',
                   ].map(s => (
                     <button key={s} onClick={() => sendChatMessage(s)}
-                      className={`w-full text-left text-[12px] px-3 py-2 rounded-xl border transition-colors ${darkMode ? 'border-white/10 text-purple-200 hover:bg-white/10' : 'border-purple-100 text-purple-700 hover:bg-purple-50'}`}>
+                      className={`w-full text-left text-[12px] px-3 py-2 rounded-xl border transition-colors ${darkMode ? 'border-white/10 text-[#E8D5A3] hover:bg-white/10' : 'border-[#E8D5B0] text-[#8B6B0E] hover:bg-[#FBF5E0]'}`}>
                       {s}
                     </button>
                   ))}
@@ -8686,7 +8686,7 @@ Other rules:
             {/* Goals panel */}
             {chatTab === 'goals' && (
               <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ minHeight: 0 }}>
-                <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-purple-300' : 'text-purple-500'}`}>KPI Goals</p>
+                <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-[#C9A84C]' : 'text-[#8B6B0E]'}`}>KPI Goals</p>
                 {dmdGoals.length === 0 ? (
                   <div className="text-center py-8">
                     <Target size={28} className="mx-auto mb-2 opacity-30" />
@@ -8703,20 +8703,20 @@ Other rules:
                           <button onClick={() => { const upd = dmdGoals.filter((_, j) => j !== gi); setDmdGoals(upd); localStorage.setItem('dmd_goals', JSON.stringify(upd)); }} className="text-rose-400 hover:text-rose-500 flex-shrink-0 transition-colors"><X size={11} /></button>
                         </div>
                         <div className={`w-full rounded-full h-1.5 mb-1.5 ${darkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
-                          <div className="h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all" style={{ width: `${pct}%` }} />
+                          <div className="h-1.5 rounded-full bg-gradient-to-r from-[#8B6B0E] to-[#C9A84C] transition-all" style={{ width: `${pct}%` }} />
                         </div>
-                        <div className={`flex justify-between text-[10px] ${darkMode ? 'text-purple-300' : 'text-slate-400'}`}>
+                        <div className={`flex justify-between text-[10px] ${darkMode ? 'text-[#C9A84C]' : 'text-slate-400'}`}>
                           <span>{goal.current || '?'}{goal.unit || ''} current</span>
                           <span className="font-semibold">{pct}%</span>
                           <span>target: {goal.target}{goal.unit || ''}</span>
                         </div>
-                        {goal.deadline && <p className={`text-[10px] mt-1 ${darkMode ? 'text-purple-400' : 'text-slate-400'}`}>Due: {goal.deadline}</p>}
+                        {goal.deadline && <p className={`text-[10px] mt-1 ${darkMode ? 'text-[#C9A84C]/70' : 'text-slate-400'}`}>Due: {goal.deadline}</p>}
                       </div>
                     );
                   })
                 )}
                 <button onClick={() => { setChatTab('chat'); sendChatMessage('Show me my current progress toward each goal and recommend next steps.'); }}
-                  className="w-full text-[11px] py-2 rounded-xl border border-purple-400/30 text-purple-400 hover:bg-purple-400/10 transition-colors mt-2">
+                  className="w-full text-[11px] py-2 rounded-xl border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-colors mt-2">
                   Ask Captain KPI to analyze goal progress
                 </button>
               </div>
@@ -8725,7 +8725,7 @@ Other rules:
             {/* Alerts panel */}
             {chatTab === 'alerts' && (
               <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ minHeight: 0 }}>
-                <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-purple-300' : 'text-purple-500'}`}>Active Alerts</p>
+                <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-[#C9A84C]' : 'text-[#8B6B0E]'}`}>Active Alerts</p>
                 {triggeredAlerts.length > 0 && (
                   <div className="p-2 rounded-xl bg-rose-500/20 border border-rose-400/40 mb-3">
                     <p className="text-[11px] font-bold text-rose-400">🔴 {triggeredAlerts.length} alert{triggeredAlerts.length > 1 ? 's' : ''} triggered</p>
@@ -8748,7 +8748,7 @@ Other rules:
                         <div className="flex justify-between items-start">
                           <div className="flex-1 pr-2">
                             <p className="text-[12px] font-semibold">{alert.name}</p>
-                            <p className={`text-[10px] mt-0.5 ${fired ? 'text-rose-400' : darkMode ? 'text-purple-400' : 'text-slate-400'}`}>
+                            <p className={`text-[10px] mt-0.5 ${fired ? 'text-rose-400' : darkMode ? 'text-[#C9A84C]/70' : 'text-slate-400'}`}>
                               {alert.metric} {alert.condition} {alert.threshold}{alert.unit || ''} · {fired ? '🔴 TRIGGERED' : '🟢 monitoring'}
                             </p>
                           </div>
@@ -8759,7 +8759,7 @@ Other rules:
                   })
                 )}
                 <button onClick={() => { setChatTab('chat'); sendChatMessage('Check all my alerts and tell me if any conditions are close to being triggered.'); }}
-                  className="w-full text-[11px] py-2 rounded-xl border border-purple-400/30 text-purple-400 hover:bg-purple-400/10 transition-colors mt-2">
+                  className="w-full text-[11px] py-2 rounded-xl border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-colors mt-2">
                   Ask Captain KPI to review alert conditions
                 </button>
               </div>
@@ -8767,13 +8767,13 @@ Other rules:
 
             {/* Input — shown on Chat tab only */}
             {chatTab === 'chat' && (
-            <div className={`flex flex-col gap-1.5 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/10 bg-indigo-950/80' : 'border-t border-purple-100 bg-white'}`}>
+            <div className={`flex flex-col gap-1.5 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/10 bg-black/40' : 'border-t border-[#E8D5B0]/50 bg-white'}`}>
               {/* Proposed new tracking category from Captain KPI */}
               {proposedCategory && (
-                <div className={`p-2.5 rounded-xl border border-purple-400/40 ${darkMode ? 'bg-purple-900/30' : 'bg-purple-50'}`}>
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-1">Captain KPI suggests a new category:</p>
+                <div className={`p-2.5 rounded-xl border border-[#C9A84C]/40 ${darkMode ? 'bg-[#3D2210]/30' : 'bg-[#FBF5E0]'}`}>
+                  <p className="text-[10px] font-bold text-[#C9A84C] uppercase tracking-wider mb-1">Captain KPI suggests a new category:</p>
                   <p className="text-[12px] font-semibold">{proposedCategory.name}</p>
-                  <p className={`text-[10px] mb-2 ${darkMode ? 'text-purple-300' : 'text-slate-500'}`}>{proposedCategory.description} · {proposedCategory.unit} · {proposedCategory.period}</p>
+                  <p className={`text-[10px] mb-2 ${darkMode ? 'text-[#E8D5A3]' : 'text-slate-500'}`}>{proposedCategory.description} · {proposedCategory.unit} · {proposedCategory.period}</p>
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
@@ -8786,9 +8786,9 @@ Other rules:
                         setChatMessages(m => [...m, { role: 'assistant', content: `✅ Created tracking category: **${proposedCategory.name}**. You can now ask me to log ${proposedCategory.unit} for any period!` }]);
                         setProposedCategory(null);
                       }}
-                      className="flex-1 text-[11px] py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-semibold transition-colors"
+                      className="flex-1 text-[11px] py-1.5 rounded-lg bg-[#8B6B0E] hover:bg-[#C9A84C] text-white font-semibold transition-colors"
                     >Confirm &amp; Create</button>
-                    <button onClick={() => setProposedCategory(null)} className={`text-[11px] py-1.5 px-3 rounded-lg transition-colors ${darkMode ? 'border border-white/20 text-purple-300 hover:bg-white/10' : 'border border-slate-200 text-slate-500 hover:bg-slate-50'}`}>Dismiss</button>
+                    <button onClick={() => setProposedCategory(null)} className={`text-[11px] py-1.5 px-3 rounded-lg transition-colors ${darkMode ? 'border border-white/20 text-[#E8D5A3] hover:bg-white/10' : 'border border-slate-200 text-slate-500 hover:bg-slate-50'}`}>Dismiss</button>
                   </div>
                 </div>
               )}
@@ -8796,7 +8796,7 @@ Other rules:
               {chatAttachments.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {chatAttachments.map((a, i) => (
-                    <div key={i} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] max-w-[140px] ${darkMode ? 'bg-white/10 text-purple-200' : 'bg-purple-50 text-purple-700'}`}>
+                    <div key={i} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] max-w-[140px] ${darkMode ? 'bg-white/10 text-[#E8D5A3]' : 'bg-[#FBF5E0] text-[#8B6B0E]'}`}>
                       <Paperclip size={10} className="flex-shrink-0" />
                       <span className="truncate">{a.name}</span>
                       <button onClick={() => setChatAttachments(prev => prev.filter((_, j) => j !== i))} className="flex-shrink-0 hover:text-rose-400 transition-colors ml-0.5"><X size={10} /></button>
@@ -8810,7 +8810,7 @@ Other rules:
                   onClick={() => chatFileRef.current?.click()}
                   disabled={chatLoading}
                   title="Attach files (images, PDFs, CSV) — or drag & drop into chat"
-                  className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40 ${chatAttachments.length > 0 ? 'bg-purple-600 text-white' : darkMode ? 'bg-white/10 text-purple-300 hover:bg-white/20' : 'bg-purple-50 text-purple-500 hover:bg-purple-100'}`}
+                  className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40 ${chatAttachments.length > 0 ? 'bg-[#8B6B0E] text-white' : darkMode ? 'bg-white/10 text-[#C9A84C] hover:bg-white/20' : 'bg-[#FBF5E0] text-[#8B6B0E] hover:bg-[#F5ECC8]'}`}
                 >
                   <Paperclip size={14} />
                 </button>
@@ -8823,7 +8823,7 @@ Other rules:
                   onChange={e => { handleChatFilesSelect(e.target.files); e.target.value = ''; }}
                 />
                 <input
-                  className={`flex-1 rounded-xl px-3 py-2 text-[13px] outline-none border ${darkMode ? 'bg-white/10 border-white/20 text-white placeholder-white/40 focus:border-purple-400' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-purple-400'} transition-colors`}
+                  className={`flex-1 rounded-xl px-3 py-2 text-[13px] outline-none border ${darkMode ? 'bg-white/10 border-white/20 text-white placeholder-white/40 focus:border-[#C9A84C]' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-[#C9A84C]'} transition-colors`}
                   placeholder="Ask Captain KPI… or drop files above"
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
@@ -8832,7 +8832,7 @@ Other rules:
                 <button
                   onClick={() => sendChatMessage()}
                   disabled={chatLoading || (!chatInput.trim() && chatAttachments.length === 0)}
-                  className="h-9 w-9 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 flex items-center justify-center text-white transition-colors flex-shrink-0"
+                  className="h-9 w-9 rounded-xl bg-[#8B6B0E] hover:bg-[#C9A84C] disabled:opacity-40 flex items-center justify-center text-white transition-colors flex-shrink-0"
                 >
                   <Send size={14} />
                 </button>
@@ -8855,7 +8855,7 @@ Other rules:
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-900/30">
+                  <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20">
                     <intg.icon size={20} className={intg.color} />
                   </div>
                   <div>
@@ -8897,7 +8897,7 @@ Other rules:
                     placeholder={field.placeholder}
                     value={connectFormData[field.key] || ''}
                     onChange={e => setConnectFormData(d => ({ ...d, [field.key]: e.target.value }))}
-                    className={`w-full px-3 py-2.5 rounded-xl text-sm ${txt} bg-slate-50 dark:bg-slate-800 border ${brd} focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500`}
+                    className={`w-full px-3 py-2.5 rounded-xl text-sm ${txt} bg-slate-50 dark:bg-slate-800 border ${brd} focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/40 focus:border-[#C9A84C]`}
                   />
                   {field.hint && <p className={`text-[11px] mt-1 ${subtl}`}>{field.hint}</p>}
                 </div>
