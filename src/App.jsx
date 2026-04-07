@@ -2099,9 +2099,10 @@ Use "insight" ONLY when the file has NO real numeric data whatsoever — e.g. pu
 If the file contains NO real measured data AND no meaningful strategic content, respond with exactly: NO_DATA
 
 ══ DESTINY SPRINGS PATIENT SATISFACTION SURVEY (SurveyMonkey export) ══
-When you see this specific report, extract ALL of the following as custom_metric rows, category "Patient Satisfaction".
+When you see this specific report, extract ALL of the following as a SINGLE survey_quality block (type: "survey_quality"). Do NOT use custom_metric for this data.
 Use the survey title year or the latest response date as the period (e.g. "YTD 2026").
 Calculate percentages from the TOTAL RESPONDENTS row in each question.
+Each row: { label, value, unit, period } — no category field needed.
 
 Q4 Overall quality of care → label "Quality of Care (Excellent+Good %)", value = (Excellent count + Good count) / Total × 100, unit = "%"
 Q5 Treated with dignity and respect → label "Dignity & Respect (% Yes)", value = Yes count / Total × 100, unit = "%"
@@ -2372,6 +2373,13 @@ Other rules:
               localStorage.setItem('dmd_manual', JSON.stringify(updated));
               return updated;
             });
+          } else if (type === 'survey_quality') {
+            setManualData(prev => {
+              const stamp = { _savedAt: new Date().toLocaleString(), _source: 'captain_kpi' };
+              const updated = { ...prev, survey_quality: [...(prev.survey_quality || []), ...entries.map(e => ({ ...e, ...stamp }))] };
+              localStorage.setItem('dmd_manual', JSON.stringify(updated));
+              return updated;
+            });
           } else if (type === 'custom_metric') {
             const category = (entries[0] || {}).category;
             if (!category) return;
@@ -2419,6 +2427,7 @@ Other rules:
           review: 'Review Platforms',
           wix: 'Website Traffic',
           seo_rankings: 'SEO Rankings',
+          survey_quality: 'Survey Dashboard',
           custom_metric: 'Custom Metrics',
           goal: 'Goals',
           alert: 'Alerts',
@@ -2484,7 +2493,7 @@ Other rules:
         };
 
         // Types that represent real metric data vs. meta/structural types
-        const METRIC_TYPES = new Set(['social_metrics','ad_spend','email_stats','review','wix','seo_rankings','custom_metric']);
+        const METRIC_TYPES = new Set(['social_metrics','ad_spend','email_stats','review','wix','seo_rankings','survey_quality','custom_metric']);
         const savedMetricSections = [...savedSections].filter(t => METRIC_TYPES.has(t));
 
         let displayReply;
@@ -2900,16 +2909,24 @@ Other rules:
       passives: _surveyOverview.passives,
       detractors: _surveyOverview.detractors,
     } : (() => {
-      // Fallback: read promoter/passive/detractor counts saved via Captain KPI custom_metrics
+      // Fallback: read from survey_quality (Captain KPI PDF extraction) first, then customMetrics
+      const sqRows = manualData.survey_quality || [];
+      const findSq = (pattern) => {
+        const row = sqRows.filter(r => pattern.test(r.label || '')).sort((a, b) => new Date(b._savedAt || 0) - new Date(a._savedAt || 0))[0];
+        return row ? Number(row.value) : null;
+      };
+      const p = findSq(/promoter/i);
+      const pa = findSq(/passive/i);
+      const d = findSq(/detractor/i);
+      if (p != null && pa != null && d != null && (p + pa + d) > 0) return { promoters: p, passives: pa, detractors: d };
+      // Final fallback: customMetrics
       const allRows = Object.values(customMetrics).flat();
-      const find = (pattern) => {
+      const findCm = (pattern) => {
         const row = allRows.filter(r => pattern.test(r.label || '')).sort((a, b) => new Date(b._savedAt || 0) - new Date(a._savedAt || 0))[0];
         return row ? Number(row.value) : null;
       };
-      const p = find(/promoter/i);
-      const pa = find(/passive/i);
-      const d = find(/detractor/i);
-      if (p != null && pa != null && d != null && (p + pa + d) > 0) return { promoters: p, passives: pa, detractors: d };
+      const cp = findCm(/promoter/i); const cpa = findCm(/passive/i); const cd = findCm(/detractor/i);
+      if (cp != null && cpa != null && cd != null && (cp + cpa + cd) > 0) return { promoters: cp, passives: cpa, detractors: cd };
       return null;
     })();
   const _reviewNpsBreakdown = (() => {
@@ -2921,8 +2938,11 @@ Other rules:
     if (!total) return null;
     return { promoters, passives, detractors, score: Math.round(((promoters - detractors) / total) * 100) };
   })();
-  // NPS fallback: scan customMetrics for any row whose label or category includes "NPS"
+  // NPS fallback: check survey_quality first (Captain KPI PDF extraction), then customMetrics
   const _customNps = (() => {
+    const sqRows = (manualData.survey_quality || []).filter(r => /nps.*overall/i.test(r.label || '') || r.label === 'Patient NPS (Overall)');
+    const sqLatest = sqRows.sort((a, b) => new Date(b._savedAt || 0) - new Date(a._savedAt || 0))[0];
+    if (sqLatest?.value != null) { const n = Number(sqLatest.value); if (Number.isFinite(n)) return Math.round(n); }
     const rows = Object.values(customMetrics).flat().filter(r => /nps/i.test(r.label || r.category || ''));
     const latest = rows.sort((a, b) => new Date(b._savedAt || 0) - new Date(a._savedAt || 0))[0];
     const n = latest?.value != null ? Number(latest.value) : null;
@@ -4211,6 +4231,65 @@ Other rules:
             })()}
             </>
             )}
+
+            {/* ── Patient Satisfaction Snapshot ─────────────────────────── */}
+            {(() => {
+              const sqRows = manualData.survey_quality || [];
+              if (sqRows.length === 0) return null;
+              const byLabel = {};
+              sqRows.forEach(r => {
+                if (!r.label) return;
+                if (!byLabel[r.label] || new Date(r._savedAt || 0) > new Date(byLabel[r.label]._savedAt || 0))
+                  byLabel[r.label] = r;
+              });
+              const all = Object.values(byLabel);
+              const overallNps = all.find(r => r.label === 'Patient NPS (Overall)');
+              const respondents = all.find(r => r.label === 'Survey Respondents');
+              const topMetrics = all.filter(r => r.unit === '%').sort((a, b) => Number(b.value) - Number(a.value)).slice(0, 4);
+              const unitNps = all.filter(r => r.unit === 'NPS' && r.label !== 'Patient NPS (Overall)');
+              const period = all[0]?.period || '';
+              if (!overallNps && topMetrics.length === 0) return null;
+              return (
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8 cursor-pointer`} onClick={() => setActiveTab('survey')}>
+                  <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Patient Satisfaction Snapshot" subtitle={period ? `Latest report \u2022 ${period} \u00b7 Click for full breakdown` : 'Latest report \u00b7 Click for full breakdown'} />
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5 mb-4">
+                    {overallNps && (
+                      <div className={`p-4 rounded-2xl ${rowCls} text-center`}>
+                        <p className={`text-3xl font-black ${Number(overallNps.value) >= 50 ? 'text-emerald-500' : Number(overallNps.value) >= 20 ? 'text-amber-500' : 'text-rose-500'}`}>{Math.round(Number(overallNps.value))}</p>
+                        <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mt-1`}>Patient NPS</p>
+                      </div>
+                    )}
+                    {respondents && (
+                      <div className={`p-4 rounded-2xl ${rowCls} text-center`}>
+                        <p className={`text-3xl font-black ${txt}`}>{Number(respondents.value).toLocaleString()}</p>
+                        <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mt-1`}>Respondents</p>
+                      </div>
+                    )}
+                    {topMetrics.slice(0, 2).map(r => (
+                      <div key={r.label} className={`p-4 rounded-2xl ${rowCls} text-center`}>
+                        <p className={`text-3xl font-black ${Number(r.value) >= 85 ? 'text-emerald-500' : Number(r.value) >= 70 ? 'text-amber-500' : 'text-rose-500'}`}>{Number(r.value).toFixed(0)}%</p>
+                        <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mt-1`}>{r.label.replace(/\s*\([^)]*\)/g, '').replace(/^(Felt |Facility |Patient |Discharge Plan )/i, '').trim()}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {unitNps.length > 0 && (
+                    <div className="flex gap-3 flex-wrap pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider self-center mr-1`}>NPS by Unit:</p>
+                      {unitNps.map(r => {
+                        const val = Math.round(Number(r.value));
+                        const unitName = r.label.replace('Patient NPS - ', '');
+                        return (
+                          <div key={r.label} className={`px-4 py-2 rounded-xl ${rowCls} flex items-center gap-2`}>
+                            <span className={`text-sm font-black ${val >= 50 ? 'text-emerald-500' : val >= 20 ? 'text-amber-500' : 'text-rose-500'}`}>{val}</span>
+                            <span className={`text-sm ${txt2}`}>{unitName}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ── Brand Health Score ────────────────────────────────────── */}
             {!overviewHidden.includes('health') && (() => {
@@ -6279,11 +6358,85 @@ Other rules:
               <StatCard title="Avg Satisfaction" value={surveyAvgSatisfaction != null ? surveyAvgSatisfaction : '—'} trend={null} icon={Star} color="bg-indigo-600" sub="Weighted average score" />
             </div>
 
-            {surveyEntries.length === 0 && (
+            {/* ── Patient Satisfaction Report (Captain KPI extracted from PDF) ── */}
+            {(() => {
+              const sqRows = manualData.survey_quality || [];
+              if (sqRows.length === 0) return null;
+              const byLabel = {};
+              sqRows.forEach(r => {
+                if (!r.label) return;
+                if (!byLabel[r.label] || new Date(r._savedAt || 0) > new Date(byLabel[r.label]._savedAt || 0))
+                  byLabel[r.label] = r;
+              });
+              const all = Object.values(byLabel);
+              const pctRows = all.filter(r => r.unit === '%').sort((a, b) => Number(b.value) - Number(a.value));
+              const overallNps = all.find(r => r.label === 'Patient NPS (Overall)');
+              const respondents = all.find(r => r.label === 'Survey Respondents');
+              const unitNpsRows = all.filter(r => r.unit === 'NPS' && r.label !== 'Patient NPS (Overall)');
+              const period = all[0]?.period || '';
+              return (
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                  <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
+                    <SectionHeader icon={ThumbsUp} color="text-emerald-500" title="Patient Satisfaction Report" subtitle={period ? `Extracted from uploaded report \u2022 ${period}` : 'Extracted from uploaded report'} />
+                    <div className="flex gap-6 flex-wrap">
+                      {overallNps && (
+                        <div className="text-center">
+                          <p className={`text-4xl font-black ${Number(overallNps.value) >= 50 ? 'text-emerald-500' : Number(overallNps.value) >= 20 ? 'text-amber-500' : 'text-rose-500'}`}>{Math.round(Number(overallNps.value))}</p>
+                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider`}>Overall NPS</p>
+                        </div>
+                      )}
+                      {respondents && (
+                        <div className="text-center">
+                          <p className={`text-4xl font-black ${txt}`}>{Number(respondents.value).toLocaleString()}</p>
+                          <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider`}>Respondents</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {pctRows.length > 0 && (
+                    <div className="space-y-3 mb-6">
+                      {pctRows.map(r => {
+                        const val = Number(r.value);
+                        return (
+                          <div key={r.label}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`text-sm font-bold ${txt2}`}>{r.label.replace(/\s*\([^)]*\)/g, '')}</span>
+                              <span className={`text-sm font-black ${val >= 85 ? 'text-emerald-500' : val >= 70 ? 'text-amber-500' : 'text-rose-500'}`}>{val.toFixed(1)}%</span>
+                            </div>
+                            <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div className={`h-2 rounded-full ${val >= 85 ? 'bg-emerald-500' : val >= 70 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{ width: `${Math.min(100, val)}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {unitNpsRows.length > 0 && (
+                    <div className="mt-2">
+                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3`}>NPS by Unit</p>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        {unitNpsRows.map(r => {
+                          const val = Math.round(Number(r.value));
+                          const unitName = r.label.replace('Patient NPS - ', '');
+                          return (
+                            <div key={r.label} className={`p-3 rounded-2xl ${rowCls} text-center`}>
+                              <p className={`text-xl font-black ${val >= 50 ? 'text-emerald-500' : val >= 20 ? 'text-amber-500' : 'text-rose-500'}`}>{val}</p>
+                              <p className={`text-[11px] font-black ${subtl} mt-0.5`}>{unitName}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {surveyEntries.length === 0 && (manualData.survey_quality || []).length === 0 && (
               <div className={`${card} p-8 rounded-[2rem] text-center mb-8`}>
                 <ThumbsUp size={30} className="mx-auto text-amber-500 mb-3" />
-                <p className={`text-base font-black ${txt} mb-1`}>No SurveyMonkey results imported yet</p>
-                <p className={`text-sm ${subtl} mb-5`}>Import your SurveyMonkey CSV from the Data Import tab to unlock breakdowns.</p>
+                <p className={`text-base font-black ${txt} mb-1`}>No survey data yet</p>
+                <p className={`text-sm ${subtl} mb-5`}>Upload your Patient Satisfaction Survey PDF to Captain KPI, or import a SurveyMonkey CSV from the Data Import tab.</p>
                 <button
                   onClick={() => { setActiveTab('import'); setImportMode('survey'); setSurveyParsed(null); setPasteCSV(''); }}
                   className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-sm font-black transition-colors"
