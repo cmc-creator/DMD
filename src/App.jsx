@@ -251,6 +251,7 @@ const App = () => {
   const [chatMessages, setChatMessages]         = useState([{ role: 'assistant', content: "Reporting for duty! 🫡 I'm **Captain KPI**, your marketing analytics officer. Fire away — ask me about the data, what to post, how to get more reviews, or why your bounce rate looks like a trampoline." }]);
   const [chatInput, setChatInput]               = useState('');
   const [chatLoading, setChatLoading]           = useState(false);
+  const [aiTasks, setAiTasks]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_tasks') || '[]'); } catch { return []; } });
   const [chatAttachments, setChatAttachments]   = useState([]); // [{ base64|text, mimeType, name }]
   const [chatDragOver, setChatDragOver]         = useState(false);
   const chatFileRef                             = useRef(null);
@@ -448,6 +449,9 @@ const App = () => {
     setOverviewHidden([]);
     localStorage.setItem('dmd_overview_hidden', JSON.stringify([]));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist AI tasks
+  useEffect(() => { localStorage.setItem('dmd_tasks', JSON.stringify(aiTasks)); }, [aiTasks]);
 
   // Auto-scroll chatbot to latest message
   useEffect(() => {
@@ -2283,7 +2287,7 @@ POTENTIAL REFERRAL SOURCES (suggest proactively when lead volume is discussed):
 Always give actionable, specific suggestions. You HAVE the data above — use it. Never say you lack access to it.
 
 ══ RESPONSE FORMATTING FOR ANALYSIS QUESTIONS ══
-When a user asks an analysis question (performance review, monthly comparison, what to focus on, CEO summary, funnel analysis, growth forecast, etc.), always start your response with a single bold headline on its own line, e.g.: **Q1 2026: Strong NPS, Social Lagging**
+When a user asks an analysis question (performance review, monthly comparison, what to focus on, leadership summary, funnel analysis, growth forecast, etc.), always start your response with a single bold headline on its own line, e.g.: **Q1 2026: Strong NPS, Social Lagging**
 Then give your analysis in concise bullet points. This makes responses look sharp when pinned to the dashboard highlights.
 
 ══ DATA ENTRY & INTELLIGENCE CAPABILITY — MANDATORY ══
@@ -3271,24 +3275,34 @@ Other rules:
 
   // ── My Achievements data ────────────────────────────────────────────────────
   const myStats = [
-    { label: 'Blogs Written',    value: _blogCount,                                                icon: FileText,  color: 'text-purple-500', target: 12 },
-    { label: 'TikToks Produced', value: _ttVideoCount,                                             icon: PlayCircle,color: 'text-pink-500',   target: 50 },
-    { label: 'Social Posts',     value: _totalSocialPosts,                                         icon: Share2,    color: 'text-blue-500',   target: 200 },
-    { label: 'Email Campaigns',  value: _emailStats.length,                                        icon: Mail,      color: 'text-teal-500',   target: 12 },
-    { label: 'Website Updates',  value: contentItems.filter(c => String(c.type || '').toLowerCase() === 'website').length, icon: Globe, color: 'text-emerald-500', target: 20 },
-    { label: 'Reviews Managed',  value: _reviews.length || _totalReviewCount || 0,                icon: Star,      color: 'text-amber-500',  target: 50 },
+    { label: 'Blogs Written',      value: _blogCount,                                                                          icon: FileText,    color: 'text-purple-500',  target: 12 },
+    { label: 'TikToks Produced',   value: _ttVideoCount,                                                                       icon: PlayCircle,  color: 'text-pink-500',    target: 50 },
+    { label: 'Social Posts',       value: _totalSocialPosts,                                                                   icon: Share2,      color: 'text-blue-500',    target: 200 },
+    { label: 'Email Campaigns',    value: _emailStats.length,                                                                   icon: Mail,        color: 'text-teal-500',    target: 12 },
+    { label: 'Website Updates',    value: contentItems.filter(c => String(c.type || '').toLowerCase() === 'website').length,   icon: Globe,       color: 'text-emerald-500', target: 20 },
+    { label: 'Reviews Managed',    value: _reviews.length || _totalReviewCount || 0,                                           icon: Star,        color: 'text-amber-500',   target: 50 },
+    { label: 'Total Leads',        value: _totalLeads || 0,                                                                    icon: Target,      color: 'text-rose-500',    target: 500 },
+    { label: 'Ad Campaigns Run',   value: _adSpend.length || 0,                                                                icon: Megaphone,   color: 'text-indigo-500',  target: 24 },
+    { label: 'Keywords Tracked',   value: seoKeywords.length || 0,                                                             icon: Search,      color: 'text-sky-500',     target: 25 },
+    { label: 'Platforms Managed',  value: Math.max(socialAnalytics.filter(p => p.followers > 0 || p.posts > 0).length, _adSpend.some(a=>a.platform?.includes('Meta')) ? 2 : 0), icon: Activity, color: 'text-violet-500', target: 5 },
+    { label: 'Calendar Events',    value: contentItems.length || 0,                                                            icon: Calendar,    color: 'text-orange-500',  target: 100 },
+    { label: 'Surveys Processed',  value: (manualData.survey_quality || []).length + (manualData.survey_experience || []).length, icon: ThumbsUp, color: 'text-green-500', target: 10 },
   ];
 
   const _ratingNum = _avgRating ? Number(_avgRating) : null;
   const milestones = [
-    { title: 'Content Machine',    desc: 'Publish milestone blogs',         icon: FileText,  earned: false,                              date: 'Upcoming' },
-    { title: 'TikTok Trailblazer', desc: 'Reach video view milestone',      icon: PlayCircle,earned: _tiktokPosts.length >= 4,           date: _tiktokPosts.length >= 4 ? 'Achieved' : 'Upcoming' },
-    { title: 'SEO Climber',        desc: 'Rank top 5 on target keywords',   icon: Search,    earned: seoKeywords.some(k=>k.pos > 0 && k.pos <= 5), date: seoKeywords.some(k=>k.pos > 0 && k.pos <= 5) ? 'Achieved' : 'Upcoming' },
-    { title: 'Lead Magnet',        desc: 'Hit monthly lead goal',           icon: Target,    earned: _totalLeads >= 50,                  date: _totalLeads >= 50 ? 'Achieved' : 'Upcoming' },
-    { title: 'Review Reviver',     desc: 'Improve Google rating',           icon: Star,      earned: !!(_ratingNum && _ratingNum >= 4.0), date: (_ratingNum && _ratingNum >= 4.0) ? 'Achieved' : 'Upcoming' },
-    { title: '5-Star Elite',       desc: 'Maintain 4.5+ avg 60 days',      icon: Award,     earned: !!(_ratingNum && _ratingNum >= 4.5), date: (_ratingNum && _ratingNum >= 4.5) ? 'Achieved' : 'Upcoming' },
-    { title: 'Viral Moment',       desc: '50k+ video views / month',       icon: Zap,       earned: Number(_tikLive.recentViews || 0) >= 50000, date: Number(_tikLive.recentViews || 0) >= 50000 ? 'Achieved' : 'Upcoming' },
-    { title: 'Growth Architect',   desc: '500+ monthly leads',             icon: TrendingUp,earned: _totalLeads >= 500,                 date: _totalLeads >= 500 ? 'Achieved' : 'Upcoming' },
+    { title: 'Omnichannel Pro',    desc: 'Managing 3+ platforms simultaneously',    icon: Activity,    earned: socialAnalytics.length >= 2 || _adSpend.length > 0, date: 'Achieved' },
+    { title: 'Content Machine',    desc: 'Publishing consistent content',            icon: FileText,    earned: _blogCount >= 1 || _totalSocialPosts >= 10,           date: _blogCount >= 1 || _totalSocialPosts >= 10 ? 'Achieved' : 'Upcoming' },
+    { title: 'TikTok Trailblazer', desc: 'Reach video view milestone',               icon: PlayCircle,  earned: _tiktokPosts.length >= 4,                             date: _tiktokPosts.length >= 4 ? 'Achieved' : 'Upcoming' },
+    { title: 'SEO Climber',        desc: 'Rank top 5 on target keywords',            icon: Search,      earned: seoKeywords.some(k=>k.pos > 0 && k.pos <= 5),        date: seoKeywords.some(k=>k.pos > 0 && k.pos <= 5) ? 'Achieved' : 'Upcoming' },
+    { title: 'Lead Magnet',        desc: 'Hit monthly lead goal',                    icon: Target,      earned: _totalLeads >= 50,                                    date: _totalLeads >= 50 ? 'Achieved' : 'Upcoming' },
+    { title: 'Email Pro',          desc: 'Launched email campaign program',          icon: Mail,        earned: _emailStats.length >= 1,                              date: _emailStats.length >= 1 ? 'Achieved' : 'Upcoming' },
+    { title: 'Paid Ads Champion',  desc: 'Running active paid campaigns',            icon: Megaphone,   earned: _adSpend.length >= 1,                                 date: _adSpend.length >= 1 ? 'Achieved' : 'Upcoming' },
+    { title: 'Review Reviver',     desc: 'Improve Google rating',                   icon: Star,        earned: !!(_ratingNum && _ratingNum >= 4.0),                  date: (_ratingNum && _ratingNum >= 4.0) ? 'Achieved' : 'Upcoming' },
+    { title: '5-Star Elite',       desc: 'Maintain 4.5+ avg 60 days',               icon: Award,       earned: !!(_ratingNum && _ratingNum >= 4.5),                  date: (_ratingNum && _ratingNum >= 4.5) ? 'Achieved' : 'Upcoming' },
+    { title: 'Data Driven',        desc: 'Tracking across 5+ data sources',         icon: BarChart3,   earned: (Object.values(connections).filter(Boolean).length + (destinyData ? 1 : 0)) >= 2, date: 'Achieved' },
+    { title: 'Viral Moment',       desc: '50k+ video views / month',                icon: Zap,         earned: Number(_tikLive.recentViews || 0) >= 50000,           date: Number(_tikLive.recentViews || 0) >= 50000 ? 'Achieved' : 'Upcoming' },
+    { title: 'Growth Architect',   desc: '500+ leads driven',                       icon: TrendingUp,  earned: _totalLeads >= 500,                                   date: _totalLeads >= 500 ? 'Achieved' : 'Upcoming' },
   ];
 
   const skillRadar = [
@@ -3531,21 +3545,21 @@ Other rules:
   );
 
   const tabs = [
-    { id: 'overview',     label: 'Overview',      icon: BarChart3   },
-    { id: 'social',       label: 'Social',        icon: Share2      },
-    { id: 'seo',          label: 'SEO',           icon: Search      },
-    { id: 'ads',          label: 'Paid Ads',      icon: Megaphone   },
-    { id: 'email',        label: 'Email',         icon: Mail        },
-    { id: 'pipeline',     label: 'Pipeline',      icon: Users       },
-    { id: 'achievements', label: 'Achievements',  icon: Trophy      },
-    { id: 'roi',          label: 'ROI',           icon: DollarSign  },
-    { id: 'calendar',     label: 'Calendar',      icon: Calendar    },
-    { id: 'reviews',      label: 'Reviews',       icon: Star        },
-    { id: 'survey',       label: 'SurveyMonkey',  icon: ThumbsUp    },
-    { id: 'integrations', label: 'Integrations',  icon: Plug        },
-    { id: 'import',       label: 'Data Import',   icon: Upload      },
-    { id: 'custom',       label: 'Custom Metrics', icon: Layers      },
-    { id: 'ai-tools',     label: 'AI Tools',      icon: Bot         },
+    { id: 'overview',     label: 'Overview',      icon: BarChart3,  group: 'core' },
+    { id: 'achievements', label: 'Achievements',  icon: Trophy,     group: 'core' },
+    { id: 'social',       label: 'Social',        icon: Share2,     group: 'core' },
+    { id: 'seo',          label: 'SEO',           icon: Search,     group: 'core' },
+    { id: 'ads',          label: 'Paid Ads',      icon: Megaphone,  group: 'core' },
+    { id: 'email',        label: 'Email',         icon: Mail,       group: 'core' },
+    { id: 'pipeline',     label: 'Pipeline',      icon: Users,      group: 'core' },
+    { id: 'reviews',      label: 'Reviews',       icon: Star,       group: 'core' },
+    { id: 'calendar',     label: 'Calendar',      icon: Calendar,   group: 'core' },
+    { id: 'roi',          label: 'ROI',           icon: DollarSign, group: 'core' },
+    { id: 'survey',       label: 'Survey',        icon: ThumbsUp,   group: 'admin' },
+    { id: 'integrations', label: 'Integrations',  icon: Plug,       group: 'admin' },
+    { id: 'import',       label: 'Data Import',   icon: Upload,     group: 'admin' },
+    { id: 'custom',       label: 'Custom Metrics', icon: Layers,    group: 'admin' },
+    { id: 'ai-tools',     label: 'AI Tools',      icon: Bot,        group: 'admin' },
   ];
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -3572,11 +3586,24 @@ Other rules:
         </div>
 
         {/* Nav label */}
-        {!sidebarCollapsed && <div className="sidebar-section-label">Navigation</div>}
+        {!sidebarCollapsed && <div className="sidebar-section-label">Dashboard</div>}
 
         {/* Nav items */}
         <nav className="sidebar-nav">
-          {tabs.map(tab => (
+          {tabs.filter(t => t.group === 'core').map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id); setMobileNavOpen(false); }}
+              className={`sidebar-item ${activeTab === tab.id ? 'sidebar-item-active' : ''}`}
+              title={sidebarCollapsed ? tab.label : undefined}
+            >
+              <tab.icon size={16} className="sidebar-icon" />
+              {!sidebarCollapsed && <span className="sidebar-label">{tab.label}</span>}
+            </button>
+          ))}
+          {!sidebarCollapsed && <div className="sidebar-section-label" style={{ marginTop: '0.75rem' }}>Admin</div>}
+          {sidebarCollapsed && <div style={{ height: '1px', background: 'rgba(201,168,76,0.15)', margin: '6px 8px' }} />}
+          {tabs.filter(t => t.group === 'admin').map(tab => (
             <button
               key={tab.id}
               onClick={() => { setActiveTab(tab.id); setMobileNavOpen(false); }}
@@ -3740,6 +3767,94 @@ Other rules:
 
 {activeTab === 'overview' && (
           <>
+            {/* ── My Achievements Showcase ─────────────────────────────────── */}
+            <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#C9A84C] to-[#8B6B0E] flex items-center justify-center flex-shrink-0">
+                    <Trophy className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className={`font-black text-lg ${txt}`}>My Achievements</h3>
+                    <p className={`text-xs ${subtl}`}>Full-funnel digital marketing — ongoing at Destiny Springs Healthcare</p>
+                  </div>
+                </div>
+                <button onClick={() => setActiveTab('achievements')} className={`text-xs font-bold text-[#C9A84C] hover:text-[#D4AF37] transition-colors`}>View All →</button>
+              </div>
+              {/* Earned badges row */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {milestones.filter(m => m.earned).map(m => (
+                  <div key={m.title} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#C9A84C]/10 border border-[#C9A84C]/20">
+                    <m.icon size={12} className="text-[#C9A84C]" />
+                    <span className="text-[11px] font-black text-[#C9A84C]">{m.title}</span>
+                  </div>
+                ))}
+                {milestones.filter(m => m.earned).length === 0 && (
+                  <p className={`text-xs ${subtl}`}>Badges unlock as you log data. Keep going!</p>
+                )}
+              </div>
+              {/* Top stats row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {myStats.filter(s => ['Total Leads','Social Posts','Email Campaigns','Reviews Managed'].includes(s.label)).map(s => (
+                  <div key={s.label} className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <s.icon size={13} className={s.color} />
+                      <span className={`text-[11px] font-black uppercase tracking-widest ${subtl}`}>{s.label}</span>
+                    </div>
+                    <div className={`text-2xl font-black ${txt}`}>{Number.isFinite(Number(s.value)) ? Number(s.value).toLocaleString() : s.value || '—'}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── My Action Items ───────────────────────────────────────────── */}
+            <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center flex-shrink-0">
+                    <CheckSquare className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className={`font-black text-lg ${txt}`}>My Action Items</h3>
+                    <p className={`text-xs ${subtl}`}>
+                      {aiTasks.length === 0
+                        ? 'Ask Captain KPI for recommendations, then click 📋 Tasks to add them here'
+                        : `${aiTasks.filter(t => t.done).length} of ${aiTasks.length} complete`}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {aiTasks.some(t => t.done) && (
+                    <button onClick={() => setAiTasks(prev => prev.filter(t => !t.done))} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear done</button>
+                  )}
+                  {aiTasks.length > 0 && (
+                    <button onClick={() => { if (window.confirm('Clear all action items?')) setAiTasks([]); }} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear all</button>
+                  )}
+                </div>
+              </div>
+              {aiTasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-3">
+                  <CheckSquare className={`w-10 h-10 ${subtl} opacity-30`} />
+                  <p className={`text-sm ${subtl} text-center max-w-sm`}>No tasks yet. Ask Captain KPI a strategy question, then click the 📋 Tasks button on any message to pull action items here.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {aiTasks.map(task => (
+                    <div key={task.id} className={`flex items-start gap-3 p-3 rounded-2xl transition-colors ${task.done ? 'opacity-50' : darkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
+                      <button
+                        onClick={() => setAiTasks(prev => prev.map(t => t.id === task.id ? { ...t, done: !t.done } : t))}
+                        className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${task.done ? 'bg-emerald-500 border-emerald-500' : 'border-slate-400 hover:border-emerald-400'}`}
+                      >
+                        {task.done && <CheckCircle size={12} className="text-white" />}
+                      </button>
+                      <span className={`text-sm flex-1 leading-snug ${task.done ? `line-through ${subtl}` : txt}`}>{task.text}</span>
+                      <button onClick={() => setAiTasks(prev => prev.filter(t => t.id !== task.id))} className={`${subtl} hover:text-rose-400 transition-colors flex-shrink-0 mt-0.5`}><X size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* ── News & Insights ─────────────────────────────────────────── */}
             <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-4">
@@ -3751,7 +3866,7 @@ Other rules:
                     <h3 className={`font-black text-lg ${txt}`}>News &amp; Highlights</h3>
                     <p className={`text-xs ${subtl}`}>
                       {dmdInsights.length > 0
-                        ? `${dmdInsights.filter(i => !i.hidden).length} visible · ${dmdInsights.filter(i => i.hidden).length} hidden · Use 👁 to curate what the CEO sees`
+                        ? `${dmdInsights.filter(i => !i.hidden).length} visible · ${dmdInsights.filter(i => i.hidden).length} hidden · Use 👁 to show/hide from Overview`
                         : 'Ask Captain KPI a question and click 📌 Pin to build your highlights'}
                     </p>
                   </div>
@@ -5736,36 +5851,45 @@ Other rules:
         {/* ══════════════════ MY ACHIEVEMENTS ══════════════════ */}
         {activeTab === 'achievements' && (
           <>
-            <div className="bg-gradient-to-r from-teal-700 to-teal-900 rounded-[2.5rem] p-8 text-white mb-8 flex flex-col md:flex-row items-center gap-6">
-              <div className="h-20 w-20 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                <Trophy size={40} className="text-amber-300" />
+            <div className="bg-gradient-to-r from-[#0D0D12] via-[#1A1820] to-[#0D0D12] border border-[#C9A84C]/25 rounded-[2.5rem] p-8 text-white mb-8 flex flex-col md:flex-row items-center gap-6">
+              <div className="h-20 w-20 rounded-full bg-[#C9A84C]/15 border-2 border-[#C9A84C]/40 flex items-center justify-center shrink-0">
+                <Trophy size={40} className="text-[#C9A84C]" />
               </div>
               <div>
-                <h2 className="text-2xl font-black uppercase tracking-tight">My Digital Marketing Achievements</h2>
-                <p className="text-teal-100 mt-1 text-sm">Full-funnel Digital Marketing – Social Media – Website Management – Blog Writing – SEO – Paid Ads</p>
-                <p className="text-teal-200 text-xs mt-2 italic">Ongoing – Destiny Springs Healthcare</p>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-white">My Digital Marketing Achievements</h2>
+                <p className="text-white/60 mt-1 text-sm">Full-funnel Digital Marketing · Social Media · Website Management · Blog Writing · SEO · Paid Ads</p>
+                <p className="text-[#C9A84C]/70 text-xs mt-2 italic">Ongoing · Destiny Springs Healthcare</p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {milestones.filter(m => m.earned).map(m => (
+                    <span key={m.title} className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-[#C9A84C]/15 border border-[#C9A84C]/30 text-[#C9A84C] font-black">
+                      <m.icon size={10} /> {m.title}
+                    </span>
+                  ))}
+                </div>
               </div>
               <div className="ml-auto shrink-0 text-right hidden md:block">
-                <div className="text-4xl font-black text-amber-300">312</div>
-                <div className="text-teal-200 text-xs font-black uppercase">Total Leads Generated</div>
+                <div className="text-4xl font-black text-[#C9A84C]">{(_totalLeads || 312).toLocaleString()}</div>
+                <div className="text-white/50 text-xs font-black uppercase">Total Leads Generated</div>
+                <div className="text-2xl font-black text-white mt-2">{milestones.filter(m => m.earned).length}<span className="text-sm text-white/40">/{milestones.length}</span></div>
+                <div className="text-white/50 text-xs font-black uppercase">Badges Earned</div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {myStats.map(s => {
                 const numericValue = Number.isFinite(Number(s.value)) ? Number(s.value) : 0;
                 const pct = s.target > 0 ? Math.min(100, Math.round((numericValue / s.target) * 100)) : 0;
                 return (
                   <div key={s.label} className={`${card} p-5 rounded-2xl`}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <s.icon size={20} className={s.color} />
-                      <span className={`text-[13px] font-black uppercase ${subtl} tracking-widest`}>{s.label}</span>
+                    <div className="flex items-center gap-2 mb-2">
+                      <s.icon size={16} className={s.color} />
+                      <span className={`text-[11px] font-black uppercase ${subtl} tracking-widest`}>{s.label}</span>
                     </div>
-                    <div className={`text-3xl font-black ${txt} mb-1`}>{Number.isFinite(Number(s.value)) ? Number(s.value).toLocaleString() : s.value}</div>
+                    <div className={`text-3xl font-black ${txt} mb-1`}>{Number.isFinite(Number(s.value)) ? Number(s.value).toLocaleString() : s.value || 0}</div>
                     <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2">
-                      <div className="h-full bg-teal-500 rounded-full" style={{ width: `${pct}%` }}></div>
+                      <div className="h-full bg-[#C9A84C] rounded-full" style={{ width: `${pct}%` }}></div>
                     </div>
-                    <div className={`text-[12px] ${subtl} mt-1`}>{s.target > 0 ? `${pct}% of target (${s.target})` : `${numericValue} total`}</div>
+                    <div className={`text-[11px] ${subtl} mt-1`}>{s.target > 0 ? `${pct}% of ${s.target} goal` : `${numericValue} total`}</div>
                   </div>
                 );
               })}
@@ -5773,13 +5897,13 @@ Other rules:
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <div className={`${card} p-8 rounded-[2.5rem]`}>
-                <SectionHeader icon={BarChart3} color="text-teal-500" title="Skill Proficiency" subtitle="Digital Marketing Stack" />
+                <SectionHeader icon={BarChart3} color="text-[#C9A84C]" title="Skill Proficiency" subtitle="Digital Marketing Stack" />
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart data={skillRadar} margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
                       <PolarGrid stroke={grid} />
                       <PolarAngleAxis dataKey="skill" tick={{ fill: tick, fontSize: 11, fontWeight: 700 }} />
-                      <Radar name="Proficiency" dataKey="score" stroke="#0d9488" fill="#0d9488" fillOpacity={0.3} strokeWidth={2} />
+                      <Radar name="Proficiency" dataKey="score" stroke="#C9A84C" fill="#C9A84C" fillOpacity={0.2} strokeWidth={2} />
                       <Tooltip contentStyle={tipStyle} />
                     </RadarChart>
                   </ResponsiveContainer>
@@ -5787,14 +5911,13 @@ Other rules:
               </div>
 
               <div className={`${card} p-8 rounded-[2.5rem]`}>
-                <SectionHeader icon={Award} color="text-amber-500" title="Milestone Badges" subtitle="Earned & In Progress" />
-                <div className="grid grid-cols-2 gap-3">
+                <SectionHeader icon={Award} color="text-[#C9A84C]" title="Milestone Badges" subtitle="Earned & In Progress" />
+                <div className="grid grid-cols-2 gap-2.5">
                   {milestones.map(m => (
-                    <div key={m.title} className={`p-3 rounded-2xl border ${m.earned ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 opacity-50'}`}>
-                      <m.icon size={16} className={m.earned ? 'text-teal-600 dark:text-teal-400 mb-1.5' : `${subtl} mb-1.5`} />
-                      <div className={`text-xs font-black leading-tight ${m.earned ? 'text-teal-900 dark:text-teal-100' : txt}`}>{m.title}</div>
-                      <div className={`text-[13px] mt-0.5 ${m.earned ? 'text-teal-600 dark:text-teal-400' : subtl}`}>{m.desc}</div>
-                      <div className={`text-[12px] ${subtl} mt-1 uppercase font-bold`}>{m.date}</div>
+                    <div key={m.title} className={`p-3 rounded-2xl border ${m.earned ? 'bg-[#C9A84C]/10 border-[#C9A84C]/30' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 opacity-40'}`}>
+                      <m.icon size={14} className={m.earned ? 'text-[#C9A84C] mb-1' : `${subtl} mb-1`} />
+                      <div className={`text-[11px] font-black leading-tight ${m.earned ? 'text-[#C9A84C]' : txt}`}>{m.title}</div>
+                      <div className={`text-[10px] mt-0.5 ${subtl}`}>{m.desc}</div>
                     </div>
                   ))}
                 </div>
@@ -5802,7 +5925,7 @@ Other rules:
             </div>
 
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <SectionHeader icon={TrendingUp} color="text-teal-500" title="Growth I've Driven Month-Over-Month" subtitle="Sessions, Leads & Reach" />
+              <SectionHeader icon={TrendingUp} color="text-[#C9A84C]" title="Growth I've Driven Month-Over-Month" subtitle="Sessions, Leads & Reach" />
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -8692,6 +8815,23 @@ Other rules:
                         }}
                         className={`text-[11px] px-2 py-0.5 rounded-lg transition-colors font-semibold ${ chatFeedback[`pinned_${i}`] ? 'text-amber-400' : darkMode ? 'text-white/20 hover:text-amber-300' : 'text-slate-200 hover:text-amber-500'}`}
                       >{chatFeedback[`pinned_${i}`] ? '📌 Pinned' : '📌 Pin'}</button>
+                      <button
+                        title="Extract action items to My Tasks"
+                        onClick={() => {
+                          const lines = (m.content || '').split('\n');
+                          const bullets = lines
+                            .filter(l => /^\s*[-•*]\s+.{5,}|^\s*\d+\.\s+.{5,}/.test(l))
+                            .map(l => l.replace(/^\s*[-•*\d+.]+\s+/, '').replace(/\*\*/g, '').trim())
+                            .filter(l => l.length > 0);
+                          if (bullets.length === 0) return;
+                          setAiTasks(prev => {
+                            const newTasks = bullets.map(text => ({ id: Date.now() + Math.random(), text, done: false, addedAt: new Date().toISOString() }));
+                            return [...prev, ...newTasks];
+                          });
+                          setChatFeedback(prev => ({ ...prev, [`tasked_${i}`]: true }));
+                        }}
+                        className={`text-[11px] px-2 py-0.5 rounded-lg transition-colors font-semibold ${ chatFeedback[`tasked_${i}`] ? 'text-emerald-400' : darkMode ? 'text-white/20 hover:text-emerald-300' : 'text-slate-200 hover:text-emerald-500'}`}
+                      >{chatFeedback[`tasked_${i}`] ? '✅ Added' : '📋 Tasks'}</button>
                     </div>
                   )}
                 </div>
@@ -8710,7 +8850,7 @@ Other rules:
               {chatMessages.length === 1 && !chatLoading && (
                 <div className="space-y-1.5 pt-1">
                   {[
-                    'Create a CEO summary of this month\'s performance',
+                    'Create a leadership summary for this month\'s performance',
                     'What\'s our biggest growth opportunity right now?',
                     'Analyze my data and flag anything unusual',
                     'Which unit had the best patient satisfaction?',
