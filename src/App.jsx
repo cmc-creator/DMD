@@ -3585,12 +3585,8 @@ Other rules:
   // ─── Override Panel (slide-in drawer) ────────────────────────────────────────
   const OverridePanel = () => {
     const [ovTab, setOvTab] = React.useState('social');
-    const [localVals, setLocalVals] = React.useState({});
-    React.useEffect(() => { setLocalVals({ ...cardOverrides }); }, [overridePanelOpen]);
-    const set = (k, v) => setLocalVals(p => ({ ...p, [k]: v }));
-    const save = (k) => { saveOv(k, localVals[k] ?? ''); };
-    const clear = (k) => { setLocalVals(p => { const c = { ...p }; delete c[k]; return c; }); saveOv(k, ''); };
     const hasOv = (k) => cardOverrides[k] != null && cardOverrides[k] !== '';
+    const clear = (k) => saveOv(k, '');
     const Row = ({ label, k, placeholder, type = 'text' }) => (
       <div className="flex items-center gap-2 py-2 border-b border-slate-100 dark:border-slate-800">
         <div className="flex-1 min-w-0">
@@ -3599,10 +3595,9 @@ Other rules:
         </div>
         <input
           type={type}
-          value={localVals[k] ?? ''}
-          onChange={e => set(k, e.target.value)}
-          onBlur={() => save(k)}
-          onKeyDown={e => { if (e.key === 'Enter') { save(k); e.target.blur(); } }}
+          defaultValue={cardOverrides[k] ?? ''}
+          onBlur={e => saveOv(k, e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { saveOv(k, e.target.value); e.target.blur(); } }}
           placeholder={placeholder}
           className={`w-28 text-xs px-2 py-1.5 rounded-lg border outline-none transition-colors ${
             hasOv(k) ? 'border-[#C9A84C]/60 bg-[#C9A84C]/5 text-[#C9A84C] font-black' :
@@ -3703,7 +3698,7 @@ Other rules:
           {/* Footer */}
           <div className={`px-5 py-3 border-t ${brd} flex-shrink-0 flex items-center justify-between`}>
             <button
-              onClick={() => { setCardOverrides({}); setLocalVals({}); }}
+              onClick={() => setCardOverrides({})}
               className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}
             >Clear all overrides</button>
             <span className={`text-[10px] ${subtl}`}>{Object.keys(cardOverrides).filter(k => cardOverrides[k] != null && cardOverrides[k] !== '').length} active</span>
