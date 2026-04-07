@@ -2445,7 +2445,7 @@ Other rules:
         setChatMessages(m => [...m, { role: 'assistant', content: displayReply }]);
       }
     } catch {
-      setChatMessages(m => [...m, { role: 'assistant', content: "My circuits are jammed! 🔧 Make sure GEMINI_API_KEY is set in your Vercel project. Get a free key at aistudio.google.com — I'll be back once fed." }]);
+      setChatMessages(m => [...m, { role: 'assistant', content: "⚠️ Something went wrong on my end. Please refresh the page and try again." }]);
     }
     setChatLoading(false);
   };
