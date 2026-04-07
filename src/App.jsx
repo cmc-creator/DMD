@@ -15,6 +15,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
   Trash2, Layers, Scale, Tag, Camera, Scan, CheckSquare, AlertTriangle, Paperclip, EyeOff,
+  GripVertical, Sliders, LayoutGrid,
 } from 'lucide-react';
 
 const META_AUTO_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
@@ -253,6 +254,11 @@ const App = () => {
   const [chatLoading, setChatLoading]           = useState(false);
   const [aiTasks, setAiTasks]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_tasks') || '[]'); } catch { return []; } });
   const [newTaskText, setNewTaskText]           = useState('');
+  const [cardOverrides, setCardOverrides]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_card_overrides') || '{}'); } catch { return {}; } });
+  const [overridePanelOpen, setOverridePanelOpen] = useState(false);
+  const [widgetOrder, setWidgetOrder]           = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_widget_order') || '{}'); } catch { return {}; } });
+  const [layoutMode, setLayoutMode]             = useState(false);
+  const [sectionDragOver, setSectionDragOver]   = useState(null);
   const [chatAttachments, setChatAttachments]   = useState([]); // [{ base64|text, mimeType, name }]
   const [chatDragOver, setChatDragOver]         = useState(false);
   const chatFileRef                             = useRef(null);
@@ -453,6 +459,8 @@ const App = () => {
 
   // Persist AI tasks
   useEffect(() => { localStorage.setItem('dmd_tasks', JSON.stringify(aiTasks)); }, [aiTasks]);
+  useEffect(() => { localStorage.setItem('dmd_card_overrides', JSON.stringify(cardOverrides)); }, [cardOverrides]);
+  useEffect(() => { localStorage.setItem('dmd_widget_order', JSON.stringify(widgetOrder)); }, [widgetOrder]);
 
   // Auto-scroll chatbot to latest message
   useEffect(() => {
@@ -3046,10 +3054,10 @@ Other rules:
 
   // ── Social Analytics ─────────────────────────────────────────────────────────
   const socialAnalytics = [
-    { platform: 'Facebook',  color: '#1877F2', reach: toNum(_latestSocial['Facebook']?.reach  || _metaLive.reach), engagement: toNum(_latestSocial['Facebook']?.engagement), clicks: toNum(_latestSocial['Facebook']?.clicks), followers: toNum(_fbLive.followers || _latestSocial['Facebook']?.followers || _metaLive.fanCount), posts: null,  videos: null, totalLikes: toNum(_fbLive.likes) },
-    { platform: 'Instagram', color: '#E4405F', reach: toNum(_latestSocial['Instagram']?.reach), engagement: toNum(_latestSocial['Instagram']?.engagement), clicks: toNum(_latestSocial['Instagram']?.clicks), followers: toNum(_igLive.followers || _metaLive.instagramFollowers || _latestSocial['Instagram']?.followers), posts: toNum(_igLive.posts || _metaLive.instagramPosts), videos: null, totalLikes: null },
-    { platform: 'LinkedIn',  color: '#0A66C2', reach: toNum(_latestSocial['LinkedIn']?.reach), engagement: toNum(_latestSocial['LinkedIn']?.engagement), clicks: toNum(_latestSocial['LinkedIn']?.clicks), followers: toNum(_liLive.followers || _latestSocial['LinkedIn']?.followers), posts: null, videos: null, totalLikes: null },
-    { platform: 'TikTok',    color: '#00f2ea', reach: toNum(_latestSocial['TikTok']?.reach || _tikLive.recentViews), engagement: toNum(_latestSocial['TikTok']?.engagement) || 0, clicks: toNum(_latestSocial['TikTok']?.clicks) || 0, followers: toNum(_ttLive.followers || _tikLive.followers || _latestSocial['TikTok']?.followers), posts: null, videos: toNum(_ttLive.videos || _tikLive.videos), totalLikes: toNum(_ttLive.likes || _tikLive.totalLikes) },
+    { platform: 'Facebook',  color: '#1877F2', reach: toNum(_latestSocial['Facebook']?.reach  || _metaLive.reach), engagement: toNum(_latestSocial['Facebook']?.engagement), clicks: toNum(_latestSocial['Facebook']?.clicks), followers: toNum(cardOverrides.fb_followers ?? (_fbLive.followers || _latestSocial['Facebook']?.followers || _metaLive.fanCount)), posts: null,  videos: null, totalLikes: toNum(_fbLive.likes) },
+    { platform: 'Instagram', color: '#E4405F', reach: toNum(_latestSocial['Instagram']?.reach), engagement: toNum(_latestSocial['Instagram']?.engagement), clicks: toNum(_latestSocial['Instagram']?.clicks), followers: toNum(cardOverrides.ig_followers ?? (_igLive.followers || _metaLive.instagramFollowers || _latestSocial['Instagram']?.followers)), posts: toNum(_igLive.posts || _metaLive.instagramPosts), videos: null, totalLikes: null },
+    { platform: 'LinkedIn',  color: '#0A66C2', reach: toNum(_latestSocial['LinkedIn']?.reach), engagement: toNum(_latestSocial['LinkedIn']?.engagement), clicks: toNum(_latestSocial['LinkedIn']?.clicks), followers: toNum(cardOverrides.li_followers ?? (_liLive.followers || _latestSocial['LinkedIn']?.followers)), posts: null, videos: null, totalLikes: null },
+    { platform: 'TikTok',    color: '#00f2ea', reach: toNum(_latestSocial['TikTok']?.reach || _tikLive.recentViews), engagement: toNum(_latestSocial['TikTok']?.engagement) || 0, clicks: toNum(_latestSocial['TikTok']?.clicks) || 0, followers: toNum(cardOverrides.tt_followers ?? (_ttLive.followers || _tikLive.followers || _latestSocial['TikTok']?.followers)), posts: null, videos: toNum(_ttLive.videos || _tikLive.videos), totalLikes: toNum(_ttLive.likes || _tikLive.totalLikes) },
   ];
 
   // ── Weekly Engagement Trend ──────────────────────────────────────────────────
@@ -3297,18 +3305,18 @@ Other rules:
   const _cpl              = (_totalSpend > 0 && _totalLeads > 0) ? (_totalSpend / _totalLeads).toFixed(0) : null;
 
   const myStats = [
-    { label: 'Total Leads Generated',  value: _totalLeads || 0,         icon: Target,      color: 'text-rose-500',    target: 500,  suffix: '' },
-    { label: 'Social Posts Published', value: _totalSocialPosts || 0,   icon: Share2,      color: 'text-blue-500',    target: 200,  suffix: '' },
-    { label: 'Total Followers',        value: _totalFollowers || 0,     icon: Users,       color: 'text-violet-500',  target: 10000,suffix: '' },
-    { label: 'Email Campaigns',        value: _emailStats.length || 0,  icon: Mail,        color: 'text-teal-500',    target: 12,   suffix: '' },
-    { label: 'Blog Posts Written',     value: _blogCount || 0,          icon: FileText,    color: 'text-purple-500',  target: 20,   suffix: '' },
-    { label: 'TikTok Videos',          value: _ttVideoCount || 0,       icon: PlayCircle,  color: 'text-pink-500',    target: 50,   suffix: '' },
-    { label: 'Website Sessions',       value: _wixSessions || 0,        icon: Globe,       color: 'text-emerald-500', target: 5000, suffix: '' },
-    { label: 'Reviews Managed',        value: _totalReviewCount || 0,   icon: Star,        color: 'text-amber-500',   target: 100,  suffix: '' },
-    { label: 'Avg Google Rating',      value: _avgRating ? Number(_avgRating) : 0, icon: Star, color: 'text-yellow-500', target: 5, suffix: '★' },
-    { label: 'Paid Campaigns',         value: _adSpend.length || 0,     icon: Megaphone,   color: 'text-indigo-500',  target: 24,   suffix: '' },
-    { label: 'Keywords Tracked',       value: seoKeywords.length || 0,  icon: Search,      color: 'text-sky-500',     target: 25,   suffix: '' },
-    { label: 'Omnichannel Reach',      value: _totalReach || 0,         icon: Activity,    color: 'text-orange-500',  target: 100000, suffix: '' },
+    { label: 'Total Leads Generated',  value: Number(cardOverrides.total_leads    ?? _totalLeads    ?? 0),         icon: Target,      color: 'text-rose-500',    target: 500,   suffix: '' },
+    { label: 'Social Posts Published', value: Number(cardOverrides.total_posts    ?? _totalSocialPosts ?? 0),      icon: Share2,      color: 'text-blue-500',    target: 200,   suffix: '' },
+    { label: 'Total Followers',        value: Number(cardOverrides.total_followers?? _totalFollowers  ?? 0),       icon: Users,       color: 'text-violet-500',  target: 10000, suffix: '' },
+    { label: 'Email Campaigns',        value: Number(cardOverrides.email_campaigns?? _emailStats.length ?? 0),    icon: Mail,        color: 'text-teal-500',    target: 12,    suffix: '' },
+    { label: 'Blog Posts Written',     value: Number(cardOverrides.blog_count     ?? _blogCount     ?? 0),         icon: FileText,    color: 'text-purple-500',  target: 20,    suffix: '' },
+    { label: 'TikTok Videos',          value: Number(cardOverrides.tiktok_videos  ?? _ttVideoCount  ?? 0),         icon: PlayCircle,  color: 'text-pink-500',    target: 50,    suffix: '' },
+    { label: 'Website Sessions',       value: Number(cardOverrides.sessions       ?? _wixSessions   ?? 0),         icon: Globe,       color: 'text-emerald-500', target: 5000,  suffix: '' },
+    { label: 'Reviews Managed',        value: Number(cardOverrides.review_count   ?? _totalReviewCount ?? 0),      icon: Star,        color: 'text-amber-500',   target: 100,   suffix: '' },
+    { label: 'Avg Google Rating',      value: Number(cardOverrides.google_rating  ?? (_avgRating ? Number(_avgRating) : 0)), icon: Star, color: 'text-yellow-500', target: 5, suffix: '★' },
+    { label: 'Paid Campaigns',         value: Number(cardOverrides.paid_campaigns ?? _adSpend.length ?? 0),        icon: Megaphone,   color: 'text-indigo-500',  target: 24,    suffix: '' },
+    { label: 'Keywords Tracked',       value: Number(cardOverrides.keywords       ?? seoKeywords.length ?? 0),     icon: Search,      color: 'text-sky-500',     target: 25,    suffix: '' },
+    { label: 'Omnichannel Reach',      value: Number(cardOverrides.total_reach    ?? _totalReach    ?? 0),         icon: Activity,    color: 'text-orange-500',  target: 100000,suffix: '' },
   ];
 
   const milestones = [
@@ -3505,6 +3513,199 @@ Other rules:
     if (!s || s === '---' || s === ' ' || s === '-' || s === '') return false;
     if (s === '0' || s === '0%' || s === '$0' || s === '+0.00') return false;
     return true;
+  };
+
+  // ─── Card Override helpers ───────────────────────────────────────────────────
+  const ov = (key, fallback) => { const v = cardOverrides[key]; return (v != null && v !== '') ? v : fallback; };
+  const saveOv = (key, val) => {
+    const updated = { ...cardOverrides };
+    if (val === '' || val == null) { delete updated[key]; } else { updated[key] = val; }
+    setCardOverrides(updated);
+  };
+
+  // ─── Drag-and-drop section ordering ─────────────────────────────────────────
+  const TAB_SECTIONS = {
+    overview:     ['ov-achievements','ov-action-items','ov-news','ov-destiny','ov-kpis','ov-patient-sat','ov-brand-health','ov-trend','ov-competitor','ov-historical','ov-weekly-brief','ov-nps-wix','ov-ux-content'],
+    social:       ['soc-cards','soc-performance','soc-detail','soc-charts','soc-engagement'],
+    seo:          ['seo-kpis','seo-keywords','seo-pages','seo-blog'],
+    ads:          ['ads-kpis','ads-campaigns','ads-chart'],
+    email:        ['email-kpis','email-campaigns','email-chart'],
+    reviews:      ['rev-summary','rev-platforms','rev-list'],
+    achievements: ['ach-hero','ach-stats','ach-milestones'],
+    pipeline:     ['pipe-header','pipe-action'],
+    survey:       ['sur-overview','sur-units','sur-voice','sur-raw'],
+    roi:          ['roi-settings','roi-results'],
+    calendar:     ['cal-view','cal-content'],
+  };
+  const getTabOrder = (tab) => widgetOrder[tab] || TAB_SECTIONS[tab] || [];
+  const sectionCSSOrder = (tab, id) => {
+    if (!layoutMode) return {};
+    const order = getTabOrder(tab).indexOf(id);
+    return { order: order >= 0 ? order : 999 };
+  };
+  const makeDrag = (tab, id) => ({
+    draggable: true,
+    onDragStart: (e) => { e.dataTransfer.setData('text/plain', JSON.stringify({ id, tab })); e.dataTransfer.effectAllowed = 'move'; },
+    onDragOver:  (e) => { e.preventDefault(); setSectionDragOver(id); },
+    onDragLeave: ()  => setSectionDragOver(s => s === id ? null : s),
+    onDrop: (e) => {
+      e.preventDefault(); setSectionDragOver(null);
+      try {
+        const { id: fromId, tab: fromTab } = JSON.parse(e.dataTransfer.getData('text/plain'));
+        if (fromTab !== tab || fromId === id) return;
+        const cur = [...getTabOrder(tab)];
+        const fi = cur.indexOf(fromId); const ti = cur.indexOf(id);
+        if (fi < 0 || ti < 0) return;
+        cur.splice(fi, 1); cur.splice(ti, 0, fromId);
+        setWidgetOrder(prev => ({ ...prev, [tab]: cur }));
+      } catch {}
+    },
+  });
+  // DS = DraggableSection wrapper — thin flex-order + drag handle container
+  const DS = ({ id, tab, children }) => (
+    <div
+      style={sectionCSSOrder(tab, id)}
+      className={layoutMode ? `relative group${sectionDragOver === id ? ' outline outline-2 outline-[#C9A84C]/60 rounded-[2.5rem]' : ''}` : ''}
+      {...(layoutMode ? makeDrag(tab, id) : {})}
+    >
+      {layoutMode && (
+        <div className="absolute -top-1 -left-1 z-30 bg-[#C9A84C] text-slate-900 text-[9px] font-black px-2 py-1 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none flex items-center gap-1 select-none">
+          <GripVertical size={10} /> drag to reorder
+        </div>
+      )}
+      {children}
+    </div>
+  );
+
+  // ─── Override Panel (slide-in drawer) ────────────────────────────────────────
+  const OverridePanel = () => {
+    const [ovTab, setOvTab] = React.useState('social');
+    const [localVals, setLocalVals] = React.useState({});
+    React.useEffect(() => { setLocalVals({ ...cardOverrides }); }, [overridePanelOpen]);
+    const set = (k, v) => setLocalVals(p => ({ ...p, [k]: v }));
+    const save = (k) => { saveOv(k, localVals[k] ?? ''); };
+    const clear = (k) => { setLocalVals(p => { const c = { ...p }; delete c[k]; return c; }); saveOv(k, ''); };
+    const hasOv = (k) => cardOverrides[k] != null && cardOverrides[k] !== '';
+    const Row = ({ label, k, placeholder, type = 'text' }) => (
+      <div className="flex items-center gap-2 py-2 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex-1 min-w-0">
+          <p className={`text-xs font-black ${txt} leading-tight`}>{label}</p>
+          {hasOv(k) && <p className="text-[10px] text-[#C9A84C]">Override active</p>}
+        </div>
+        <input
+          type={type}
+          value={localVals[k] ?? ''}
+          onChange={e => set(k, e.target.value)}
+          onBlur={() => save(k)}
+          onKeyDown={e => { if (e.key === 'Enter') { save(k); e.target.blur(); } }}
+          placeholder={placeholder}
+          className={`w-28 text-xs px-2 py-1.5 rounded-lg border outline-none transition-colors ${
+            hasOv(k) ? 'border-[#C9A84C]/60 bg-[#C9A84C]/5 text-[#C9A84C] font-black' :
+            darkMode ? 'border-slate-700 bg-slate-800 text-white' : 'border-slate-300 bg-white text-slate-800'
+          } focus:border-[#C9A84C]/80`}
+        />
+        {hasOv(k) && (
+          <button onClick={() => clear(k)} className={`${subtl} hover:text-rose-400 transition-colors flex-shrink-0`} title="Clear override"><X size={12} /></button>
+        )}
+      </div>
+    );
+    const ovTabs = [
+      { id: 'social',   label: 'Social' },
+      { id: 'seo',      label: 'SEO' },
+      { id: 'ads',      label: 'Ads' },
+      { id: 'email',    label: 'Email' },
+      { id: 'reviews',  label: 'Reviews' },
+      { id: 'general',  label: 'KPIs' },
+    ];
+    return (
+      <div className={`fixed inset-0 z-50 flex items-stretch justify-end ${overridePanelOpen ? '' : 'pointer-events-none'}`}>
+        {/* Backdrop */}
+        <div className={`absolute inset-0 bg-black/30 transition-opacity ${overridePanelOpen ? 'opacity-100' : 'opacity-0'}`} onClick={() => setOverridePanelOpen(false)} />
+        {/* Panel */}
+        <div className={`relative w-full max-w-sm ${darkMode ? 'bg-[#14121A]' : 'bg-white'} shadow-2xl flex flex-col transition-transform duration-300 ${overridePanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+          {/* Header */}
+          <div className={`flex items-center justify-between px-5 py-4 border-b ${brd} flex-shrink-0`}>
+            <div className="flex items-center gap-2">
+              <Sliders size={16} className="text-[#C9A84C]" />
+              <span className={`font-black text-sm ${txt}`}>Manual Data Overrides</span>
+            </div>
+            <button onClick={() => setOverridePanelOpen(false)} className={`${subtl} hover:text-rose-400 transition-colors`}><X size={16} /></button>
+          </div>
+          <p className={`px-5 py-2 text-[11px] ${subtl} border-b ${brd} flex-shrink-0`}>
+            Enter the correct value to override any auto-pulled data. Press <strong>Enter</strong> or click away to save. Click ✕ to revert to auto data.
+          </p>
+          {/* Category tabs */}
+          <div className={`flex gap-1 px-3 py-2 border-b ${brd} flex-shrink-0 overflow-x-auto`}>
+            {ovTabs.map(t => (
+              <button key={t.id} onClick={() => setOvTab(t.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black whitespace-nowrap transition-colors flex-shrink-0 ${ovTab === t.id ? 'bg-[#C9A84C] text-slate-900' : `${subtl} hover:text-[#C9A84C]`}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {/* Fields */}
+          <div className="flex-1 overflow-y-auto px-5 py-3 space-y-0">
+            {ovTab === 'social' && <>
+              <Row label="Instagram Followers" k="ig_followers" placeholder="e.g. 1250" />
+              <Row label="Facebook Followers" k="fb_followers" placeholder="e.g. 890" />
+              <Row label="TikTok Followers" k="tt_followers" placeholder="e.g. 3400" />
+              <Row label="LinkedIn Followers" k="li_followers" placeholder="e.g. 560" />
+              <Row label="Total Social Posts" k="total_posts" placeholder="e.g. 142" />
+              <Row label="Instagram Posts Count" k="ig_posts" placeholder="e.g. 87" />
+              <Row label="TikTok Videos Count" k="tiktok_videos" placeholder="e.g. 24" />
+              <Row label="Total Engagement" k="total_engagement" placeholder="e.g. 4500" />
+            </>}
+            {ovTab === 'seo' && <>
+              <Row label="Website Sessions (monthly)" k="sessions" placeholder="e.g. 2800" />
+              <Row label="GSC Impressions" k="gsc_impressions" placeholder="e.g. 45000" />
+              <Row label="GSC Clicks" k="gsc_clicks" placeholder="e.g. 1200" />
+              <Row label="Avg Search Position" k="gsc_position" placeholder="e.g. 14.3" />
+              <Row label="Avg CTR (%)" k="gsc_ctr" placeholder="e.g. 2.6" />
+              <Row label="Blog Posts Written" k="blog_count" placeholder="e.g. 12" />
+              <Row label="Keywords Tracked" k="keywords" placeholder="e.g. 18" />
+              <Row label="Keywords in Top 5" k="top5_keywords" placeholder="e.g. 4" />
+            </>}
+            {ovTab === 'ads' && <>
+              <Row label="Total Ad Spend ($)" k="total_spend" placeholder="e.g. 3500" />
+              <Row label="Total Leads from Ads" k="total_leads" placeholder="e.g. 48" />
+              <Row label="Cost Per Lead ($)" k="cpl" placeholder="e.g. 72" />
+              <Row label="Ad Campaigns Count" k="paid_campaigns" placeholder="e.g. 6" />
+              <Row label="Total Impressions" k="ad_impressions" placeholder="e.g. 85000" />
+              <Row label="Total Clicks" k="ad_clicks" placeholder="e.g. 920" />
+            </>}
+            {ovTab === 'email' && <>
+              <Row label="Open Rate (%)" k="email_open_rate" placeholder="e.g. 24.5" />
+              <Row label="Click Rate (%)" k="email_click_rate" placeholder="e.g. 3.8" />
+              <Row label="Total Emails Sent" k="email_sent" placeholder="e.g. 4200" />
+              <Row label="Subscribers" k="email_subscribers" placeholder="e.g. 1850" />
+              <Row label="Campaigns Count" k="email_campaigns" placeholder="e.g. 8" />
+            </>}
+            {ovTab === 'reviews' && <>
+              <Row label="Google Rating (0-5)" k="google_rating" placeholder="e.g. 4.2" />
+              <Row label="Google Review Count" k="review_count" placeholder="e.g. 168" />
+              <Row label="Reviews Managed Total" k="review_count" placeholder="e.g. 220" />
+              <Row label="Healthgrades Rating" k="hg_rating" placeholder="e.g. 3.9" />
+              <Row label="Yelp Rating" k="yelp_rating" placeholder="e.g. 4.0" />
+            </>}
+            {ovTab === 'general' && <>
+              <Row label="Total Leads (all channels)" k="total_leads" placeholder="e.g. 130" />
+              <Row label="Total Followers (all)" k="total_followers" placeholder="e.g. 6200" />
+              <Row label="Total Omnichannel Reach" k="total_reach" placeholder="e.g. 28000" />
+              <Row label="NPS Score" k="nps_score" placeholder="e.g. 54" />
+              <Row label="Avg Review Rating" k="google_rating" placeholder="e.g. 4.3" />
+            </>}
+          </div>
+          {/* Footer */}
+          <div className={`px-5 py-3 border-t ${brd} flex-shrink-0 flex items-center justify-between`}>
+            <button
+              onClick={() => { setCardOverrides({}); setLocalVals({}); }}
+              className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}
+            >Clear all overrides</button>
+            <span className={`text-[10px] ${subtl}`}>{Object.keys(cardOverrides).filter(k => cardOverrides[k] != null && cardOverrides[k] !== '').length} active</span>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // ── Helper Components ─────────────────────────────────────────────────────────
@@ -3773,6 +3974,14 @@ Other rules:
                 </div>
               </div>
             )}
+            <button onClick={() => setLayoutMode(m => !m)} className={`topbar-btn ${layoutMode ? 'bg-[#C9A84C] text-slate-900' : 'topbar-btn-ghost'}`} title="Toggle drag-and-drop layout mode">
+              <LayoutGrid size={13} />
+              <span>Arrange</span>
+            </button>
+            <button onClick={() => setOverridePanelOpen(o => !o)} className={`topbar-btn ${overridePanelOpen ? 'bg-[#C9A84C] text-slate-900' : 'topbar-btn-ghost'}`} title="Manually override card data">
+              <Sliders size={13} />
+              <span>Edit Data</span>
+            </button>
             <button onClick={() => setDarkMode(d => !d)} className="topbar-btn topbar-btn-ghost">
               {darkMode ? <Sun size={13} /> : <Moon size={13} />}
               <span>{darkMode ? 'Light' : 'Dark'}</span>
@@ -3786,10 +3995,17 @@ Other rules:
 
         {/* Scrollable content */}
         <main className="content-area">
+          <OverridePanel />
+          {layoutMode && (
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-2.5 bg-[#C9A84C] text-slate-900 rounded-full shadow-2xl font-black text-xs">
+              <GripVertical size={14} /> Arrange Mode — drag cards to reorder · <button onClick={() => setLayoutMode(false)} className="underline hover:no-underline">Done</button>
+            </div>
+          )}
 
 {activeTab === 'overview' && (
-          <>
+          <div className="flex flex-col">
             {/* ── Achievements Showcase ─────────────────────────────────── */}
+            <DS id="ov-achievements" tab="overview">
             <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div className="flex items-center gap-3">
@@ -3832,8 +4048,10 @@ Other rules:
                 ))}
               </div>
             </div>
+            </DS>
 
             {/* ── Action Items ───────────────────────────────────────────── */}
+            <DS id="ov-action-items" tab="overview">
             {(() => {
               const addTask = () => {
                 const trimmed = newTaskText.trim();
@@ -3906,9 +4124,11 @@ Other rules:
                 </div>
               );
             })()}
+            </DS>
 
 
             {/* ── News & Insights ─────────────────────────────────────────── */}
+            <DS id="ov-news" tab="overview">
             <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -3970,8 +4190,10 @@ Other rules:
                 </div>
               )}
             </div>
+            </DS>
 
             {/* ── Destiny Springs Live Profile ─────────────────────────────── */}
+            <DS id="ov-destiny" tab="overview">
             {(() => {
               const website   = destinyData?.website;
               const google    = destinyData?.google;         // Places API (needs key)
@@ -4425,8 +4647,10 @@ Other rules:
                 </div>
               );
             })()}
+            </DS>
 
             {/* Top KPI Row */}
+            <DS id="ov-kpis" tab="overview">
             {!overviewHidden.includes('kpis') && (
             <>
             {(() => {
@@ -4468,8 +4692,10 @@ Other rules:
             })()}
             </>
             )}
+            </DS>
 
             {/* ── Patient Satisfaction Snapshot ─────────────────────────── */}
+            <DS id="ov-patient-sat" tab="overview">
             {(() => {
               const sqRows = manualData.survey_quality || [];
               if (sqRows.length === 0) return null;
@@ -4527,8 +4753,10 @@ Other rules:
                 </div>
               );
             })()}
+            </DS>
 
             {/* ── Brand Health Score ────────────────────────────────────── */}
+            <DS id="ov-brand-health" tab="overview">
             {!overviewHidden.includes('health') && (() => {
               const dsRating  = destinyData?.google?.rating ?? destinyData?.bestRating?.rating ?? null;
               const dsReviews = destinyData?.google?.reviewCount ?? destinyData?.bestRating?.reviewCount ?? null;
@@ -4604,8 +4832,10 @@ Other rules:
                 </div>
               );
             })()}
+            </DS>
 
             {/* 6-Month Trend */}
+            <DS id="ov-trend" tab="overview">
             {!overviewHidden.includes('trend') && (
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={TrendingUp} color="text-teal-500" title="6-Month Growth Trend" subtitle="Sessions, Reach & Lead Volume" />
@@ -4630,8 +4860,10 @@ Other rules:
               </div>
             </div>
             )}
+            </DS>
 
             {/* ── Competitor Intelligence ──────────────────────────────── */}
+            <DS id="ov-competitor" tab="overview">
             {!overviewHidden.includes('competitors') && (() => {
               const dsRating  = destinyData?.google?.rating ?? destinyData?.bestRating?.rating ?? null;
               const dsReviews = destinyData?.google?.reviewCount ?? destinyData?.bestRating?.reviewCount ?? null;
@@ -4733,8 +4965,10 @@ Other rules:
                 </div>
               );
             })()}
+            </DS>
 
             {/* ── Historical Trends ─────────────────────────────────────────── */}
+            <DS id="ov-historical" tab="overview">
             {(() => {
               const cutoff   = new Date(Date.now() - historyPeriod * 24 * 60 * 60 * 1000);
               const sliced   = metricsHistory
@@ -4933,8 +5167,10 @@ Other rules:
                 </div>
               );
             })()}
+            </DS>
 
             {/* ── AI Weekly Brief ───────────────────────────────────────────── */}
+            <DS id="ov-weekly-brief" tab="overview">
             {weeklyDigest && (
               <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                 <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
@@ -4967,7 +5203,9 @@ Other rules:
                 )}
               </div>
             )}
+            </DS>
 
+            <DS id="ov-nps-wix" tab="overview">
             {!overviewHidden.includes('nps_wix') && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
               <div className={`lg:col-span-4 ${card} p-8 rounded-[2.5rem] flex flex-col`}>
@@ -5054,8 +5292,10 @@ Other rules:
               </div>
             </div>
             )}
+            </DS>
 
             {/* UX Path & Content Velocity */}
+            <DS id="ov-ux-content" tab="overview">
             {!overviewHidden.includes('ux_content') && (<>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <div className={`${card} p-7 rounded-[2.5rem]`}>
@@ -5155,8 +5395,9 @@ Other rules:
               </div>
             </div>
             </>)}
+            </DS>
 
-          </>
+          </div>
         )}
 
         {/* ══════════════════ SOCIAL ══════════════════ */}
