@@ -252,6 +252,7 @@ const App = () => {
   const [chatInput, setChatInput]               = useState('');
   const [chatLoading, setChatLoading]           = useState(false);
   const [aiTasks, setAiTasks]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_tasks') || '[]'); } catch { return []; } });
+  const [newTaskText, setNewTaskText]           = useState('');
   const [chatAttachments, setChatAttachments]   = useState([]); // [{ base64|text, mimeType, name }]
   const [chatDragOver, setChatDragOver]         = useState(false);
   const chatFileRef                             = useRef(null);
@@ -3273,22 +3274,6 @@ Other rules:
   // ── Upcoming Tasks ────────────────────────────────────────────────────────────
   const pipeline = [];
 
-  // ── My Achievements data ────────────────────────────────────────────────────
-  const myStats = [
-    { label: 'Blogs Written',      value: _blogCount,                                                                          icon: FileText,    color: 'text-purple-500',  target: 12 },
-    { label: 'TikToks Produced',   value: _ttVideoCount,                                                                       icon: PlayCircle,  color: 'text-pink-500',    target: 50 },
-    { label: 'Social Posts',       value: _totalSocialPosts,                                                                   icon: Share2,      color: 'text-blue-500',    target: 200 },
-    { label: 'Email Campaigns',    value: _emailStats.length,                                                                   icon: Mail,        color: 'text-teal-500',    target: 12 },
-    { label: 'Website Updates',    value: contentItems.filter(c => String(c.type || '').toLowerCase() === 'website').length,   icon: Globe,       color: 'text-emerald-500', target: 20 },
-    { label: 'Reviews Managed',    value: _reviews.length || _totalReviewCount || 0,                                           icon: Star,        color: 'text-amber-500',   target: 50 },
-    { label: 'Total Leads',        value: _totalLeads || 0,                                                                    icon: Target,      color: 'text-rose-500',    target: 500 },
-    { label: 'Ad Campaigns Run',   value: _adSpend.length || 0,                                                                icon: Megaphone,   color: 'text-indigo-500',  target: 24 },
-    { label: 'Keywords Tracked',   value: seoKeywords.length || 0,                                                             icon: Search,      color: 'text-sky-500',     target: 25 },
-    { label: 'Platforms Managed',  value: Math.max(socialAnalytics.filter(p => p.followers > 0 || p.posts > 0).length, _adSpend.some(a=>a.platform?.includes('Meta')) ? 2 : 0), icon: Activity, color: 'text-violet-500', target: 5 },
-    { label: 'Calendar Events',    value: contentItems.length || 0,                                                            icon: Calendar,    color: 'text-orange-500',  target: 100 },
-    { label: 'Surveys Processed',  value: (manualData.survey_quality || []).length + (manualData.survey_experience || []).length, icon: ThumbsUp, color: 'text-green-500', target: 10 },
-  ];
-
   const _ratingNum = _avgRating ? Number(_avgRating) : null;
 
   // ── Real computed achievement stats ─────────────────────────────────────────
@@ -3848,53 +3833,80 @@ Other rules:
               </div>
             </div>
 
-            {/* ── My Action Items ───────────────────────────────────────────── */}
-            <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center flex-shrink-0">
-                    <CheckSquare className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h3 className={`font-black text-lg ${txt}`}>Action Items</h3>
-                    <p className={`text-xs ${subtl}`}>
-                      {aiTasks.length === 0
-                        ? 'Ask Captain KPI for recommendations, then click 📋 Tasks to add them here'
-                        : `${aiTasks.filter(t => t.done).length} of ${aiTasks.length} complete`}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {aiTasks.some(t => t.done) && (
-                    <button onClick={() => setAiTasks(prev => prev.filter(t => !t.done))} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear done</button>
-                  )}
-                  {aiTasks.length > 0 && (
-                    <button onClick={() => { if (window.confirm('Clear all action items?')) setAiTasks([]); }} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear all</button>
-                  )}
-                </div>
-              </div>
-              {aiTasks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 gap-3">
-                  <CheckSquare className={`w-10 h-10 ${subtl} opacity-30`} />
-                  <p className={`text-sm ${subtl} text-center max-w-sm`}>No tasks yet. Ask Captain KPI a strategy question, then click the 📋 Tasks button on any message to pull action items here.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {aiTasks.map(task => (
-                    <div key={task.id} className={`flex items-start gap-3 p-3 rounded-2xl transition-colors ${task.done ? 'opacity-50' : darkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
-                      <button
-                        onClick={() => setAiTasks(prev => prev.map(t => t.id === task.id ? { ...t, done: !t.done } : t))}
-                        className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${task.done ? 'bg-emerald-500 border-emerald-500' : 'border-slate-400 hover:border-emerald-400'}`}
-                      >
-                        {task.done && <CheckCircle size={12} className="text-white" />}
-                      </button>
-                      <span className={`text-sm flex-1 leading-snug ${task.done ? `line-through ${subtl}` : txt}`}>{task.text}</span>
-                      <button onClick={() => setAiTasks(prev => prev.filter(t => t.id !== task.id))} className={`${subtl} hover:text-rose-400 transition-colors flex-shrink-0 mt-0.5`}><X size={14} /></button>
+            {/* ── Action Items ───────────────────────────────────────────── */}
+            {(() => {
+              const addTask = () => {
+                const trimmed = newTaskText.trim();
+                if (!trimmed) return;
+                setAiTasks(prev => [...prev, { id: Date.now() + Math.random(), text: trimmed, done: false, addedAt: new Date().toISOString() }]);
+                setNewTaskText('');
+              };
+              return (
+                <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
+                  <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center flex-shrink-0">
+                        <CheckSquare className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <h3 className={`font-black text-lg ${txt}`}>Action Items</h3>
+                        <p className={`text-xs ${subtl}`}>
+                          {aiTasks.length === 0
+                            ? 'Add your own tasks, or pull them from Captain KPI'
+                            : `${aiTasks.filter(t => t.done).length} of ${aiTasks.length} complete`}
+                        </p>
+                      </div>
                     </div>
-                  ))}
+                    <div className="flex gap-2">
+                      {aiTasks.some(t => t.done) && (
+                        <button onClick={() => setAiTasks(prev => prev.filter(t => !t.done))} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear done</button>
+                      )}
+                      {aiTasks.length > 0 && (
+                        <button onClick={() => { if (window.confirm('Clear all action items?')) setAiTasks([]); }} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear all</button>
+                      )}
+                    </div>
+                  </div>
+                  {/* Add task input */}
+                  <div className="flex gap-2 mb-4">
+                    <input
+                      type="text"
+                      value={newTaskText}
+                      onChange={e => setNewTaskText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') addTask(); }}
+                      placeholder="Add a task..."
+                      className={`flex-1 text-sm px-4 py-2.5 rounded-xl border outline-none transition-colors ${darkMode ? 'bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-emerald-500/60' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-400'}`}
+                    />
+                    <button
+                      onClick={addTask}
+                      disabled={!newTaskText.trim()}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-black hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >Add</button>
+                  </div>
+                  {aiTasks.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 gap-3">
+                      <CheckSquare className={`w-10 h-10 ${subtl} opacity-30`} />
+                      <p className={`text-sm ${subtl} text-center max-w-sm`}>Your checklist is empty. Type a task above or ask Captain KPI for recommendations and click 📋 Tasks on any message.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {aiTasks.map(task => (
+                        <div key={task.id} className={`flex items-start gap-3 p-3 rounded-2xl transition-colors ${task.done ? 'opacity-50' : darkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
+                          <button
+                            onClick={() => setAiTasks(prev => prev.map(t => t.id === task.id ? { ...t, done: !t.done } : t))}
+                            className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${task.done ? 'bg-emerald-500 border-emerald-500' : 'border-slate-400 hover:border-emerald-400'}`}
+                          >
+                            {task.done && <CheckCircle size={12} className="text-white" />}
+                          </button>
+                          <span className={`text-sm flex-1 leading-snug ${task.done ? `line-through ${subtl}` : txt}`}>{task.text}</span>
+                          <button onClick={() => setAiTasks(prev => prev.filter(t => t.id !== task.id))} className={`${subtl} hover:text-rose-400 transition-colors flex-shrink-0 mt-0.5`}><X size={14} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
+
 
             {/* ── News & Insights ─────────────────────────────────────────── */}
             <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
