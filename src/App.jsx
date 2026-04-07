@@ -2254,16 +2254,24 @@ Other rules:
     const systemPrompt = pendingAttachments.length > 0 ? extractionPrompt : chatPrompt;
 
     try {
-      const r = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemPrompt,
-          messages: updatedMsgs.slice(-12),
-          ...(pendingAttachments.length > 0 ? { files: pendingAttachments.map(a => ({ base64: a.base64, text: a.text, mimeType: a.mimeType, name: a.name })) } : {}),
-          maxTokens: pendingAttachments.length > 0 ? 12000 : 3000,
-        }),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 55000);
+      let r;
+      try {
+        r = await fetch('/api/chat', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemPrompt,
+            messages: updatedMsgs.slice(-12),
+            ...(pendingAttachments.length > 0 ? { files: pendingAttachments.map(a => ({ base64: a.base64, text: a.text, mimeType: a.mimeType, name: a.name })) } : {}),
+            maxTokens: pendingAttachments.length > 0 ? 12000 : 3000,
+          }),
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
       const { reply, error } = await r.json();
       if (error) {
         setChatMessages(m => [...m, { role: 'assistant', content: `Oops: ${error}` }]);
@@ -2403,16 +2411,24 @@ Other rules:
 
         // Helper: fall back to Captain KPI chat mode for the same file(s)
         const fallbackToChat = async () => {
-          const chatR = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              systemPrompt: chatPrompt,
-              messages: updatedMsgs.slice(-12),
-              files: pendingAttachments.map(a => ({ base64: a.base64, text: a.text, mimeType: a.mimeType, name: a.name })),
-              maxTokens: 3000,
-            }),
-          });
+          const fbController = new AbortController();
+          const fbTimeout = setTimeout(() => fbController.abort(), 55000);
+          let chatR;
+          try {
+            chatR = await fetch('/api/chat', {
+              method: 'POST',
+              signal: fbController.signal,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemPrompt: chatPrompt,
+                messages: updatedMsgs.slice(-12),
+                files: pendingAttachments.map(a => ({ base64: a.base64, text: a.text, mimeType: a.mimeType, name: a.name })),
+                maxTokens: 3000,
+              }),
+            });
+          } finally {
+            clearTimeout(fbTimeout);
+          }
           const chatData = await chatR.json();
           const chatReply = chatData.reply || 'I read the file but had trouble generating a response. Try asking me a specific question about it.';
           // Parse and apply any insight blocks the chat response emits
@@ -2444,8 +2460,11 @@ Other rules:
         }
         setChatMessages(m => [...m, { role: 'assistant', content: displayReply }]);
       }
-    } catch {
-      setChatMessages(m => [...m, { role: 'assistant', content: "⚠️ Something went wrong on my end. Please refresh the page and try again." }]);
+    } catch (err) {
+      const msg = err?.name === 'AbortError'
+        ? "⚠️ Request timed out — the server took too long to respond. Please try again."
+        : "⚠️ Something went wrong on my end. Please try again.";
+      setChatMessages(m => [...m, { role: 'assistant', content: msg }]);
     }
     setChatLoading(false);
   };
