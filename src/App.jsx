@@ -10,7 +10,7 @@ import {
   CheckCircle, Eye, BarChart3, Map, FileText, Share2, Activity,
   PlayCircle, Layout, Clock, MessageSquare, ThumbsUp, Mail,
   Target, Award, Bell, TrendingDown, Sun, Moon, Printer,
-  Calendar, DollarSign, Plug, Trophy, Heart, WifiOff,
+  Calendar, DollarSign, Plug, Trophy, WifiOff,
   RefreshCw, Pencil, Send, Zap, BadgeCheck, ShieldCheck, Megaphone,
   ChevronLeft, ChevronRight, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
@@ -1946,7 +1946,7 @@ const App = () => {
       'Facebook':      '👇 Share this with someone who needs to hear it. #MentalHealth #DestinySprings',
       'Instagram':     '✨ Save this post & tag a friend who needs support 💙\n#MentalHealthAwareness #HealingJourney #ArizonaHealthcare',
       'LinkedIn':      'At Destiny Springs Healthcare, we believe mental wellness drives personal and professional success.',
-      'TikTok':        '🎵 Drop a ❤️ if this resonates! Follow for more mental health tips from our team. #MentalHealthTok #DestinySpringsDMD',
+      'TikTok':        '🎵 Follow for more mental health tips from our team. #MentalHealthTok #DestinySpringsDMD',
       'Email':         'As a valued member of the Destiny Springs community, we want to share something important with you.',
       'Website Blog':  'At Destiny Springs Healthcare, our multidisciplinary team is dedicated to providing evidence-based mental health treatment in Arizona.',
     };
@@ -1962,7 +1962,7 @@ const App = () => {
     } else if (type === 'Ad Copy') {
       output = `HEADLINE: ${topic} — Expert Care in Scottsdale, AZ\n\nBODY: ${opener} ${topic}. Destiny Springs Healthcare offers personalized, evidence-based treatment from a team that truly cares. New patients welcome. Most insurance accepted.\n\nCTA: Book Your Free Consultation\nURLslug: destinyspringshealthcare.com/appointments\n\nCHARACTER COUNT (approx): Headline 60 | Body 145\nPLATFORM: ${platform}`;
     } else if (type === 'TikTok Script') {
-      output = `🎬 TIKTOK SCRIPT — "${topic}"\nDURATION: 30–60 seconds | TONE: ${tone}\n\n[HOOK - 0-3s]\n"${toneMap['Urgent'][0]} — especially when it comes to ${topic}."\n\n[CONTENT - 3-25s]\n"${opener} ${topic}. At Destiny Springs Healthcare in Scottsdale, AZ, our team specializes in helping people [benefit related to ${topic}]. Here are 3 things to know: [Point 1], [Point 2], [Point 3]."\n\n[CTA - 25-30s]\n"Follow us for more mental health tips, and drop a ❤️ if this helped. Book at the link in bio."\n\n#MentalHealth #DestinySprings #${topic.replace(/\s+/g,'')} #AZHealthcare`;
+      output = `🎬 TIKTOK SCRIPT — "${topic}"\nDURATION: 30–60 seconds | TONE: ${tone}\n\n[HOOK - 0-3s]\n"${toneMap['Urgent'][0]} — especially when it comes to ${topic}."\n\n[CONTENT - 3-25s]\n"${opener} ${topic}. At Destiny Springs Healthcare in Scottsdale, AZ, our team specializes in helping people [benefit related to ${topic}]. Here are 3 things to know: [Point 1], [Point 2], [Point 3]."\n\n[CTA - 25-30s]\n"Follow us for more mental health tips and book at the link in bio."\n\n#MentalHealth #DestinySprings #${topic.replace(/\s+/g,'')} #AZHealthcare`;
     } else if (type === 'Caption + Hashtags') {
       output = `CAPTION:\n${opener} ${topic}.\n\nDestiny Springs Healthcare is here to support your mental health journey every step of the way. Whether you're seeking help for the first time or continuing your wellness path — you belong here. 💙\n\n📍 Scottsdale, AZ | Link in bio to schedule\n\nHASHTAGS:\n#DestinySprings #MentalHealthAwareness #${topic.replace(/\s+/g,'')} #ArizonaMentalHealth #HealingJourney #PsychiatryScottsdale #MindfulRecovery #MentalWellness #BreakTheStigma #YouAreNotAlone`;
     }
@@ -3798,7 +3798,7 @@ Other rules:
         {/* Brand */}
         <div className="sidebar-brand">
           <div className="sidebar-logo">
-            <Heart size={20} color="#2dd4bf" fill="#2dd4bf" />
+            <Activity size={20} color="#2dd4bf" />
           </div>
           {!sidebarCollapsed && (
             <div className="sidebar-brand-text">
@@ -4227,7 +4227,7 @@ Other rules:
               return (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
-                    <SectionHeader icon={Heart} color="text-teal-500" title="Destiny Springs Live Snapshot"
+                    <SectionHeader icon={Activity} color="text-teal-500" title="Destiny Springs Live Snapshot"
                       subtitle={fetchedAt ? `Auto-syncs hourly · last synced ${new Date(fetchedAt).toLocaleString()}` : 'Syncing automatically every hour — no setup needed'} />
                     <button
                       onClick={fetchDestinyProfile}
@@ -5419,7 +5419,7 @@ Other rules:
                   s.platform === 'TikTok'    ? (s.videos > 0    ? `${s.videos.toLocaleString()} videos`          : s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} total likes` : 'Account followers') :
                   s.reach > 0 ? `${s.reach.toLocaleString()} reach` : 'Followers';
                 const tertiaryVal =
-                  s.platform === 'TikTok' && s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} ❤` :
+                  s.platform === 'TikTok' && s.totalLikes > 0 ? `${s.totalLikes.toLocaleString()} Likes` :
                   s.platform === 'Instagram' && s.posts > 0   ? `${s.posts.toLocaleString()} posts` :
                   s.clicks > 0 ? `${s.clicks} clicks` : null;
                 return (
@@ -5564,7 +5564,7 @@ Other rules:
                           </div>
                           {tt.likes != null && (
                             <div className={`flex items-center justify-between text-xs ${subtl} pt-2 border-t ${brd}`}>
-                              <span>Total Likes ❤</span><span className={`font-black ${txt}`}>{Number(tt.likes).toLocaleString()}</span>
+                              <span>Total Likes</span><span className={`font-black ${txt}`}>{Number(tt.likes).toLocaleString()}</span>
                             </div>
                           )}
                           {tt.videos != null && (
@@ -5700,7 +5700,7 @@ Other rules:
                             </div>
                           )}
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex-col items-center justify-center gap-1 hidden group-hover:flex">
-                            <span className="text-white text-[10px] font-black">❤ {post.likes.toLocaleString()}</span>
+                            <span className="text-white text-[10px] font-black">{post.likes.toLocaleString()} Likes</span>
                             <span className="text-white text-[10px]">💬 {post.comments}</span>
                           </div>
                         </a>
@@ -5737,7 +5737,7 @@ Other rules:
                                   </p>
                                   <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                                     <span className={`text-[10px] ${subtl}`}>{new Date(post.date).toLocaleDateString()}</span>
-                                    <span className="text-[10px] text-blue-500 font-black">❤ {post.likes.toLocaleString()}</span>
+                                    <span className="text-[10px] text-blue-500 font-black">{post.likes.toLocaleString()} Likes</span>
                                     <span className={`text-[10px] ${subtl} font-bold`}>💬 {post.comments}</span>
                                     <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${scoreColor}`}>⚡ {score}</span>
                                   </div>
@@ -9010,7 +9010,7 @@ Other rules:
         {/* Footer */}
         <div className={`mt-12 pt-6 border-t ${brd} flex flex-col md:flex-row justify-between items-center gap-3 no-print`}>
           <div className="flex items-center gap-2">
-            <Heart size={13} className="text-amber-500 fill-amber-500" />
+            <Activity size={13} className="text-amber-500" />
             <span className={`text-xs ${subtl} font-medium`}>Destiny Springs Healthcare – Digital Marketing Portal</span>
           </div>
           <span className={`text-[13px] ${subtl} uppercase tracking-wider`}>Powered by DMD &middot; Destiny Springs Healthcare</span>
