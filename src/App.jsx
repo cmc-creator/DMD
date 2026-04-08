@@ -15,7 +15,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
   Trash2, Layers, Scale, Tag, Camera, Scan, CheckSquare, AlertTriangle, Paperclip, EyeOff,
-  GripVertical, Sliders, LayoutGrid,
+  GripVertical, Sliders, LayoutGrid, BarChart2, ArrowUpRight, ArrowDownRight, Minus,
 } from 'lucide-react';
 
 const META_AUTO_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
@@ -345,6 +345,8 @@ const App = () => {
   const [historyLoading, setHistoryLoading]       = useState(false);
   const [historyPeriod, setHistoryPeriod]         = useState(30);
   const [weeklyDigest, setWeeklyDigest]           = useState(null); // { text, generatedAt, metrics }
+  const [reportPeriod, setReportPeriod]           = useState(30);  // Report tab period selector
+  const [reportSort, setReportSort]               = useState('delta'); // 'delta'|'name'|'status'
   // ── Captain KPI intelligence state ───────────────────────────────────────
   const [dmdGoals, setDmdGoals]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_goals') || '[]'); } catch { return []; } });
   const [dmdAlerts, setDmdAlerts]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_alerts') || '[]'); } catch { return []; } });
@@ -3577,6 +3579,7 @@ Other rules:
     reviews:      ['rev-kpis','rev-platforms','rev-trend','rev-recent'],
     survey:       ['sur-kpis','sur-report','sur-trend','sur-questions','sur-raw'],
     intel:        ['intel-kpis','intel-tabs','intel-news','intel-scraper','intel-rss'],
+    report:       ['rep-period','rep-comparison','rep-wins','rep-gaps','rep-charts'],
   };
   const getTabOrder = (tab) => widgetOrder[tab] || TAB_SECTIONS[tab] || [];
   const sectionCSSOrder = (tab, id) => {
@@ -3798,6 +3801,7 @@ Other rules:
     { id: 'reviews',      label: 'Reviews',       icon: Star,       group: 'core' },
     { id: 'calendar',     label: 'Calendar',      icon: Calendar,   group: 'core' },
     { id: 'roi',          label: 'ROI',           icon: DollarSign, group: 'core' },
+    { id: 'report',       label: 'Reports',       icon: BarChart2,  group: 'core' },
     { id: 'survey',       label: 'Survey',        icon: ThumbsUp,   group: 'admin' },
     { id: 'integrations', label: 'Integrations',  icon: Plug,       group: 'admin' },
     { id: 'import',       label: 'Data Import',   icon: Upload,     group: 'admin' },
@@ -6961,6 +6965,354 @@ Other rules:
             </DS>
           </div>
         )}
+
+        {/* ══════════════════ REPORTS ══════════════════ */}
+        {activeTab === 'report' && (() => {
+          // ── Helper: slice history to a period window ──────────────────────
+          const sliceHistory = (days) => {
+            const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+            return metricsHistory
+              .filter(h => h.date && new Date(h.date) >= cutoff)
+              .sort((a, b) => a.date.localeCompare(b.date));
+          };
+
+          // ── Build current and prior period slices ─────────────────────────
+          const curr = sliceHistory(reportPeriod);
+          const prev = sliceHistory(reportPeriod * 2).filter(h => {
+            const cutoff = new Date(Date.now() - reportPeriod * 24 * 60 * 60 * 1000);
+            return new Date(h.date) < cutoff;
+          });
+
+          const last  = (arr, key) => { const v = [...arr].reverse().find(h => h[key] != null); return v ? v[key] : null; };
+          const avg   = (arr, key) => { const vals = arr.map(h => h[key]).filter(v => v != null); return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null; };
+
+          // ── Delta calc: compares last value in curr vs last value in prev ──
+          const delta = (key, aggregator = 'last', higherIsBetter = true) => {
+            const currVal = aggregator === 'avg' ? avg(curr, key) : last(curr, key);
+            const prevVal = aggregator === 'avg' ? avg(prev, key) : last(prev, key);
+            if (currVal == null) return { curr: null, prev: null, diff: null, pct: null, up: null };
+            const diff = prevVal != null ? currVal - prevVal : null;
+            const pct  = (diff != null && prevVal && prevVal !== 0) ? (diff / Math.abs(prevVal)) * 100 : null;
+            const up   = diff != null ? (higherIsBetter ? diff > 0 : diff < 0) : null;
+            return { curr: currVal, prev: prevVal, diff, pct, up };
+          };
+
+          // ── Metric definitions ─────────────────────────────────────────────
+          const metrics = [
+            { key: 'igFollowers',  label: 'Instagram Followers', icon: '📸', format: v => v?.toLocaleString(), agg: 'last',  hib: true,  category: 'Social' },
+            { key: 'fbFollowers',  label: 'Facebook Followers',  icon: '📘', format: v => v?.toLocaleString(), agg: 'last',  hib: true,  category: 'Social' },
+            { key: 'ttFollowers',  label: 'TikTok Followers',    icon: '🎵', format: v => v?.toLocaleString(), agg: 'last',  hib: true,  category: 'Social' },
+            { key: 'sessions',     label: 'Website Sessions',    icon: '🌐', format: v => v?.toLocaleString(), agg: 'avg',   hib: true,  category: 'Traffic' },
+            { key: 'totalLeads',   label: 'Total Leads',         icon: '🎯', format: v => v?.toLocaleString(), agg: 'last',  hib: true,  category: 'Pipeline' },
+            { key: 'googleRating', label: 'Google Rating',       icon: '⭐', format: v => v != null ? Number(v).toFixed(2)+' ★' : null, agg: 'avg', hib: true, category: 'Reputation' },
+            { key: 'yelpRating',   label: 'Yelp Rating',         icon: '🍽️', format: v => v != null ? Number(v).toFixed(2)+' ★' : null, agg: 'avg', hib: true, category: 'Reputation' },
+            { key: 'adSpend',      label: 'Ad Spend ($)',        icon: '💰', format: v => v != null ? '$'+v.toLocaleString(undefined,{maximumFractionDigits:0}) : null, agg: 'last', hib: false, category: 'Ads' },
+            { key: 'emailSubs',    label: 'Email Subscribers',   icon: '📧', format: v => v?.toLocaleString(), agg: 'last',  hib: true,  category: 'Email' },
+            { key: 'openRate',     label: 'Email Open Rate',     icon: '📬', format: v => v != null ? Number(v).toFixed(1)+'%' : null, agg: 'avg', hib: true, category: 'Email' },
+            { key: 'bounceRate',   label: 'Bounce Rate',         icon: '↩️', format: v => v != null ? Number(v).toFixed(1)+'%' : null, agg: 'avg', hib: false, category: 'Traffic' },
+          ];
+
+          // ── Supplement live data where history is thin ─────────────────────
+          const liveFallbacks = {
+            igFollowers: (() => { const m = liveData?.['Meta Business Suite'] || liveData?.['_social']?.instagram; return m?.instagramFollowers || m?.followers || null; })(),
+            fbFollowers: (() => { const m = liveData?.['Meta Business Suite'] || liveData?.['_social']?.facebook; return m?.fanCount || m?.followers || null; })(),
+            ttFollowers: (() => { const t = liveData?.['TikTok for Business'] || liveData?.['_social']?.tiktok; return t?.followers || null; })(),
+            sessions:    wixData?.sessions || liveData?.['Google Analytics']?.sessions || liveData?.['Wix Analytics']?.sessions || null,
+            googleRating: (() => { const g = reviewPlatformData?.google || liveData?.['Google Business']; return g?.rating ? parseFloat(g.rating) : null; })(),
+            emailSubs:   liveData?.['Mailchimp']?.subscribers || null,
+            openRate:    liveData?.['Mailchimp']?.openRate ? parseFloat(liveData['Mailchimp'].openRate) : null,
+          };
+
+          const rows = metrics.map(m => {
+            const d = delta(m.key, m.agg, m.hib);
+            // Fall back to live data for curr if no history
+            const currVal = d.curr ?? liveFallbacks[m.key];
+            return { ...m, ...d, curr: currVal };
+          });
+
+          // ── Sort rows ─────────────────────────────────────────────────────
+          const sorted = [...rows].sort((a, b) => {
+            if (reportSort === 'name') return a.label.localeCompare(b.label);
+            if (reportSort === 'status') {
+              const score = (r) => r.up === true ? 2 : r.up === false ? 0 : 1;
+              return score(b) - score(a);
+            }
+            // sort by absolute pct change desc, nulls last
+            const aPct = a.pct != null ? Math.abs(a.pct) : -1;
+            const bPct = b.pct != null ? Math.abs(b.pct) : -1;
+            return bPct - aPct;
+          });
+
+          // ── Wins & gaps classification ────────────────────────────────────
+          const wins = rows.filter(r => r.up === true  && r.pct != null && Math.abs(r.pct) >= 1);
+          const gaps = rows.filter(r => r.up === false && r.pct != null && Math.abs(r.pct) >= 1);
+          const flat = rows.filter(r => r.up === null  && r.curr != null);
+
+          // ── Delta arrow component ──────────────────────────────────────────
+          const DeltaArrow = ({ up, pct, size = 14 }) => {
+            if (up === null || pct == null) return <Minus size={size} className="text-slate-400" />;
+            const formatted = Math.abs(pct) < 0.1 ? '~0%' : (Math.abs(pct) < 10 ? Math.abs(pct).toFixed(1) : Math.round(Math.abs(pct))) + '%';
+            if (up) return <span className="flex items-center gap-0.5 text-emerald-400 font-black text-xs"><ArrowUpRight size={size} />{formatted}</span>;
+            return <span className="flex items-center gap-0.5 text-rose-400 font-black text-xs"><ArrowDownRight size={size} />{formatted}</span>;
+          };
+
+          const periodLabel = reportPeriod === 7 ? '7 days' : reportPeriod === 30 ? '30 days' : reportPeriod === 90 ? '90 days' : '1 year';
+          const prevLabel   = `Prior ${periodLabel}`;
+          const hasHistory  = curr.length > 0;
+
+          return (
+            <div className="flex flex-col">
+              {/* ── Period selector ── */}
+              <DS id="rep-period" tab="report">
+              <div className={`${card} p-5 rounded-[2rem] mb-6 flex flex-wrap items-center gap-4`}>
+                <div className="flex items-center gap-2">
+                  <BarChart2 size={16} className="text-[#C9A84C]" />
+                  <span className={`font-black text-sm ${txt}`}>Performance Report</span>
+                </div>
+                <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+                  <span className={`text-xs ${subtl} mr-1`}>Period:</span>
+                  {[7, 30, 90, 365].map(d => (
+                    <button key={d} onClick={() => setReportPeriod(d)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors ${reportPeriod === d ? 'bg-[#C9A84C] text-slate-900' : `bg-slate-100 dark:bg-slate-800 ${subtl} hover:bg-amber-100 dark:hover:bg-amber-900/30`}`}>
+                      {d === 365 ? '1 Year' : d === 90 ? '90 Days' : d === 30 ? '30 Days' : '7 Days'}
+                    </button>
+                  ))}
+                  <select value={reportSort} onChange={e => setReportSort(e.target.value)}
+                    className={`ml-2 text-xs px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-800'} font-black outline-none`}>
+                    <option value="delta">Sort: Most Changed</option>
+                    <option value="status">Sort: Status (Wins first)</option>
+                    <option value="name">Sort: A–Z</option>
+                  </select>
+                  <button onClick={() => loadMetricsHistory(reportPeriod * 2)}
+                    disabled={historyLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white transition-colors">
+                    <RefreshCw size={11} className={historyLoading ? 'animate-spin' : ''} />
+                    Refresh
+                  </button>
+                </div>
+              </div>
+              </DS>
+
+              {/* ── Wins / Gaps summary cards ── */}
+              <DS id="rep-wins" tab="report">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {/* Wins */}
+                <div className={`${card} p-5 rounded-[2rem] border-l-4 border-emerald-500`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <ArrowUpRight size={16} className="text-emerald-400" />
+                    <span className={`font-black text-sm text-emerald-400`}>What's Working ({wins.length})</span>
+                  </div>
+                  {wins.length === 0 ? (
+                    <p className={`text-xs ${subtl} italic`}>No significant gains in this period yet.</p>
+                  ) : wins.map(r => (
+                    <div key={r.key} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                      <span className={`text-xs font-bold ${txt}`}>{r.icon} {r.label}</span>
+                      <span className="text-xs font-black text-emerald-400 flex items-center gap-0.5">
+                        <ArrowUpRight size={11} />{r.pct != null ? Math.abs(r.pct) < 10 ? Math.abs(r.pct).toFixed(1)+'%' : Math.round(Math.abs(r.pct))+'%' : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Gaps */}
+                <div className={`${card} p-5 rounded-[2rem] border-l-4 border-rose-500`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <ArrowDownRight size={16} className="text-rose-400" />
+                    <span className={`font-black text-sm text-rose-400`}>Needs Attention ({gaps.length})</span>
+                  </div>
+                  {gaps.length === 0 ? (
+                    <p className={`text-xs ${subtl} italic`}>No significant drops in this period.</p>
+                  ) : gaps.map(r => (
+                    <div key={r.key} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                      <span className={`text-xs font-bold ${txt}`}>{r.icon} {r.label}</span>
+                      <span className="text-xs font-black text-rose-400 flex items-center gap-0.5">
+                        <ArrowDownRight size={11} />{r.pct != null ? Math.abs(r.pct) < 10 ? Math.abs(r.pct).toFixed(1)+'%' : Math.round(Math.abs(r.pct))+'%' : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Flat/no data */}
+                <div className={`${card} p-5 rounded-[2rem] border-l-4 border-slate-400`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Minus size={16} className="text-slate-400" />
+                    <span className={`font-black text-sm ${subtl}`}>Stable / No Change ({flat.length})</span>
+                  </div>
+                  {flat.length === 0 ? (
+                    <p className={`text-xs ${subtl} italic`}>Nothing to show here.</p>
+                  ) : flat.map(r => (
+                    <div key={r.key} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                      <span className={`text-xs font-bold ${txt}`}>{r.icon} {r.label}</span>
+                      <span className={`text-xs ${subtl}`}>{r.curr != null ? r.format(r.curr) : 'No comparison data'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              </DS>
+
+              {/* ── Full comparison table ── */}
+              <DS id="rep-comparison" tab="report">
+              <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
+                <SectionHeader icon={BarChart2} color="text-[#C9A84C]"
+                  title={`Metric Comparison — Last ${periodLabel}`}
+                  subtitle={`Current period vs. ${prevLabel}${!hasHistory ? ' · Connect integrations to build history' : ''}`} />
+                <div className="overflow-x-auto mt-4">
+                  <table className="w-full">
+                    <thead>
+                      <tr className={`text-[11px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
+                        <th className="text-left pb-3 pr-4 w-8"></th>
+                        <th className="text-left pb-3 pr-6">Metric</th>
+                        <th className="text-right pb-3 px-4">Category</th>
+                        <th className="text-right pb-3 px-4">Current</th>
+                        <th className="text-right pb-3 px-4">{prevLabel}</th>
+                        <th className="text-right pb-3 pl-4">Change</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map(r => {
+                        const isPos = r.up === true;
+                        const isNeg = r.up === false;
+                        const rowColor = isPos ? 'border-emerald-500/20' : isNeg ? 'border-rose-500/20' : '';
+                        return (
+                          <tr key={r.key} className={`border-b ${brd} ${rowColor} hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors`}>
+                            <td className="py-3 pr-4">
+                              {isPos && <ArrowUpRight size={16} className="text-emerald-400" />}
+                              {isNeg && <ArrowDownRight size={16} className="text-rose-400" />}
+                              {!isPos && !isNeg && <Minus size={14} className="text-slate-400" />}
+                            </td>
+                            <td className="py-3 pr-6">
+                              <span className={`text-sm font-bold ${txt}`}>{r.icon} {r.label}</span>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                r.category === 'Social' ? 'bg-pink-500/15 text-pink-400' :
+                                r.category === 'Traffic' ? 'bg-teal-500/15 text-teal-400' :
+                                r.category === 'Pipeline' ? 'bg-indigo-500/15 text-indigo-400' :
+                                r.category === 'Reputation' ? 'bg-amber-500/15 text-amber-400' :
+                                r.category === 'Ads' ? 'bg-orange-500/15 text-orange-400' :
+                                r.category === 'Email' ? 'bg-blue-500/15 text-blue-400' :
+                                `bg-slate-500/15 ${subtl}`
+                              }`}>{r.category}</span>
+                            </td>
+                            <td className={`py-3 px-4 text-right font-black text-sm ${isPos ? 'text-emerald-400' : isNeg ? 'text-rose-400' : txt}`}>
+                              {r.curr != null ? r.format(r.curr) : <span className={`text-xs ${subtl} italic`}>No data</span>}
+                            </td>
+                            <td className={`py-3 px-4 text-right text-sm ${subtl}`}>
+                              {r.prev != null ? r.format(r.prev) : <span className={`text-xs italic`}>—</span>}
+                            </td>
+                            <td className="py-3 pl-4 text-right">
+                              <DeltaArrow up={r.up} pct={r.pct} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {!hasHistory && (
+                  <div className="mt-6 p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800">
+                    <p className={`text-xs font-black text-indigo-500 mb-1`}>Building your history...</p>
+                    <p className={`text-xs ${subtl}`}>Daily snapshots are recorded automatically each morning. Live values above are shown where available. Come back tomorrow to see your first comparison!</p>
+                    <button onClick={appendCurrentSnapshot} className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black transition-colors">
+                      <RefreshCw size={11} /> Save Today's Snapshot Now
+                    </button>
+                  </div>
+                )}
+              </div>
+              </DS>
+
+              {/* ── Trend charts for this period ── */}
+              <DS id="rep-charts" tab="report">
+              {hasHistory && (
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-6`}>
+                  <SectionHeader icon={TrendingUp} color="text-indigo-500"
+                    title={`Trend Charts — ${periodLabel}`}
+                    subtitle="Visual view of all tracked metrics over the selected period" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
+                    {/* Social followers */}
+                    {curr.some(h => h.igFollowers || h.fbFollowers || h.ttFollowers) && (
+                      <div>
+                        <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3`}>📸 Social Followers</p>
+                        <div className="h-48">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={curr} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={grid} />
+                              <XAxis dataKey="date" tickFormatter={v => { const d = new Date(v); return `${d.getMonth()+1}/${d.getDate()}`; }} axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10 }} />
+                              <YAxis axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 9 }} tickFormatter={v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v} />
+                              <Tooltip contentStyle={tipStyle} labelFormatter={v => new Date(v).toLocaleDateString()} />
+                              <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 700, color: tick }} />
+                              <Area type="monotone" dataKey="igFollowers" stroke="#E4405F" fill={darkMode ? '#E4405F22' : '#fce7f3'} strokeWidth={2} name="Instagram" dot={false} />
+                              <Area type="monotone" dataKey="fbFollowers" stroke="#1877F2" fill={darkMode ? '#1877F222' : '#dbeafe'} strokeWidth={2} name="Facebook" dot={false} />
+                              <Area type="monotone" dataKey="ttFollowers" stroke="#00f2ea" fill={darkMode ? '#00f2ea18' : '#ccfbf1'} strokeWidth={2} name="TikTok" dot={false} />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )}
+                    {/* Sessions & Leads */}
+                    {curr.some(h => h.sessions || h.totalLeads) && (
+                      <div>
+                        <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3`}>🌐 Traffic & Leads</p>
+                        <div className="h-48">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={curr} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={grid} />
+                              <XAxis dataKey="date" tickFormatter={v => { const d = new Date(v); return `${d.getMonth()+1}/${d.getDate()}`; }} axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10 }} />
+                              <YAxis yAxisId="l" axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 9 }} tickFormatter={v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v} />
+                              <YAxis yAxisId="r" orientation="right" axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 9 }} />
+                              <Tooltip contentStyle={tipStyle} labelFormatter={v => new Date(v).toLocaleDateString()} />
+                              <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 700, color: tick }} />
+                              <Area yAxisId="l" type="monotone" dataKey="sessions" stroke="#0d9488" fill={darkMode ? '#0d948820' : '#ccfbf1'} strokeWidth={2} name="Sessions" dot={false} />
+                              <Bar yAxisId="r" dataKey="totalLeads" fill="#6366f1" radius={[3,3,0,0]} barSize={6} name="Leads" />
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )}
+                    {/* Google Rating */}
+                    {curr.some(h => h.googleRating) && (
+                      <div>
+                        <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3`}>⭐ Google Rating</p>
+                        <div className="h-48">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={curr} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={grid} />
+                              <XAxis dataKey="date" tickFormatter={v => { const d = new Date(v); return `${d.getMonth()+1}/${d.getDate()}`; }} axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10 }} />
+                              <YAxis domain={[3.5, 5]} axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 9 }} width={30} />
+                              <Tooltip contentStyle={tipStyle} labelFormatter={v => new Date(v).toLocaleDateString()} formatter={v => [Number(v).toFixed(2)+' ★', 'Rating']} />
+                              <Area type="monotone" dataKey="googleRating" stroke="#f59e0b" fill={darkMode ? '#f59e0b22' : '#fef3c7'} strokeWidth={2.5} dot={false} name="Google Rating" />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )}
+                    {/* Email */}
+                    {curr.some(h => h.emailSubs || h.openRate) && (
+                      <div>
+                        <p className={`text-[11px] font-black ${subtl} uppercase tracking-wider mb-3`}>📧 Email Performance</p>
+                        <div className="h-48">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={curr} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={grid} />
+                              <XAxis dataKey="date" tickFormatter={v => { const d = new Date(v); return `${d.getMonth()+1}/${d.getDate()}`; }} axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10 }} />
+                              <YAxis yAxisId="l" axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 9 }} tickFormatter={v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v} />
+                              <YAxis yAxisId="r" orientation="right" axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 9 }} tickFormatter={v => v+'%'} />
+                              <Tooltip contentStyle={tipStyle} labelFormatter={v => new Date(v).toLocaleDateString()} />
+                              <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 700, color: tick }} />
+                              <Area yAxisId="l" type="monotone" dataKey="emailSubs" stroke="#3b82f6" fill={darkMode ? '#3b82f620' : '#dbeafe'} strokeWidth={2} name="Subscribers" dot={false} />
+                              <Bar yAxisId="r" dataKey="openRate" fill="#f59e0b" radius={[3,3,0,0]} barSize={6} name="Open Rate %" />
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              </DS>
+            </div>
+          );
+        })()}
 
         {/* ══════════════════ SURVEYMONKEY ══════════════════ */}
         {activeTab === 'survey' && (
