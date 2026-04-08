@@ -328,6 +328,9 @@ const App = () => {
   // ── Competitor Intelligence state ──────────────────────────────────────────────
   const [competitorData, setCompetitorData]      = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_competitors') || 'null'); } catch { return null; } });
   const [competitorLoading, setCompetitorLoading] = useState(false);
+  const [customCompetitors, setCustomCompetitors] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_custom_competitors') || '[]'); } catch { return []; } });
+  const [showCompetitorEditor, setShowCompetitorEditor] = useState(false);
+  const [competitorEditorDraft, setCompetitorEditorDraft] = useState([]);
   // ── Overview layout customization ────────────────────────────────────────────
   const [overviewHidden, setOverviewHidden]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_overview_hidden') || '[]'); } catch { return []; } });
   const [showOverviewCustomizer, setShowOverviewCustomizer] = useState(false);
@@ -1123,12 +1126,20 @@ const App = () => {
   };
 
   // ── Competitor Intelligence fetch ─────────────────────────────────────────────
-  const fetchCompetitors = async () => {
+  const fetchCompetitors = async (listOverride) => {
     setCompetitorLoading(true);
     try {
       let res;
-      if (facilityProfiles.length > 0) {
-        // Use the user's saved competitor library instead of the hardcoded list
+      const useList = listOverride ?? customCompetitors;
+      if (useList.length > 0) {
+        // User's directly-entered competitor list takes priority
+        res = await fetch('/api/competitors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ competitors: useList }),
+        });
+      } else if (facilityProfiles.length > 0) {
+        // Fall back to facility library from Intelligence tab
         res = await fetch('/api/competitors', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3172,6 +3183,13 @@ Other rules:
       const avg = withCtr.reduce((s, e) => s + parseFloat(String(e.ctr).replace('%','')), 0) / withCtr.length;
       return avg.toFixed(1) + '%';
     })(),
+    avgReadTime: (() => {
+      const times = contentItems
+        .filter(c => String(c.type || '').toLowerCase() === 'blog')
+        .map(c => { const m = String(c.readTime || c.read_time || '').match(/(\d+)/); return m ? Number(m[1]) : null; })
+        .filter(n => n !== null);
+      return times.length ? Math.round(times.reduce((s, n) => s + n, 0) / times.length) + ' min' : '—';
+    })(),
   });
 
   // ── Monthly Trend (from ad spend + social manual entries) ────────────────────
@@ -5178,12 +5196,58 @@ Other rules:
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
                     <SectionHeader icon={Scale} color="text-purple-500" title="Competitor Intelligence" subtitle={`Live ratings vs. ${comps.length} local behavioral health providers`} />
-                    <button onClick={fetchCompetitors} disabled={competitorLoading}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#8B6B0E] hover:bg-[#C9A84C] disabled:opacity-50 text-white rounded-xl text-sm font-black transition-colors">
-                      <RefreshCw size={13} className={competitorLoading ? 'animate-spin' : ''} />
-                      {competitorLoading ? 'Scanning…' : 'Refresh'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setCompetitorEditorDraft(customCompetitors.length > 0 ? [...customCompetitors] : [{ name: '', url: '' }]); setShowCompetitorEditor(p => !p); }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-colors ${showCompetitorEditor ? 'bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200'}`}>
+                        <Pencil size={13} />
+                        {customCompetitors.length > 0 ? `My List (${customCompetitors.length})` : 'Edit List'}
+                      </button>
+                      <button onClick={() => fetchCompetitors()} disabled={competitorLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#8B6B0E] hover:bg-[#C9A84C] disabled:opacity-50 text-white rounded-xl text-sm font-black transition-colors">
+                        <RefreshCw size={13} className={competitorLoading ? 'animate-spin' : ''} />
+                        {competitorLoading ? 'Scanning…' : 'Refresh'}
+                      </button>
+                    </div>
                   </div>
+                  {showCompetitorEditor && (
+                    <div className="mb-6 p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
+                      <p className={`text-[11px] font-black ${subtl} uppercase tracking-widest mb-3`}>Your Competitor List — enter name + website URL</p>
+                      {competitorEditorDraft.map((comp, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <input
+                            placeholder="Competitor Name"
+                            value={comp.name}
+                            onChange={e => setCompetitorEditorDraft(d => d.map((c, j) => j === i ? { ...c, name: e.target.value } : c))}
+                            className={`flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${txt} text-sm outline-none focus:border-[#C9A84C]`}
+                          />
+                          <input
+                            placeholder="https://example.com"
+                            value={comp.url}
+                            onChange={e => setCompetitorEditorDraft(d => d.map((c, j) => j === i ? { ...c, url: e.target.value } : c))}
+                            className={`flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${txt} text-sm outline-none focus:border-[#C9A84C]`}
+                          />
+                          <button onClick={() => setCompetitorEditorDraft(d => d.filter((_, j) => j !== i))} className={`shrink-0 p-2 rounded-xl ${subtl} hover:text-rose-500 transition-colors`}><X size={14} /></button>
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-3 pt-2">
+                        <button onClick={() => setCompetitorEditorDraft(d => [...d, { name: '', url: '' }])} className={`flex items-center gap-1 text-xs font-black ${subtl} hover:text-teal-500 transition-colors`}><Plus size={12} /> Add Row</button>
+                        <button
+                          onClick={() => {
+                            const valid = competitorEditorDraft.filter(c => c.name.trim());
+                            setCustomCompetitors(valid);
+                            localStorage.setItem('dmd_custom_competitors', JSON.stringify(valid));
+                            setCompetitorData(null);
+                            localStorage.removeItem('dmd_competitors');
+                            setShowCompetitorEditor(false);
+                            fetchCompetitors(valid);
+                          }}
+                          className="ml-auto px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-black rounded-xl transition-colors">
+                          Save &amp; Refresh
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {competitorLoading && !competitorData && (
                     <div className="flex items-center gap-3 py-8 justify-center">
                       <RefreshCw size={18} className="animate-spin text-[#C9A84C]" />
@@ -6288,7 +6352,8 @@ Other rules:
                       const rank = Number(seoQuickAddForm.rank) || 0;
                       const change = Number(seoQuickAddForm.change) || 0;
                       const prevRank = rank - change;
-                      batchSaveToManualData('seo_rankings', [{ keyword: seoQuickAddForm.keyword.trim(), rank, prevRank: prevRank > 0 ? prevRank : rank, searchVol: Number(seoQuickAddForm.volume) || 0, clicks: 0 }]);
+                      const newEntry = { keyword: seoQuickAddForm.keyword.trim(), rank, prevRank: prevRank > 0 ? prevRank : rank, searchVol: Number(seoQuickAddForm.volume) || 0, clicks: 0, _savedAt: new Date().toLocaleString() };
+                      setManualData(prev => { const updated = { ...prev, seo_rankings: [...(prev.seo_rankings || []), newEntry] }; localStorage.setItem('dmd_manual', JSON.stringify(updated)); return updated; });
                       setSeoQuickAddForm({ keyword: '', rank: '', change: '', volume: '' });
                       setShowSeoQuickAdd(false);
                     }}
