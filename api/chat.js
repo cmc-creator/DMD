@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const { messages = [], systemPrompt, maxTokens, imageBase64, imageMimeType, textContent, fileName, files = [] } = req.body || {};
+  const { messages = [], systemPrompt, maxTokens, imageBase64, imageMimeType, textContent, fileName, files = [], enableSearch } = req.body || {};
   if (!messages.length) return res.status(400).json({ error: 'No messages provided' });
 
   const system = systemPrompt ||
@@ -70,21 +70,29 @@ export default async function handler(req, res) {
   });
 
   // Try models in order — fall back on quota/rate errors
+  // Google Search grounding: only supported on non-lite flash/pro models
+  const SEARCH_SUPPORTED_MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro'];
   const MODELS = [
     'gemini-2.5-flash',
     'gemini-2.5-pro',
     'gemini-2.5-flash-lite',
   ];
 
-  const payload = JSON.stringify({
+  const basePayload = {
     system_instruction: { parts: [{ text: system }] },
     contents,
     generationConfig: { maxOutputTokens: maxTokens || (allFiles.length > 0 ? 12000 : 3000), temperature: allFiles.length > 0 ? 0.1 : 0.7 },
-  });
+  };
 
   let lastError = 'Gemini API error';
   for (const model of MODELS) {
     try {
+      // Enable Google Search grounding when requested and model supports it
+      const useSearch = enableSearch !== false && allFiles.length === 0 && SEARCH_SUPPORTED_MODELS.includes(model);
+      const payload = JSON.stringify(useSearch
+        ? { ...basePayload, tools: [{ googleSearch: {} }] }
+        : basePayload
+      );
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload }

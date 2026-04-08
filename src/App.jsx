@@ -463,6 +463,13 @@ const App = () => {
         if (data.dmd_content)          { setContentItems(data.dmd_content);                   ls('dmd_content',           data.dmd_content); }
         if (data.dmd_history)          { setMetricsHistory(data.dmd_history);                 }
         if (data.dmd_weekly_digest)    { setWeeklyDigest(data.dmd_weekly_digest);              }
+        if (data.dmd_goals)            { setDmdGoals(data.dmd_goals);                           ls('dmd_goals',           data.dmd_goals); }
+        if (data.dmd_alerts)           { setDmdAlerts(data.dmd_alerts);                         ls('dmd_alerts',          data.dmd_alerts); }
+        if (data.dmd_insights)         { setDmdInsights(data.dmd_insights);                     ls('dmd_insights',        data.dmd_insights); }
+        if (data.dmd_tasks)            { setAiTasks(data.dmd_tasks);                            ls('dmd_tasks',           data.dmd_tasks); }
+        if (data.dmd_snoozed_alerts)   { setSnoozedAlerts(data.dmd_snoozed_alerts);             ls('dmd_snoozed_alerts',  data.dmd_snoozed_alerts); }
+        if (data.dmd_ai_summary)       { setAiSummary(data.dmd_ai_summary);                     ls('dmd_ai_summary',      data.dmd_ai_summary); }
+        if (data.dmd_custom_metrics)   { setCustomMetrics(data.dmd_custom_metrics);             ls('dmd_custom_metrics',  data.dmd_custom_metrics); }
         cloudLoadedRef.current = true;
         setCloudSynced('ok');
         setTimeout(() => { skipNextPushRef.current = false; }, 600);
@@ -492,6 +499,13 @@ const App = () => {
         dmd_saved_urls:        savedUrls,
         dmd_facility_profiles: facilityProfiles,
         dmd_content:           contentItems,
+        dmd_goals:             dmdGoals,
+        dmd_alerts:            dmdAlerts,
+        dmd_insights:          dmdInsights,
+        dmd_tasks:             aiTasks,
+        dmd_snoozed_alerts:    snoozedAlerts,
+        dmd_ai_summary:        aiSummary,
+        dmd_custom_metrics:    customMetrics,
         _updatedAt:            new Date().toISOString(),
       };
       setCloudSynced('syncing');
@@ -501,7 +515,7 @@ const App = () => {
         .catch(() => setCloudSynced('error'));
     }, 3000);
     return () => clearTimeout(pushTimerRef.current);
-  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, customCompetitors, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, customCompetitors, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems, dmdGoals, dmdAlerts, dmdInsights, aiTasks, snoozedAlerts, aiSummary, customMetrics]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Enforce survey sanitization after any local manual data mutation.
   useEffect(() => {
@@ -2257,6 +2271,7 @@ const App = () => {
 
     // Competitor / referral intel
     const competitors = (competitorData?.competitors || []).slice(0, 5).map(c => c.name || c.url).join(', ');
+    const myCompetitorList = customCompetitors.length > 0 ? customCompetitors.map(c => `${c.name} (${c.url})`).join(', ') : 'not set';
     const savedUrlsStr = (savedUrls || []).slice(0, 8).map(u => u.url || u).join(', ');
 
     // Reviews breakdown
@@ -2438,7 +2453,8 @@ PAID ADS: ${adSpend.length} records, total $${totalSpend.toFixed(0)} spend, ${to
 
 CONTENT CALENDAR: ${contentItems?.length || 0} items scheduled
 SOCIAL METRICS (last 3 entries): ${socialRows.length > 0 ? socialRows.map(r => `${r.platform || ''} ${r.month || ''}: followers ${r.followers || '—'}, reach ${r.reach || '—'}`).join(' | ') : 'none entered'}
-COMPETITOR INTEL: ${competitors || 'not loaded'}
+MY TRACKED COMPETITORS: ${myCompetitorList}
+COMPETITOR INTEL (scraped data): ${competitors || 'not loaded — click Refresh in Competitor card'}
 SAVED INTEL URLS: ${savedUrlsStr || 'none'}
 RECENT NEWS: ${newsStr || 'none loaded'}
 
