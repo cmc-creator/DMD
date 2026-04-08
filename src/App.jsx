@@ -385,12 +385,12 @@ const App = () => {
     return [
       { title: 'Mental Health Awareness Post',       platform: 'Facebook, Instagram', date: '2026-03-03', type: 'Social', status: 'scheduled', notes: 'Focus on stigma reduction'          },
       { title: '5 Signs You Need Support (TikTok)',  platform: 'TikTok',              date: '2026-03-04', type: 'TikTok', status: 'filming',   notes: 'Short-form, 60s max'                },
-      { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: '2026-03-05', type: 'Blog',   status: 'draft',     notes: '1,200 words – SEO optimized'        },
+      { title: 'Blog: Anxiety Support in Arizona',   platform: 'Website',             date: '2026-03-05', type: 'Blog',   status: 'draft',     notes: '1,200 words – SEO optimized',        views: 312, readTime: '4 min', shares: 18 },
       { title: 'Weekly Email Newsletter',            platform: 'Mailchimp',           date: '2026-03-06', type: 'Email',  status: 'scheduled', notes: 'All subscribers – 3pm send time'    },
       { title: 'Success Story Spotlight',            platform: 'LinkedIn',            date: '2026-03-07', type: 'Social', status: 'idea',      notes: 'Patient testimonial (anonymized)'   },
       { title: 'Weekend Wellness Tip',               platform: 'Instagram',           date: '2026-03-08', type: 'Social', status: 'scheduled', notes: '5 breathing exercises for calm'     },
       { title: 'Staff Introduction Video',           platform: 'TikTok, Instagram',   date: '2026-03-10', type: 'TikTok', status: 'filming',   notes: 'Behind the scenes series'           },
-      { title: 'SEO Blog: Finding a Therapist AZ',  platform: 'Website',             date: '2026-03-13', type: 'Blog',   status: 'idea',      notes: 'Target: therapist near me Arizona'  },
+      { title: 'SEO Blog: Finding a Therapist AZ',  platform: 'Website',             date: '2026-03-13', type: 'Blog',   status: 'idea',      notes: 'Target: therapist near me Arizona',  views: 187, readTime: '5 min', shares: 9 },
       { title: 'Monthly Patient Outreach Email',     platform: 'Mailchimp',           date: '2026-03-14', type: 'Email',  status: 'scheduled', notes: 'Re-engagement campaign'             },
       { title: 'Recovery Awareness Post',            platform: 'Facebook, LinkedIn',  date: '2026-03-17', type: 'Social', status: 'scheduled', notes: 'Link to latest blog article'        },
       { title: 'TikTok Q&A: Common Questions',       platform: 'TikTok',              date: '2026-03-19', type: 'TikTok', status: 'idea',      notes: '3-part Q&A series'                 },
@@ -2440,6 +2440,10 @@ Supported save types:
 - "wix": { sessions, bounceRate, organic, social, direct, referral }
 - "custom_metric": { category, label, value, unit, period, notes } — for ANY metric not covered above
 - "goal": { name, metric, target, unit, deadline, notes } — creates a tracked KPI goal
+- "goal_progress": { goalName, current } — updates the current value of an existing goal by name. Use when user says a goal metric has changed (e.g. "we hit 420 leads this month"). Example:
+<DMD_UPDATE>
+{"type":"goal_progress","data":{"goalName":"Total Leads","current":420}}
+</DMD_UPDATE>
 - "alert": { name, metric, condition, threshold, unit } — condition: "above" or "below"; metric options: google_rating, yelp_rating, facebook_followers, instagram_followers, email_open_rate, cpl, total_leads, total_spend
 - "insight": { title, body, source, tag } — save a key finding, recommendation, or highlight to the Overview News feed. Use for: notable takeaways from uploaded docs, competitor intel, strategic priorities, market observations. "tag" can be: "seo", "social", "ads", "reputation", "content", "strategy", "patient-experience". "source" is the file name or topic. NEVER use insight to acknowledge receiving a file — only save it if it contains a real finding or recommendation worth tracking. Do NOT emit an insight that says things like "report received", "data provided", "file uploaded", "ready to extract", or "metrics identified".
 
@@ -3893,6 +3897,7 @@ Other rules:
     { id: 'email',        label: 'Email',         icon: Mail,       group: 'core' },
     { id: 'pipeline',     label: 'Pipeline',      icon: Users,      group: 'core' },
     { id: 'reviews',      label: 'Reviews',       icon: Star,       group: 'core' },
+    { id: 'intel',        label: 'Intelligence',  icon: Globe,      group: 'core' },
     { id: 'calendar',     label: 'Calendar',      icon: Calendar,   group: 'core' },
     { id: 'roi',          label: 'ROI',           icon: DollarSign, group: 'core' },
     { id: 'report',       label: 'Reports',       icon: BarChart2,  group: 'core' },
