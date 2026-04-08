@@ -2907,7 +2907,9 @@ Other rules:
     const STALE_MS = 2 * 60 * 60 * 1000; // 2 hours
     const existing = (() => { try { return JSON.parse(localStorage.getItem('dmd_competitors') || 'null'); } catch { return null; } })();
     const fetchedAt = existing?.fetchedAt ? new Date(existing.fetchedAt).getTime() : 0;
-    if (!fetchedAt || (Date.now() - fetchedAt) > STALE_MS) fetchCompetitors();
+    const hasFacilityProfiles = (() => { try { const p = JSON.parse(localStorage.getItem('dmd_facility_profiles') || '[]'); return Array.isArray(p) && p.length > 0; } catch { return false; } })();
+    // Always re-fetch if user has a custom library (so their saved list is always used, not cached hardcoded data)
+    if (!fetchedAt || (Date.now() - fetchedAt) > STALE_MS || hasFacilityProfiles) fetchCompetitors();
     const timer = setInterval(fetchCompetitors, STALE_MS);
     return () => clearInterval(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps ─────────────────────────────────────────────────────────────
