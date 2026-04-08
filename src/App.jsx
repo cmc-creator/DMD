@@ -447,8 +447,9 @@ const App = () => {
         }
         if (data.dmd_wix)              { setWixData(data.dmd_wix);                         ls('dmd_wix',               data.dmd_wix); }
         if (data.dmd_livedata)         { setLiveData(data.dmd_livedata);                   ls('dmd_livedata',          data.dmd_livedata); }
-        if (data.dmd_competitors)      { setCompetitorData(data.dmd_competitors);           ls('dmd_competitors',       data.dmd_competitors); }
-        if (data.dmd_overview_hidden)  { setOverviewHidden(data.dmd_overview_hidden);       ls('dmd_overview_hidden',   data.dmd_overview_hidden); }
+        if (data.dmd_competitors)          { setCompetitorData(data.dmd_competitors);           ls('dmd_competitors',           data.dmd_competitors); }
+        if (data.dmd_custom_competitors)   { setCustomCompetitors(data.dmd_custom_competitors); ls('dmd_custom_competitors',    data.dmd_custom_competitors); }
+        if (data.dmd_overview_hidden)      { setOverviewHidden(data.dmd_overview_hidden);       ls('dmd_overview_hidden',       data.dmd_overview_hidden); }
         if (data.dmd_review_overrides) { setReviewOverrides(data.dmd_review_overrides);     ls('dmd_review_overrides',  data.dmd_review_overrides); }
         if (data.dmd_connections)      { setConnections(data.dmd_connections);              ls('dmd_connections',        data.dmd_connections); }
         if (data.dmd_saved_urls)       { setSavedUrls(data.dmd_saved_urls);                 ls('dmd_saved_urls',        data.dmd_saved_urls); }
@@ -477,8 +478,9 @@ const App = () => {
         dmd_manual:            cleanedManual,
         dmd_wix:               wixData,
         dmd_livedata:          liveData,
-        dmd_competitors:       competitorData,
-        dmd_overview_hidden:   overviewHidden,
+        dmd_competitors:           competitorData,
+        dmd_custom_competitors:    customCompetitors,
+        dmd_overview_hidden:       overviewHidden,
         dmd_review_overrides:  reviewOverrides,
         dmd_connections:       connections,
         dmd_saved_urls:        savedUrls,
@@ -493,7 +495,7 @@ const App = () => {
         .catch(() => setCloudSynced('error'));
     }, 3000);
     return () => clearTimeout(pushTimerRef.current);
-  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [destinyData, reviewPlatformData, manualData, wixData, liveData, competitorData, customCompetitors, overviewHidden, reviewOverrides, connections, savedUrls, facilityProfiles, contentItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Enforce survey sanitization after any local manual data mutation.
   useEffect(() => {
@@ -5198,7 +5200,18 @@ Other rules:
                     <SectionHeader icon={Scale} color="text-purple-500" title="Competitor Intelligence" subtitle={`Live ratings vs. ${comps.length} local behavioral health providers`} />
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => { setCompetitorEditorDraft(customCompetitors.length > 0 ? [...customCompetitors] : [{ name: '', url: '' }]); setShowCompetitorEditor(p => !p); }}
+                        onClick={() => {
+                          const defaults = customCompetitors.length > 0 ? [...customCompetitors] : [
+                            { name: 'Springboard Recovery',               url: 'https://springboardrecovery.com' },
+                            { name: 'The Meadows',                        url: 'https://www.themeadows.com' },
+                            { name: 'Aurora Behavioral Health System',    url: 'https://www.auroraarizona.com' },
+                            { name: 'Banner Behavioral Health Hospital',  url: 'https://www.bannerhealth.com/services/behavioral-health' },
+                            { name: 'Terros Health',                      url: 'https://terroshealth.org' },
+                            { name: 'Southwest Behavioral & Health Services', url: 'https://www.sbhservices.org' },
+                          ];
+                          setCompetitorEditorDraft(defaults);
+                          setShowCompetitorEditor(p => !p);
+                        }}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-colors ${showCompetitorEditor ? 'bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200'}`}>
                         <Pencil size={13} />
                         {customCompetitors.length > 0 ? `My List (${customCompetitors.length})` : 'Edit List'}
@@ -6353,7 +6366,14 @@ Other rules:
                       const change = Number(seoQuickAddForm.change) || 0;
                       const prevRank = rank - change;
                       const newEntry = { keyword: seoQuickAddForm.keyword.trim(), rank, prevRank: prevRank > 0 ? prevRank : rank, searchVol: Number(seoQuickAddForm.volume) || 0, clicks: 0, _savedAt: new Date().toLocaleString() };
-                      setManualData(prev => { const updated = { ...prev, seo_rankings: [...(prev.seo_rankings || []), newEntry] }; localStorage.setItem('dmd_manual', JSON.stringify(updated)); return updated; });
+                      setManualData(prev => {
+                        const existing = prev.seo_rankings || [];
+                        const isDupe = existing.some(e => e.keyword?.trim().toLowerCase() === newEntry.keyword.toLowerCase());
+                        if (isDupe) return prev;
+                        const updated = { ...prev, seo_rankings: [...existing, newEntry] };
+                        localStorage.setItem('dmd_manual', JSON.stringify(updated));
+                        return updated;
+                      });
                       setSeoQuickAddForm({ keyword: '', rank: '', change: '', volume: '' });
                       setShowSeoQuickAdd(false);
                     }}
