@@ -1237,6 +1237,22 @@ const App = () => {
         localStorage.setItem('dmd_custom_metrics', JSON.stringify(updated));
         return updated;
       });
+    } else if (dataKey === 'ai_task') {
+      const updated = aiTasks.map((t, i) => i === idx ? { ...t, text: fields.text } : t);
+      setAiTasks(updated);
+      localStorage.setItem('dmd_tasks', JSON.stringify(updated));
+    } else if (dataKey === 'facility_label') {
+      const updated = facilityProfiles.map((p, i) => i === idx ? { ...p, label: fields.label } : p);
+      setFacilityProfiles(updated);
+      localStorage.setItem('dmd_facility_profiles', JSON.stringify(updated));
+    } else if (dataKey === 'dmd_goal') {
+      const updated = dmdGoals.map((g, i) => i === idx ? { ...g, ...fields } : g);
+      setDmdGoals(updated);
+      localStorage.setItem('dmd_goals', JSON.stringify(updated));
+    } else if (dataKey === 'dmd_alert') {
+      const updated = dmdAlerts.map((a, i) => i === idx ? { ...a, ...fields } : a);
+      setDmdAlerts(updated);
+      localStorage.setItem('dmd_alerts', JSON.stringify(updated));
     } else {
       setManualData(prev => {
         const arr = [...(prev[dataKey] || [])];
@@ -3187,6 +3203,7 @@ Other rules:
     .reverse()
     .slice(0, 5)
     .map((c, i) => ({
+      _origIdx: contentItems.indexOf(c),
       title: c.title || `Blog Post ${i + 1}`,
       views: Number(c.views || c.impressions || 0),
       readTime: c.readTime || c.read_time || 'N/A',
@@ -3522,6 +3539,7 @@ Other rules:
 
   // ── Review Management data ──────────────────────────────────────────────────
   const recentReviews = _reviews.slice().reverse().slice(0, 8).map(r => ({
+    _origIdx:  _reviews.indexOf(r),
     author:    r.name || 'Anonymous',
     rating:    Number(r.rating) || 5,
     date:      r.date || '',
@@ -4161,17 +4179,26 @@ Other rules:
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {aiTasks.map(task => (
-                        <div key={task.id} className={`flex items-start gap-3 p-3 rounded-2xl transition-colors ${task.done ? 'opacity-50' : darkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
-                          <button
-                            onClick={() => setAiTasks(prev => prev.map(t => t.id === task.id ? { ...t, done: !t.done } : t))}
-                            className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${task.done ? 'bg-emerald-500 border-emerald-500' : 'border-slate-400 hover:border-emerald-400'}`}
-                          >
-                            {task.done && <CheckCircle size={12} className="text-white" />}
-                          </button>
-                          <span className={`text-sm flex-1 leading-snug ${task.done ? `line-through ${subtl}` : txt}`}>{task.text}</span>
-                          <button onClick={() => setAiTasks(prev => prev.filter(t => t.id !== task.id))} className={`${subtl} hover:text-rose-400 transition-colors flex-shrink-0 mt-0.5`}><X size={14} /></button>
-                        </div>
+                      {aiTasks.map((task, taskIdx) => (
+                        inlineEdit?.dataKey === 'ai_task' && inlineEdit?.idx === taskIdx ? (
+                          <div key={task.id} className={`flex items-center gap-2 p-3 rounded-2xl ${darkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
+                            <input className={`flex-1 px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C]`} value={inlineEdit.fields.text||''} onChange={e=>setInlineEdit(p=>({...p,fields:{text:e.target.value}}))} onKeyDown={e=>e.key==='Enter'&&saveInlineEdit()} autoFocus />
+                            <button onClick={saveInlineEdit} className="px-2 py-1 text-xs font-black rounded-lg bg-[#C9A84C] text-slate-900 hover:bg-amber-400">Save</button>
+                            <button onClick={()=>setInlineEdit(null)} className={`px-2 py-1 text-xs font-black rounded-lg ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>✕</button>
+                          </div>
+                        ) : (
+                          <div key={task.id} className={`flex items-start gap-3 p-3 rounded-2xl transition-colors ${task.done ? 'opacity-50' : darkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
+                            <button
+                              onClick={() => setAiTasks(prev => prev.map(t => t.id === task.id ? { ...t, done: !t.done } : t))}
+                              className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${task.done ? 'bg-emerald-500 border-emerald-500' : 'border-slate-400 hover:border-emerald-400'}`}
+                            >
+                              {task.done && <CheckCircle size={12} className="text-white" />}
+                            </button>
+                            <span className={`text-sm flex-1 leading-snug ${task.done ? `line-through ${subtl}` : txt}`}>{task.text}</span>
+                            <button onClick={()=>setInlineEdit({dataKey:'ai_task',idx:taskIdx,fields:{text:task.text}})} className={`${subtl} hover:text-[#C9A84C] transition-colors flex-shrink-0 mt-0.5`}><Pencil size={12}/></button>
+                            <button onClick={() => setAiTasks(prev => prev.filter(t => t.id !== task.id))} className={`${subtl} hover:text-rose-400 transition-colors flex-shrink-0 mt-0.5`}><X size={14} /></button>
+                          </div>
+                        )
                       ))}
                     </div>
                   )}
@@ -5957,20 +5984,32 @@ Other rules:
               <SectionHeader icon={FileText} color="text-purple-500" title="Top Blog Performance" subtitle="Views, Read Time & Social Shares" />
               <div className="space-y-4">
                 {blogPosts.map((post, i) => (
-                  <div key={post.title} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
-                    <div className="h-8 w-8 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-sm font-black text-purple-700 dark:text-purple-300 shrink-0">{i+1}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold ${txt} truncate`}>{post.title}</p>
-                      <div className="flex gap-4 mt-1">
-                        <span className={`text-[13px] font-bold ${subtl}`}><Eye size={10} className="inline mr-1" />{post.views.toLocaleString()} views</span>
-                        <span className={`text-[13px] font-bold ${subtl}`}><Clock size={10} className="inline mr-1" />{post.readTime}</span>
+                  inlineEdit?.dataKey === 'content' && inlineEdit?.idx === post._origIdx ? (
+                    <div key={post.title} className={`flex flex-wrap items-center gap-2 p-4 ${rowCls} rounded-2xl`}>
+                      <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] flex-1 min-w-[150px]`} value={inlineEdit.fields.title||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,title:e.target.value}}))} placeholder="Title" />
+                      <input type="number" className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-20`} value={inlineEdit.fields.views||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,views:e.target.value}}))} placeholder="Views" />
+                      <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-24`} value={inlineEdit.fields.readTime||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,readTime:e.target.value}}))} placeholder="Read time" />
+                      <input type="number" className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-20`} value={inlineEdit.fields.shares||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,shares:e.target.value}}))} placeholder="Shares" />
+                      <button onClick={saveInlineEdit} className="px-3 py-1 text-xs font-black rounded-lg bg-[#C9A84C] text-slate-900 hover:bg-amber-400">Save</button>
+                      <button onClick={()=>setInlineEdit(null)} className={`px-3 py-1 text-xs font-black rounded-lg ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>Cancel</button>
+                    </div>
+                  ) : (
+                    <div key={post.title} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
+                      <div className="h-8 w-8 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-sm font-black text-purple-700 dark:text-purple-300 shrink-0">{i+1}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold ${txt} truncate`}>{post.title}</p>
+                        <div className="flex gap-4 mt-1">
+                          <span className={`text-[13px] font-bold ${subtl}`}><Eye size={10} className="inline mr-1" />{post.views.toLocaleString()} views</span>
+                          <span className={`text-[13px] font-bold ${subtl}`}><Clock size={10} className="inline mr-1" />{post.readTime}</span>
+                        </div>
                       </div>
+                      <div className="text-right shrink-0">
+                        <div className={`text-sm font-black ${txt}`}>{post.shares}</div>
+                        <div className={`text-[12px] font-bold ${subtl} uppercase`}>Shares</div>
+                      </div>
+                      <button onClick={()=>setInlineEdit({dataKey:'content',idx:post._origIdx,fields:{title:post.title,views:String(post.views),readTime:post.readTime,shares:String(post.shares)}})} className={`shrink-0 ${subtl} hover:text-[#C9A84C] transition-colors`}><Pencil size={12}/></button>
                     </div>
-                    <div className="text-right shrink-0">
-                      <div className={`text-sm font-black ${txt}`}>{post.shares}</div>
-                      <div className={`text-[12px] font-bold ${subtl} uppercase`}>Shares</div>
-                    </div>
-                  </div>
+                  )
                 ))}
               </div>
             </div>
@@ -7023,19 +7062,31 @@ Other rules:
                 <div className="space-y-4">
                   {recentReviews.map((r, i) => (
                     <div key={i} className={`p-4 ${rowCls} rounded-2xl`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="h-7 w-7 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center text-[13px] font-black text-teal-700 dark:text-teal-300">{r.author[0]}</div>
-                          <span className={`text-xs font-black ${txt}`}>{r.author}</span>
+                      {inlineEdit?.dataKey === 'reviews' && inlineEdit?.idx === r._origIdx ? (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <input className={`px-2 py-1 text-xs rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] flex-1 min-w-[120px]`} value={inlineEdit.fields.name||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,name:e.target.value}}))} placeholder="Reviewer name" />
+                          <select className={`px-2 py-1 text-xs rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C]`} value={inlineEdit.fields.rating||5} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,rating:Number(e.target.value)}}))}>{[1,2,3,4,5].map(n=><option key={n} value={n}>{n} ★</option>)}</select>
+                          <input className={`px-2 py-1 text-xs rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-28`} value={inlineEdit.fields.date||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,date:e.target.value}}))} placeholder="Date" />
+                          <textarea className={`w-full px-2 py-1 text-xs rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] resize-y`} rows={3} value={inlineEdit.fields.text||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,text:e.target.value}}))} placeholder="Review text" />
+                          <button onClick={saveInlineEdit} className="px-3 py-1 text-xs font-black rounded-lg bg-[#C9A84C] text-slate-900 hover:bg-amber-400">Save</button>
+                          <button onClick={()=>setInlineEdit(null)} className={`px-3 py-1 text-xs font-black rounded-lg ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>Cancel</button>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="flex gap-0.5">
-                            {[1,2,3,4,5].map(n => <Star key={n} size={11} className={n<=r.rating?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
-                          </span>
-                          <span className={`text-[12px] ${subtl}`}>{r.date}</span>
+                      ) : (
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center text-[13px] font-black text-teal-700 dark:text-teal-300">{r.author[0]}</div>
+                            <span className={`text-xs font-black ${txt}`}>{r.author}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="flex gap-0.5">
+                              {[1,2,3,4,5].map(n => <Star key={n} size={11} className={n<=r.rating?'text-amber-400 fill-amber-400':'text-slate-300 dark:text-slate-600'} />)}
+                            </span>
+                            <span className={`text-[12px] ${subtl}`}>{r.date}</span>
+                            <button onClick={()=>setInlineEdit({dataKey:'reviews',idx:r._origIdx,fields:{name:r.author,rating:r.rating,date:r.date,text:r.text}})} className={`${subtl} hover:text-[#C9A84C] transition-colors`}><Pencil size={11}/></button>
+                          </div>
                         </div>
-                      </div>
-                      <p className={`text-xs ${txt2} leading-relaxed line-clamp-2`}>{r.text}</p>
+                      )}
+                      {!(inlineEdit?.dataKey === 'reviews' && inlineEdit?.idx === r._origIdx) && <p className={`text-xs ${txt2} leading-relaxed line-clamp-2`}>{r.text}</p>}
                       {reviewDrafts[i] && (
                         <div className="mt-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
                           <p className="text-[11px] font-black text-purple-500 uppercase tracking-wider mb-1">AI Draft Response</p>
@@ -7996,7 +8047,18 @@ Other rules:
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
                                   {p.image && <img src={p.image} alt="" className="w-full h-24 object-cover rounded-xl mb-2" onError={e => e.currentTarget.style.display='none'} />}
-                                  <p className={`font-black text-sm ${txt} truncate`}>{p.label}</p>
+                                  {inlineEdit?.dataKey === 'facility_label' && inlineEdit?.idx === i ? (
+                                    <div className="flex items-center gap-1 mb-0.5">
+                                      <input className={`flex-1 px-1.5 py-0.5 text-sm rounded border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C]`} value={inlineEdit.fields.label||''} onChange={e=>setInlineEdit(prev=>({...prev,fields:{label:e.target.value}}))} onKeyDown={e=>{if(e.key==='Enter')saveInlineEdit();if(e.key==='Escape')setInlineEdit(null);}} autoFocus />
+                                      <button onClick={saveInlineEdit} className="px-2 py-0.5 text-[11px] font-black rounded bg-[#C9A84C] text-slate-900">✓</button>
+                                      <button onClick={()=>setInlineEdit(null)} className={`px-2 py-0.5 text-[11px] font-black rounded ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>✕</button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1 mb-0.5">
+                                      <p className={`font-black text-sm ${txt} truncate flex-1`}>{p.label}</p>
+                                      <button onClick={()=>setInlineEdit({dataKey:'facility_label',idx:i,fields:{label:p.label}})} className={`shrink-0 ${subtl} hover:text-[#C9A84C] transition-colors`} title="Rename"><Pencil size={11}/></button>
+                                    </div>
+                                  )}
                                   <a href={p.url} target="_blank" rel="noreferrer" className="text-[11px] text-teal-500 hover:underline truncate block">{p.url}</a>
                                   <p className={`text-[10px] ${subtl} mt-0.5`}>Scanned {p.savedAt}</p>
                                 </div>
@@ -9815,21 +9877,37 @@ Other rules:
                 ) : (
                   dmdGoals.map((goal, gi) => {
                     const pct = (goal.current && goal.target) ? Math.min(100, Math.round((Number(goal.current) / Number(goal.target)) * 100)) : 0;
+                    const isEditGoal = inlineEdit?.dataKey === 'dmd_goal' && inlineEdit?.idx === gi;
                     return (
                       <div key={gi} className={`p-2.5 rounded-xl ${darkMode ? 'bg-white/10' : 'bg-white shadow-sm border border-slate-100'}`}>
                         <div className="flex justify-between items-start mb-1.5">
                           <p className="text-[12px] font-semibold flex-1 pr-2">{goal.name}</p>
-                          <button onClick={() => { const upd = dmdGoals.filter((_, j) => j !== gi); setDmdGoals(upd); localStorage.setItem('dmd_goals', JSON.stringify(upd)); }} className="text-rose-400 hover:text-rose-500 flex-shrink-0 transition-colors"><X size={11} /></button>
+                          <div className="flex gap-1 items-center flex-shrink-0">
+                            <button onClick={()=>setInlineEdit({dataKey:'dmd_goal',idx:gi,fields:{current:String(goal.current||''),target:String(goal.target||''),deadline:goal.deadline||''}})} className={`${darkMode?'text-[#C9A84C]/50 hover:text-[#C9A84C]':'text-slate-300 hover:text-[#C9A84C]'} transition-colors`}><Pencil size={9}/></button>
+                            <button onClick={() => { const upd = dmdGoals.filter((_, j) => j !== gi); setDmdGoals(upd); localStorage.setItem('dmd_goals', JSON.stringify(upd)); }} className="text-rose-400 hover:text-rose-500 transition-colors"><X size={11} /></button>
+                          </div>
                         </div>
-                        <div className={`w-full rounded-full h-1.5 mb-1.5 ${darkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
-                          <div className="h-1.5 rounded-full bg-gradient-to-r from-[#8B6B0E] to-[#C9A84C] transition-all" style={{ width: `${pct}%` }} />
-                        </div>
-                        <div className={`flex justify-between text-[10px] ${darkMode ? 'text-[#C9A84C]' : 'text-slate-400'}`}>
-                          <span>{goal.current || '?'}{goal.unit || ''} current</span>
-                          <span className="font-semibold">{pct}%</span>
-                          <span>target: {goal.target}{goal.unit || ''}</span>
-                        </div>
-                        {goal.deadline && <p className={`text-[10px] mt-1 ${darkMode ? 'text-[#C9A84C]/70' : 'text-slate-400'}`}>Due: {goal.deadline}</p>}
+                        {isEditGoal ? (
+                          <div className="flex flex-wrap gap-1.5 mb-1.5">
+                            <input type="number" className={`px-1.5 py-0.5 text-[11px] rounded border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-16`} value={inlineEdit.fields.current} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,current:e.target.value}}))} placeholder="Current" />
+                            <input type="number" className={`px-1.5 py-0.5 text-[11px] rounded border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-16`} value={inlineEdit.fields.target} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,target:e.target.value}}))} placeholder="Target" />
+                            <input className={`px-1.5 py-0.5 text-[11px] rounded border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-24`} value={inlineEdit.fields.deadline} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,deadline:e.target.value}}))} placeholder="Deadline" />
+                            <button onClick={saveInlineEdit} className="px-2 py-0.5 text-[11px] font-black rounded bg-[#C9A84C] text-slate-900">Save</button>
+                            <button onClick={()=>setInlineEdit(null)} className={`px-2 py-0.5 text-[11px] font-black rounded ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>✕</button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className={`w-full rounded-full h-1.5 mb-1.5 ${darkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
+                              <div className="h-1.5 rounded-full bg-gradient-to-r from-[#8B6B0E] to-[#C9A84C] transition-all" style={{ width: `${pct}%` }} />
+                            </div>
+                            <div className={`flex justify-between text-[10px] ${darkMode ? 'text-[#C9A84C]' : 'text-slate-400'}`}>
+                              <span>{goal.current || '?'}{goal.unit || ''} current</span>
+                              <span className="font-semibold">{pct}%</span>
+                              <span>target: {goal.target}{goal.unit || ''}</span>
+                            </div>
+                            {goal.deadline && <p className={`text-[10px] mt-1 ${darkMode ? 'text-[#C9A84C]/70' : 'text-slate-400'}`}>Due: {goal.deadline}</p>}
+                          </>
+                        )}
                       </div>
                     );
                   })
@@ -9862,16 +9940,31 @@ Other rules:
                 ) : (
                   dmdAlerts.map((alert, ai) => {
                     const fired = triggeredAlerts.some(t => t.id === alert.id);
+                    const isEditAlert = inlineEdit?.dataKey === 'dmd_alert' && inlineEdit?.idx === ai;
                     return (
                       <div key={ai} className={`p-2.5 rounded-xl border ${fired ? 'border-rose-400/50 bg-rose-500/10' : darkMode ? 'bg-white/10 border-transparent' : 'bg-white shadow-sm border-slate-100'}`}>
                         <div className="flex justify-between items-start">
                           <div className="flex-1 pr-2">
-                            <p className="text-[12px] font-semibold">{alert.name}</p>
-                            <p className={`text-[10px] mt-0.5 ${fired ? 'text-rose-400' : darkMode ? 'text-[#C9A84C]/70' : 'text-slate-400'}`}>
-                              {alert.metric} {alert.condition} {alert.threshold}{alert.unit || ''} · {fired ? '🔴 TRIGGERED' : '🟢 monitoring'}
-                            </p>
+                            {isEditAlert ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                <input className={`px-1.5 py-0.5 text-[11px] rounded border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] flex-1 min-w-[100px]`} value={inlineEdit.fields.name} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,name:e.target.value}}))} placeholder="Alert name" />
+                                <input type="number" className={`px-1.5 py-0.5 text-[11px] rounded border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-16`} value={inlineEdit.fields.threshold} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,threshold:e.target.value}}))} placeholder="Threshold" />
+                                <button onClick={saveInlineEdit} className="px-2 py-0.5 text-[11px] font-black rounded bg-[#C9A84C] text-slate-900">Save</button>
+                                <button onClick={()=>setInlineEdit(null)} className={`px-2 py-0.5 text-[11px] font-black rounded ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>✕</button>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-[12px] font-semibold">{alert.name}</p>
+                                <p className={`text-[10px] mt-0.5 ${fired ? 'text-rose-400' : darkMode ? 'text-[#C9A84C]/70' : 'text-slate-400'}`}>
+                                  {alert.metric} {alert.condition} {alert.threshold}{alert.unit || ''} · {fired ? '🔴 TRIGGERED' : '🟢 monitoring'}
+                                </p>
+                              </>
+                            )}
                           </div>
-                          <button onClick={() => { const upd = dmdAlerts.filter((_, j) => j !== ai); setDmdAlerts(upd); localStorage.setItem('dmd_alerts', JSON.stringify(upd)); setTriggeredAlerts(prev => prev.filter(t => t.id !== alert.id)); }} className="text-rose-400 hover:text-rose-500 flex-shrink-0 transition-colors"><X size={11} /></button>
+                          <div className="flex gap-1 items-center flex-shrink-0">
+                            {!isEditAlert && <button onClick={()=>setInlineEdit({dataKey:'dmd_alert',idx:ai,fields:{name:alert.name,threshold:String(alert.threshold||'')}})} className={`${darkMode?'text-[#C9A84C]/50 hover:text-[#C9A84C]':'text-slate-300 hover:text-[#C9A84C]'} transition-colors`}><Pencil size={9}/></button>}
+                            <button onClick={() => { const upd = dmdAlerts.filter((_, j) => j !== ai); setDmdAlerts(upd); localStorage.setItem('dmd_alerts', JSON.stringify(upd)); setTriggeredAlerts(prev => prev.filter(t => t.id !== alert.id)); }} className="text-rose-400 hover:text-rose-500 transition-colors"><X size={11} /></button>
+                          </div>
                         </div>
                       </div>
                     );
