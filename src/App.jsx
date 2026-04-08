@@ -16,7 +16,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
   Trash2, Layers, Scale, Tag, Camera, Scan, CheckSquare, AlertTriangle, Paperclip, EyeOff,
-  GripVertical, Sliders, LayoutGrid, BarChart2, ArrowUpRight, ArrowDownRight, Minus, List,
+  GripVertical, Sliders, LayoutGrid, BarChart2, ArrowUpRight, ArrowDownRight, Minus, List, BellOff, Clipboard,
 } from 'lucide-react';
 
 const META_AUTO_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
@@ -352,6 +352,10 @@ const App = () => {
   const [reportPeriod, setReportPeriod]           = useState(30);  // Report tab period selector
   const [reportSort, setReportSort]               = useState('delta'); // 'delta'|'name'|'status'
   const [pipelineView, setPipelineView]           = useState('list'); // 'list'|'kanban'
+  const [showSeoQuickAdd, setShowSeoQuickAdd]     = useState(false);
+  const [seoQuickAddForm, setSeoQuickAddForm]     = useState({ keyword: '', rank: '', change: '', volume: '' });
+  const [showDoneTasks, setShowDoneTasks]         = useState(false);
+  const [snoozedAlerts, setSnoozedAlerts]         = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_snoozed_alerts') || '{}'); } catch { return {}; } });
   // ── Captain KPI intelligence state ───────────────────────────────────────
   const [dmdGoals, setDmdGoals]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_goals') || '[]'); } catch { return []; } });
   const [dmdAlerts, setDmdAlerts]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_alerts') || '[]'); } catch { return []; } });
@@ -496,7 +500,7 @@ const App = () => {
     localStorage.setItem('dmd_manual', JSON.stringify(sanitized));
   }, [manualData]);
 
-  useEffect(() => { setShowQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
+  useEffect(() => { setShowQuickAdd(false); setShowSeoQuickAdd(false); setManualForm({}); }, [activeTab]); // eslint-disable-line
 
   // Safety reset: overview section hiding exists in persisted state, but there
   // is currently no UI to unhide sections. Clear stale hidden config so cards
@@ -1122,7 +1126,17 @@ const App = () => {
   const fetchCompetitors = async () => {
     setCompetitorLoading(true);
     try {
-      const res  = await fetch('/api/competitors');
+      let res;
+      if (facilityProfiles.length > 0) {
+        // Use the user's saved competitor library instead of the hardcoded list
+        res = await fetch('/api/competitors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ competitors: facilityProfiles }),
+        });
+      } else {
+        res = await fetch('/api/competitors');
+      }
       const data = await res.json();
       if (data.ok) {
         setCompetitorData(data);
@@ -2555,6 +2569,18 @@ Other rules:
               localStorage.setItem('dmd_goals', JSON.stringify(updated));
               return updated;
             });
+          } else if (type === 'goal_progress') {
+            const entry = entries[0];
+            if (!entry || !entry.goalName) return;
+            setDmdGoals(prev => {
+              const updated = prev.map(g =>
+                g.name.toLowerCase().includes(entry.goalName.toLowerCase())
+                  ? { ...g, current: entry.current }
+                  : g
+              );
+              localStorage.setItem('dmd_goals', JSON.stringify(updated));
+              return updated;
+            });
           } else if (type === 'alert') {
             setDmdAlerts(prev => {
               const newAlert = { ...entries[0], id: Date.now(), active: true, createdAt: new Date().toISOString() };
@@ -2589,6 +2615,7 @@ Other rules:
           survey_quality: 'Survey Dashboard',
           custom_metric: 'Custom Metrics',
           goal: 'Goals',
+          goal_progress: 'Goal Progress',
           alert: 'Alerts',
           insight: 'News & Insights',
         };
@@ -3380,6 +3407,9 @@ Other rules:
     task: t.text, priority: t.priority || 'medium', due: t.due || '—', id: t.id,
   }));
 
+  // ── Active (non-snoozed) triggered alerts ────────────────────────────────────
+  const activeTriggeredAlerts = triggeredAlerts.filter(a => !(snoozedAlerts[a.id] && snoozedAlerts[a.id] > Date.now()));
+
   const _ratingNum = _avgRating ? Number(_avgRating) : null;
 
   // ── Real computed achievement stats ─────────────────────────────────────────
@@ -3430,6 +3460,13 @@ Other rules:
     { title: 'Data Driven',        desc: `${_platformCount + (_wixSessions > 0 ? 1 : 0)} data sources connected`,                    icon: BarChart3,   earned: _platformCount >= 2 || _wixSessions > 0 },
     { title: 'Viral Moment',       desc: _tikViews > 0 ? `${_tikViews.toLocaleString()} video views` : 'Hit 50k+ video views',       icon: Zap,         earned: _tikViews >= 50000 },
     { title: 'Growth Architect',   desc: _convRate ? `${_convRate}% site conversion rate` : 'Drive 500+ leads',                      icon: TrendingUp,  earned: _totalLeads >= 500 || (_convRate && parseFloat(_convRate) >= 2) },
+    // Goal completion badges — auto-earned when a tracked goal reaches its target
+    ...dmdGoals.filter(g => Number(g.current || 0) >= Number(g.target || 1)).map(g => ({
+      title: `${g.name} ✓`,
+      desc: `${g.current}${g.unit || ''} goal reached`,
+      icon: Target,
+      earned: true,
+    })),
   ];
 
   // Skill score: each skill reflects real data volume + quality
@@ -3904,13 +3941,13 @@ Other rules:
             >
               <div className="relative shrink-0">
                 <tab.icon size={16} className="sidebar-icon" />
-                {tab.id === 'overview' && triggeredAlerts.length > 0 && (
+                {tab.id === 'overview' && activeTriggeredAlerts.length > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-500 ring-1 ring-white dark:ring-slate-900" />
                 )}
               </div>
               {!sidebarCollapsed && <span className="sidebar-label">{tab.label}</span>}
-              {!sidebarCollapsed && tab.id === 'overview' && triggeredAlerts.length > 0 && (
-                <span className="ml-auto shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-full bg-rose-500 text-white">{triggeredAlerts.length}</span>
+              {!sidebarCollapsed && tab.id === 'overview' && activeTriggeredAlerts.length > 0 && (
+                <span className="ml-auto shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-full bg-rose-500 text-white">{activeTriggeredAlerts.length}</span>
               )}
             </button>
           ))}
@@ -6164,6 +6201,13 @@ Other rules:
             <DS id="seo-keywords" tab="seo">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <SectionHeader icon={Search} color="text-blue-500" title="Keyword Rankings" subtitle="Top AZ Healthcare Keywords" />
+              {seoKeywords.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <Search className={`w-10 h-10 ${subtl} opacity-20`} />
+                  <p className={`text-sm ${subtl} text-center max-w-sm`}>No keywords tracked yet. Use the quick-add below or import SEO data via the Data Import panel.</p>
+                  <button onClick={() => setShowSeoQuickAdd(true)} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-black hover:bg-blue-500 transition-colors">Add Your First Keyword</button>
+                </div>
+              ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -6208,6 +6252,44 @@ Other rules:
                   </tbody>
                 </table>
               </div>
+              )}
+            </div>
+            </DS>
+            <DS id="seo-quickadd" tab="seo">
+            <div className="mt-0 mb-8 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
+              <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowSeoQuickAdd(p => !p)}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-teal-100 dark:bg-teal-900/50 rounded-xl"><Plus size={14} className="text-teal-600 dark:text-teal-400" /></div>
+                  <div>
+                    <p className="text-sm font-black text-slate-800 dark:text-slate-100">Add Keyword</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Log a keyword ranking — table updates instantly</p>
+                  </div>
+                </div>
+                <ChevronDown size={16} className={`transition-transform text-slate-400 ${showSeoQuickAdd ? 'rotate-180' : ''}`} />
+              </div>
+              {showSeoQuickAdd && (
+                <div className="mt-5 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <input placeholder="Keyword" value={seoQuickAddForm.keyword} onChange={e => setSeoQuickAddForm(p => ({ ...p, keyword: e.target.value }))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
+                    <input type="number" placeholder="Rank / Position" value={seoQuickAddForm.rank} onChange={e => setSeoQuickAddForm(p => ({ ...p, rank: e.target.value }))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
+                    <input type="number" placeholder="Search Volume / Mo" value={seoQuickAddForm.volume} onChange={e => setSeoQuickAddForm(p => ({ ...p, volume: e.target.value }))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
+                    <input type="number" placeholder="Rank Change (+ up)" value={seoQuickAddForm.change} onChange={e => setSeoQuickAddForm(p => ({ ...p, change: e.target.value }))} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm w-full" />
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!seoQuickAddForm.keyword.trim()) return;
+                      const rank = Number(seoQuickAddForm.rank) || 0;
+                      const change = Number(seoQuickAddForm.change) || 0;
+                      const prevRank = rank - change;
+                      batchSaveToManualData('seo_rankings', [{ keyword: seoQuickAddForm.keyword.trim(), rank, prevRank: prevRank > 0 ? prevRank : rank, searchVol: Number(seoQuickAddForm.volume) || 0, clicks: 0 }]);
+                      setSeoQuickAddForm({ keyword: '', rank: '', change: '', volume: '' });
+                      setShowSeoQuickAdd(false);
+                    }}
+                    disabled={!seoQuickAddForm.keyword.trim()}
+                    className="px-6 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors"
+                  >Save Keyword</button>
+                </div>
+              )}
             </div>
             </DS>
             <DS id="seo-blog" tab="seo">
@@ -6726,6 +6808,32 @@ Other rules:
                   >Add</button>
                 </div>
               </div>
+              {/* Completed tasks archive */}
+              {aiTasks.some(t => t.done) && (
+                <div className={`border-t ${brd} pt-4 mt-4`}>
+                  <button
+                    onClick={() => setShowDoneTasks(p => !p)}
+                    className={`flex items-center gap-2 text-xs font-black uppercase tracking-widest ${subtl} hover:text-teal-500 transition-colors`}
+                  >
+                    <CheckCircle size={13} className="opacity-60" />
+                    Completed ({aiTasks.filter(t => t.done).length})
+                    <ChevronDown size={13} className={`transition-transform opacity-60 ${showDoneTasks ? 'rotate-180' : ''}`} />
+                  </button>
+                  {showDoneTasks && (
+                    <div className="mt-3 space-y-1.5">
+                      {aiTasks.filter(t => t.done).map(item => (
+                        <div key={item.id} className={`flex items-center gap-3 p-3 rounded-xl ${darkMode ? 'bg-white/5' : 'bg-slate-50'} opacity-60`}>
+                          <CheckCircle size={14} className="text-teal-500 shrink-0" />
+                          <p className={`text-sm ${txt} flex-1 line-through`}>{item.text}</p>
+                          {item.due && item.due !== '—' && <span className={`text-[11px] ${subtl}`}>Due {item.due}</span>}
+                          <button onClick={() => setAiTasks(prev => prev.filter(t => t.id !== item.id))} className={`${subtl} hover:text-rose-400 transition-colors ml-auto`}><X size={12} /></button>
+                        </div>
+                      ))}
+                      <button onClick={() => setAiTasks(prev => prev.filter(t => !t.done))} className={`text-[11px] ${subtl} hover:text-rose-400 transition-colors mt-1`}>Clear all completed</button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             </DS>
           </div>
@@ -7637,6 +7745,21 @@ Other rules:
                     XLSX.writeFile(wb, `DMD-Report-${periodLabel.replace(' ','')}–${new Date().toISOString().split('T')[0]}.xlsx`);
                   }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
                     <Download size={11} /> Export
+                  </button>
+                  <button onClick={() => {
+                    const lines = [
+                      `Performance Report — Last ${periodLabel}`,
+                      `Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+                      '',
+                      ...sorted.filter(r => r.curr != null).map(r => {
+                        const trend = r.up === true ? '↑' : r.up === false ? '↓' : '→';
+                        const pct = r.pct != null ? ` (${r.pct > 0 ? '+' : ''}${r.pct.toFixed(1)}%)` : '';
+                        return `${r.icon} ${r.label}: ${r.format(r.curr)}${pct} ${trend}`;
+                      }),
+                    ];
+                    navigator.clipboard.writeText(lines.join('\n')).catch(() => {});
+                  }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-slate-600 hover:bg-slate-500 text-white transition-colors" title="Copy plain-text summary to clipboard">
+                    <Clipboard size={11} /> Copy
                   </button>
                 </div>
               </div>
@@ -10093,8 +10216,8 @@ Other rules:
           title="Captain KPI — AI Marketing Assistant"
         >
           {chatOpen ? <X size={22} className="text-white" /> : <CaptainKPI size={56} />}
-          {!chatOpen && triggeredAlerts.length > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-rose-500 text-[10px] font-bold flex items-center justify-center text-white shadow-lg">{triggeredAlerts.length}</span>
+          {!chatOpen && activeTriggeredAlerts.length > 0 && (
+            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-rose-500 text-[10px] font-bold flex items-center justify-center text-white shadow-lg">{activeTriggeredAlerts.length}</span>
           )}
         </button>
         </div>
@@ -10121,7 +10244,7 @@ Other rules:
             <>
             {/* Tab strip */}
             <div className="flex flex-shrink-0 bg-[#0D0D12] px-3 pt-1.5 gap-0.5 border-b border-white/[0.06]">
-              {[['chat','Chat'],['goals',`Goals${dmdGoals.length > 0 ? ` (${dmdGoals.length})` : ''}`],['alerts',`Alerts${triggeredAlerts.length > 0 ? ` 🔴${triggeredAlerts.length}` : dmdAlerts.length > 0 ? ` (${dmdAlerts.length})` : ''}`]].map(([tab, label]) => (
+              {[['chat','Chat'],['goals',`Goals${dmdGoals.length > 0 ? ` (${dmdGoals.length})` : ''}`],['alerts',`Alerts${activeTriggeredAlerts.length > 0 ? ` 🔴${activeTriggeredAlerts.length}` : dmdAlerts.length > 0 ? ` (${dmdAlerts.length})` : ''}`]].map(([tab, label]) => (
                 <button key={tab} onClick={() => setChatTab(tab)}
                   className={`text-[11px] px-3 py-1.5 rounded-t-lg font-semibold transition-colors ${chatTab === tab ? 'bg-[#3D2210]/80 text-[#D4AF37]' : 'text-[#8B7355] hover:text-[#C9A84C]'}`}
                 >{label}</button>
@@ -10303,10 +10426,10 @@ Other rules:
             {chatTab === 'alerts' && (
               <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ minHeight: 0 }}>
                 <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-[#C9A84C]' : 'text-[#8B6B0E]'}`}>Active Alerts</p>
-                {triggeredAlerts.length > 0 && (
+                {activeTriggeredAlerts.length > 0 && (
                   <div className="p-2 rounded-xl bg-rose-500/20 border border-rose-400/40 mb-3">
-                    <p className="text-[11px] font-bold text-rose-400">🔴 {triggeredAlerts.length} alert{triggeredAlerts.length > 1 ? 's' : ''} triggered</p>
-                    {triggeredAlerts.map((a, i) => (
+                    <p className="text-[11px] font-bold text-rose-400">🔴 {activeTriggeredAlerts.length} alert{activeTriggeredAlerts.length > 1 ? 's' : ''} triggered</p>
+                    {activeTriggeredAlerts.map((a, i) => (
                       <p key={i} className="text-[11px] text-rose-300 mt-0.5">{a.name}: {a.metric} is {a.currentValue?.toFixed?.(1) ?? a.currentValue} ({a.condition} {a.threshold}{a.unit || ''})</p>
                     ))}
                   </div>
@@ -10320,9 +10443,10 @@ Other rules:
                 ) : (
                   dmdAlerts.map((alert, ai) => {
                     const fired = triggeredAlerts.some(t => t.id === alert.id);
+                    const snoozed = snoozedAlerts[alert.id] && snoozedAlerts[alert.id] > Date.now();
                     const isEditAlert = inlineEdit?.dataKey === 'dmd_alert' && inlineEdit?.idx === ai;
                     return (
-                      <div key={ai} className={`p-2.5 rounded-xl border ${fired ? 'border-rose-400/50 bg-rose-500/10' : darkMode ? 'bg-white/10 border-transparent' : 'bg-white shadow-sm border-slate-100'}`}>
+                      <div key={ai} className={`p-2.5 rounded-xl border ${fired && !snoozed ? 'border-rose-400/50 bg-rose-500/10' : snoozed ? (darkMode ? 'bg-amber-900/10 border-amber-700/30' : 'bg-amber-50 border-amber-200') : darkMode ? 'bg-white/10 border-transparent' : 'bg-white shadow-sm border-slate-100'}`}>
                         <div className="flex justify-between items-start">
                           <div className="flex-1 pr-2">
                             {isEditAlert ? (
@@ -10335,13 +10459,36 @@ Other rules:
                             ) : (
                               <>
                                 <p className="text-[12px] font-semibold">{alert.name}</p>
-                                <p className={`text-[10px] mt-0.5 ${fired ? 'text-rose-400' : darkMode ? 'text-[#C9A84C]/70' : 'text-slate-400'}`}>
-                                  {alert.metric} {alert.condition} {alert.threshold}{alert.unit || ''} · {fired ? '🔴 TRIGGERED' : '🟢 monitoring'}
+                                <p className={`text-[10px] mt-0.5 ${fired && !snoozed ? 'text-rose-400' : snoozed ? 'text-amber-500' : darkMode ? 'text-[#C9A84C]/70' : 'text-slate-400'}`}>
+                                  {alert.metric} {alert.condition} {alert.threshold}{alert.unit || ''} · {snoozed ? '😴 Snoozed until tomorrow' : fired ? '🔴 TRIGGERED' : '🟢 monitoring'}
                                 </p>
                               </>
                             )}
                           </div>
                           <div className="flex gap-1 items-center flex-shrink-0">
+                            {fired && !snoozed && !isEditAlert && (
+                              <button
+                                title="Snooze until tomorrow"
+                                onClick={() => {
+                                  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0,0,0,0);
+                                  const updated = { ...snoozedAlerts, [alert.id]: tomorrow.getTime() };
+                                  setSnoozedAlerts(updated);
+                                  localStorage.setItem('dmd_snoozed_alerts', JSON.stringify(updated));
+                                }}
+                                className={`${darkMode ? 'text-amber-500/60 hover:text-amber-400' : 'text-amber-400 hover:text-amber-500'} transition-colors`}
+                              ><BellOff size={10}/></button>
+                            )}
+                            {snoozed && (
+                              <button
+                                title="Un-snooze"
+                                onClick={() => {
+                                  const updated = { ...snoozedAlerts }; delete updated[alert.id];
+                                  setSnoozedAlerts(updated);
+                                  localStorage.setItem('dmd_snoozed_alerts', JSON.stringify(updated));
+                                }}
+                                className="text-amber-500 hover:text-amber-400 transition-colors"
+                              ><Bell size={10}/></button>
+                            )}
                             {!isEditAlert && <button onClick={()=>setInlineEdit({dataKey:'dmd_alert',idx:ai,fields:{name:alert.name,threshold:String(alert.threshold||'')}})} className={`${darkMode?'text-[#C9A84C]/50 hover:text-[#C9A84C]':'text-slate-300 hover:text-[#C9A84C]'} transition-colors`}><Pencil size={9}/></button>}
                             <button onClick={() => { const upd = dmdAlerts.filter((_, j) => j !== ai); setDmdAlerts(upd); localStorage.setItem('dmd_alerts', JSON.stringify(upd)); setTriggeredAlerts(prev => prev.filter(t => t.id !== alert.id)); }} className="text-rose-400 hover:text-rose-500 transition-colors"><X size={11} /></button>
                           </div>
