@@ -4,6 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer as RechartsResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, ComposedChart, Legend,
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
+  LineChart, Line,
 } from 'recharts';
 import {
   TrendingUp, Users, Star, Globe, Search, MousePointer,
@@ -281,6 +282,7 @@ const App = () => {
   const [chatLoading, setChatLoading]           = useState(false);
   const [aiTasks, setAiTasks]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_tasks') || '[]'); } catch { return []; } });
   const [newTaskText, setNewTaskText]           = useState('');
+  const [pipelineForm, setPipelineForm]         = useState({ text: '', priority: 'medium', due: '' });
   const [cardOverrides, setCardOverrides]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_card_overrides') || '{}'); } catch { return {}; } });
   const [healthOverrides, setHealthOverrides]   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_health_overrides') || '{}'); } catch { return {}; } });
   const [healthEditField, setHealthEditField]   = useState(null); // key being edited
@@ -2430,6 +2432,8 @@ To propose a new tracking category (user will be asked to confirm):
 {"name":"Patient Experience Score","description":"Monthly patient satisfaction score from surveys","unit":"score (1-10)","period":"monthly"}
 </DMD_PROPOSE>
 
+⚠️ SOCIAL DATA ROUTING — MANDATORY: Any mention of social media statistics (TikTok followers, TikTok views, TikTok likes, Instagram followers/reach/impressions, Facebook fans/likes/followers, LinkedIn followers, YouTube subscribers/views, and any other social platform numbers) MUST be saved as type "social_metrics". NEVER put social stats into "ai_task", "custom_metric", or leave in conversation only. Convert to social_metrics regardless of how casually the user mentions them (e.g. "btw TikTok is at 450 followers" → emit social_metrics block immediately).
+
 Other rules:
 - Use "rows" (array) for bulk/document data; "data" (object) for single user-typed entries
 - Only include fields actually present — omit missing ones
@@ -3370,7 +3374,9 @@ Other rules:
     : surveyRawRows;
 
   // ── Upcoming Tasks ────────────────────────────────────────────────────────────
-  const pipeline = [];
+  const pipeline = aiTasks.filter(t => !t.done).map(t => ({
+    task: t.text, priority: t.priority || 'medium', due: t.due || '—', id: t.id,
+  }));
 
   const _ratingNum = _avgRating ? Number(_avgRating) : null;
 
@@ -3617,7 +3623,7 @@ Other rules:
   // ─── Drag-and-drop section ordering ─────────────────────────────────────────
   const TAB_SECTIONS = {
     overview:     ['ov-achievements','ov-action-items','ov-news','ov-destiny','ov-kpis','ov-patient-sat','ov-brand-health','ov-trend','ov-competitor','ov-historical','ov-weekly-brief','ov-nps-wix','ov-ux-content'],
-    social:       ['soc-snapshot','soc-breakdown','soc-intelligence','soc-engagement','soc-content','soc-quickadd'],
+    social:       ['soc-snapshot','soc-breakdown','soc-intelligence','soc-engagement','soc-content','soc-history','soc-quickadd'],
     seo:          ['seo-kpis','seo-keywords','seo-blog','seo-tiktok','seo-quickadd'],
     ads:          ['ads-kpis','ads-channels','ads-trend','ads-quickadd'],
     email:        ['email-kpis','email-live','email-campaigns','email-chart','email-quickadd'],
@@ -3894,8 +3900,16 @@ Other rules:
               className={`sidebar-item ${activeTab === tab.id ? 'sidebar-item-active' : ''}`}
               title={sidebarCollapsed ? tab.label : undefined}
             >
-              <tab.icon size={16} className="sidebar-icon" />
+              <div className="relative shrink-0">
+                <tab.icon size={16} className="sidebar-icon" />
+                {tab.id === 'overview' && triggeredAlerts.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-500 ring-1 ring-white dark:ring-slate-900" />
+                )}
+              </div>
               {!sidebarCollapsed && <span className="sidebar-label">{tab.label}</span>}
+              {!sidebarCollapsed && tab.id === 'overview' && triggeredAlerts.length > 0 && (
+                <span className="ml-auto shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-full bg-rose-500 text-white">{triggeredAlerts.length}</span>
+              )}
             </button>
           ))}
           {!sidebarCollapsed && <div className="sidebar-section-label" style={{ marginTop: '0.75rem' }}>Admin</div>}
@@ -4209,6 +4223,53 @@ Other rules:
             })()}
             </DS>
 
+
+            {/* ── Goals Progress ─────────────────────────────────────────── */}
+            {dmdGoals.length > 0 && (
+            <DS id="ov-goals" tab="overview">
+            <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0">
+                    <Target className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className={`font-black text-lg ${txt}`}>Goals Progress</h3>
+                    <p className={`text-xs ${subtl}`}>{dmdGoals.length} active goal{dmdGoals.length !== 1 ? 's' : ''} · set via Captain KPI</p>
+                  </div>
+                </div>
+                <button onClick={() => { setChatOpen(true); setChatTab('goals'); }} className={`text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors`}>Manage Goals →</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {dmdGoals.map(g => {
+                  const cur = Number(g.current) || 0;
+                  const tgt = Number(g.target) || 1;
+                  const pct = Math.min(100, Math.round((cur / tgt) * 100));
+                  const overdue = g.deadline && new Date(g.deadline) < new Date() && pct < 100;
+                  return (
+                    <div key={g.id} className={`p-4 rounded-2xl border ${overdue ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/10' : `${brd} bg-slate-50 dark:bg-slate-800/50`}`}>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <p className={`text-xs font-black ${txt} leading-tight`}>{g.name}</p>
+                        {overdue && <span className="text-[10px] font-black text-rose-500 shrink-0">Overdue</span>}
+                      </div>
+                      <div className="flex items-baseline gap-1 mb-2">
+                        <span className={`text-2xl font-black ${pct >= 100 ? 'text-emerald-500' : txt}`}>{cur.toLocaleString()}</span>
+                        <span className={`text-xs ${subtl}`}>/ {Number(g.target).toLocaleString()}{g.unit ? ' ' + g.unit : ''}</span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-emerald-500' : pct >= 60 ? 'bg-indigo-500' : pct >= 30 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className={`text-[11px] font-black ${pct >= 100 ? 'text-emerald-500' : subtl}`}>{pct}%{pct >= 100 ? ' ✓' : ''}</span>
+                        {g.deadline && <span className={`text-[10px] ${subtl}`}>{new Date(g.deadline).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            </DS>
+            )}
 
             {/* ── News & Insights ─────────────────────────────────────────── */}
             <DS id="ov-news" tab="overview">
@@ -5087,6 +5148,36 @@ Other rules:
                     <p className={`text-sm ${subtl} text-center py-6`}>Auto-loads every 2 hours. Click Refresh to load now.</p>
                   )}
                   {allProviders.length > 1 && (
+                    <>
+                    {/* Rating comparison bar chart */}
+                    {allProviders.some(p => p.avgRating) && (
+                      <div className="mb-6">
+                        <p className={`text-[11px] font-black uppercase ${subtl} tracking-widest mb-3`}>Google Rating Comparison</p>
+                        <div className="h-52">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                              data={allProviders.filter(p => p.avgRating).map(p => ({
+                                name: p.name.length > 18 ? p.name.slice(0, 16) + '…' : p.name,
+                                rating: Number((p.avgRating || p.google?.rating || 0).toFixed(2)),
+                                isUs: p.isUs,
+                              }))}
+                              margin={{ top: 5, right: 10, left: -30, bottom: 5 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={grid} />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10, fontWeight: 700 }} />
+                              <YAxis domain={[0, 5]} ticks={[0,1,2,3,4,5]} axisLine={false} tickLine={false} tick={{ fill: tick, fontSize: 10 }} />
+                              <Tooltip contentStyle={tipStyle} formatter={v => [v + ' ★', 'Rating']} />
+                              <Bar dataKey="rating" radius={[6,6,0,0]} barSize={36}>
+                                {allProviders.filter(p => p.avgRating).map((p, i) => (
+                                  <Cell key={`cell-${i}`} fill={p.isUs ? '#C9A84C' : (darkMode ? '#475569' : '#cbd5e1')} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <p className={`text-[10px] ${subtl} mt-1`}><span className="inline-block w-3 h-3 rounded-sm bg-[#C9A84C] mr-1 align-middle" />Destiny Springs &nbsp;<span className="inline-block w-3 h-3 rounded-sm bg-slate-400 mr-1 align-middle" />Competitors</p>
+                      </div>
+                    )}
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead>
@@ -5130,6 +5221,7 @@ Other rules:
                       </table>
                       {competitorData?.fetchedAt && <p className={`text-[10px] ${subtl} mt-3`}>Last scanned: {new Date(competitorData.fetchedAt).toLocaleString()}</p>}
                     </div>
+                    </>
                   )}
                 </div>
               );
@@ -5933,6 +6025,85 @@ Other rules:
             )}
 
             </DS>
+            {/* Social History */}
+            {(manualData.social_metrics || []).length > 0 && (() => {
+              const socHistory = manualData.social_metrics || [];
+              const socMonths = [...new Set(socHistory.map(r => r.month).filter(Boolean))].sort();
+              const socPlatforms = ['Facebook','Instagram','TikTok','LinkedIn','YouTube'];
+              const platColors = { Facebook:'#1877F2', Instagram:'#E4405F', TikTok:'#00f2ea', LinkedIn:'#0A66C2', YouTube:'#FF0000' };
+              const socChartData = socMonths.map(m => {
+                const obj = { month: m };
+                socPlatforms.forEach(p => {
+                  const row = socHistory.filter(r => r.platform === p && r.month === m).slice(-1)[0];
+                  if (row?.followers) obj[p] = Number(row.followers);
+                });
+                return obj;
+              });
+              const activePlats = socPlatforms.filter(p => socChartData.some(d => d[p] !== undefined));
+              const sortedHistory = [...socHistory].sort((a,b) => (b.month||'').localeCompare(a.month||''));
+              return (
+                <DS id="soc-history" tab="social">
+                <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
+                  <SectionHeader icon={TrendingUp} color="text-teal-500" title="Follower History" subtitle="Growth over time by platform" />
+                  {socMonths.length >= 2 && (
+                    <div className="h-64 mb-6">
+                      <RechartsResponsiveContainer width="100%" height="100%">
+                        <LineChart data={socChartData} margin={{ top:5, right:20, left:0, bottom:5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#334155' : '#e2e8f0'} />
+                          <XAxis dataKey="month" tick={{ fontSize:11, fill: darkMode?'#94a3b8':'#64748b' }} />
+                          <YAxis tick={{ fontSize:11, fill: darkMode?'#94a3b8':'#64748b' }} tickFormatter={v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v} />
+                          <Tooltip formatter={(v, name) => [v?.toLocaleString(), name]} contentStyle={{ background: darkMode?'#1e293b':'#fff', border: `1px solid ${darkMode?'#334155':'#e2e8f0'}`, borderRadius:12 }} />
+                          {activePlats.map(p => (
+                            <Line key={p} type="monotone" dataKey={p} stroke={platColors[p]} strokeWidth={2} dot={{ r:3, fill:platColors[p] }} activeDot={{ r:5 }} connectNulls />
+                          ))}
+                        </LineChart>
+                      </RechartsResponsiveContainer>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-3 mb-5">
+                    {activePlats.map(p => (
+                      <span key={p} className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: platColors[p] }} />{p}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className={`text-[11px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
+                          <th className="text-left pb-2 pr-3">Platform</th>
+                          <th className="text-left pb-2 pr-3">Month</th>
+                          <th className="text-right pb-2 px-3">Followers</th>
+                          <th className="text-right pb-2 px-3">Reach</th>
+                          <th className="text-right pb-2 px-3">Impressions</th>
+                          <th className="text-right pb-2 px-3">Engagement</th>
+                          <th className="text-right pb-2 pl-3">Clicks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedHistory.map((row, i) => (
+                          <tr key={i} className={`border-b ${brd} text-sm`}>
+                            <td className="py-2 pr-3">
+                              <span className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-200">
+                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: platColors[row.platform] || '#94a3b8' }} />{row.platform || '—'}
+                              </span>
+                            </td>
+                            <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">{row.month || '—'}</td>
+                            <td className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">{row.followers ? Number(row.followers).toLocaleString() : '—'}</td>
+                            <td className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">{row.reach ? Number(row.reach).toLocaleString() : '—'}</td>
+                            <td className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">{row.impressions ? Number(row.impressions).toLocaleString() : '—'}</td>
+                            <td className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">{row.engagement ? row.engagement + '%' : '—'}</td>
+                            <td className="py-2 pl-3 text-right text-slate-700 dark:text-slate-300">{row.clicks ? Number(row.clicks).toLocaleString() : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                </DS>
+              );
+            })()}
+
             {/* Quick-Add: Social Metrics */}
             <DS id="soc-quickadd" tab="social">
             <div className="mt-4 bg-teal-50 dark:bg-teal-950/30 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-2xl p-5">
@@ -6380,33 +6551,92 @@ Other rules:
             </DS>
             <DS id="pipe-actions" tab="pipeline">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <SectionHeader icon={CheckCircle} color="text-teal-500" title="Action Pipeline" subtitle="Upcoming Tasks & Deliverables" />
-              <div className="space-y-3">
-                {pipeline.map((item, i) => (
-                  <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
-                    <div className={`h-3 w-3 rounded-full shrink-0 ${item.priority==='high'?'bg-rose-500':item.priority==='medium'?'bg-amber-500':'bg-slate-400'}`}></div>
-                    <div className="flex-1"><p className={`text-sm font-bold ${txt}`}>{item.task}</p></div>
-                    <span className={`shrink-0 text-[13px] font-black ${subtl} uppercase`}>{item.due}</span>
-                    <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full uppercase ${item.priority==='high'?'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400':item.priority==='medium'?'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400':'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                      {item.priority}
-                    </span>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+                <SectionHeader icon={CheckCircle} color="text-teal-500" title="Action Pipeline" subtitle="Tasks from Action Items — set priority & due date here" />
+                {aiTasks.some(t => t.done) && (
+                  <button onClick={() => setAiTasks(prev => prev.filter(t => !t.done))} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear done</button>
+                )}
               </div>
-            </div>
-            <div className="bg-slate-900 dark:bg-slate-950 rounded-[2.5rem] p-8 text-white flex flex-col md:flex-row justify-between items-center gap-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-white/10 rounded-2xl"><CheckCircle className="text-teal-400" size={32} /></div>
-                <div>
-                  <h3 className="text-xl font-black uppercase tracking-tight">Google Review Pipeline</h3>
-                  <p className="text-slate-400 text-sm">Promoters identified via NPS will appear here for 5-star outreach.</p>
+              {pipeline.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <CheckCircle className={`w-10 h-10 ${subtl} opacity-20`} />
+                  <p className={`text-sm ${subtl} text-center max-w-sm`}>No pending tasks. Add one below or create tasks from the Action Items panel on the Overview tab.</p>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                {[1,2,3,4].map(i => (
-                  <div key={i} className="h-10 w-10 rounded-full border-2 border-slate-800 bg-slate-700 flex items-center justify-center text-[13px] font-black">User</div>
-                ))}
-                <div className="h-10 w-10 rounded-full bg-teal-600 border-2 border-slate-800 flex items-center justify-center text-[13px] font-black">0</div>
+              ) : (
+                <div className="space-y-2 mb-6">
+                  {pipeline.map((item) => (
+                    <div key={item.id} className={`flex items-center gap-3 p-3.5 ${rowCls} rounded-2xl`}>
+                      <button
+                        onClick={() => setAiTasks(prev => prev.map(t => t.id === item.id ? { ...t, done: true } : t))}
+                        title="Mark done"
+                        className={`h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 border-slate-400 hover:border-teal-500 transition-colors`}
+                      />
+                      <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${item.priority==='high'?'bg-rose-500':item.priority==='medium'?'bg-amber-500':'bg-slate-400'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold ${txt} truncate`}>{item.task}</p>
+                      </div>
+                      <select
+                        value={item.priority}
+                        onChange={e => setAiTasks(prev => prev.map(t => t.id === item.id ? { ...t, priority: e.target.value } : t))}
+                        className={`text-xs font-black px-2 py-1 rounded-lg border outline-none ${item.priority==='high'?'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800':item.priority==='medium'?'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800':'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'}`}
+                      >
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                      </select>
+                      <input
+                        type="date"
+                        value={item.due === '—' ? '' : item.due}
+                        onChange={e => setAiTasks(prev => prev.map(t => t.id === item.id ? { ...t, due: e.target.value || '—' } : t))}
+                        className={`text-xs px-2 py-1 rounded-lg border outline-none w-32 ${darkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-white border-slate-200 text-slate-700'}`}
+                      />
+                      <button onClick={() => setAiTasks(prev => prev.filter(t => t.id !== item.id))} className={`${subtl} hover:text-rose-400 transition-colors shrink-0`}><X size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Add new task form */}
+              <div className={`border-t ${brd} pt-4 mt-2`}>
+                <p className={`text-[11px] font-black uppercase ${subtl} tracking-widest mb-3`}>Add Task to Pipeline</p>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    type="text"
+                    placeholder="Task description…"
+                    value={pipelineForm.text}
+                    onChange={e => setPipelineForm(p => ({ ...p, text: e.target.value }))}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && pipelineForm.text.trim()) {
+                        setAiTasks(prev => [...prev, { id: Date.now() + Math.random(), text: pipelineForm.text.trim(), done: false, priority: pipelineForm.priority, due: pipelineForm.due || '—', addedAt: new Date().toISOString() }]);
+                        setPipelineForm({ text: '', priority: 'medium', due: '' });
+                      }
+                    }}
+                    className={`flex-1 min-w-[180px] text-sm px-3 py-2 rounded-xl border outline-none focus:border-teal-500 transition-colors ${darkMode ? 'bg-white/5 border-white/10 text-white placeholder-white/30' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'}`}
+                  />
+                  <select
+                    value={pipelineForm.priority}
+                    onChange={e => setPipelineForm(p => ({ ...p, priority: e.target.value }))}
+                    className={`text-sm px-3 py-2 rounded-xl border outline-none ${darkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                  >
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                  <input
+                    type="date"
+                    value={pipelineForm.due}
+                    onChange={e => setPipelineForm(p => ({ ...p, due: e.target.value }))}
+                    className={`text-sm px-3 py-2 rounded-xl border outline-none ${darkMode ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-white border-slate-200 text-slate-700'}`}
+                  />
+                  <button
+                    onClick={() => {
+                      if (!pipelineForm.text.trim()) return;
+                      setAiTasks(prev => [...prev, { id: Date.now() + Math.random(), text: pipelineForm.text.trim(), done: false, priority: pipelineForm.priority, due: pipelineForm.due || '—', addedAt: new Date().toISOString() }]);
+                      setPipelineForm({ text: '', priority: 'medium', due: '' });
+                    }}
+                    disabled={!pipelineForm.text.trim()}
+                    className="px-4 py-2 rounded-xl bg-teal-600 text-white text-sm font-black hover:bg-teal-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >Add</button>
+                </div>
               </div>
             </div>
             </DS>
