@@ -370,6 +370,12 @@ const App = () => {
   const [customMetrics, setCustomMetrics]         = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_custom_metrics') || '{}'); } catch { return {}; } });
   const [proposedCategory, setProposedCategory]   = useState(null);
   const [triggeredAlerts, setTriggeredAlerts]     = useState([]);
+  const [aiSummary, setAiSummary]               = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_ai_summary') || 'null'); } catch { return null; } });
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [aiSummaryError, setAiSummaryError]     = useState('');
+  const [showGoalForm, setShowGoalForm]         = useState(false);
+  const [goalFormState, setGoalFormState]       = useState({ name: '', target: '', unit: '', current: '', deadline: '' });
+  const [dismissedAlertBanner, setDismissedAlertBanner] = useState(false);
   const [chatFeedback, setChatFeedback]           = useState({});
   const [chatTab, setChatTab]                     = useState('chat');
 
@@ -817,6 +823,60 @@ const App = () => {
   };
 
   // ── Send weekly digest via Mailchimp ─────────────────────────────────────
+  const generateAiSummary = async () => {
+    setAiSummaryLoading(true); setAiSummaryError('');
+    try {
+      const fbF = socialAnalytics.find(s => s.platform === 'Facebook')?.followers  || 0;
+      const igF = socialAnalytics.find(s => s.platform === 'Instagram')?.followers || 0;
+      const ttF = socialAnalytics.find(s => s.platform === 'TikTok')?.followers    || 0;
+      const snap = {
+        googleRating:    metrics.googleScore,
+        websiteSessions: metrics.wixSessions,
+        totalLeads:      metrics.totalLeads,
+        costPerLead:     metrics.costPerLead,
+        emailOpenRate:   metrics.emailOpenRate,
+        nps:             metrics.nps,
+        seoAvgPosition:  metrics.gscAvgPosition,
+        fbFollowers: fbF, igFollowers: igF, ttFollowers: ttF,
+        reviewCount:     _reviews.length,
+        activeGoals:     dmdGoals.length,
+      };
+      const topKw = seoKeywords.slice(0, 5).map(k => `${k.keyword} #${k.pos}`).join(', ');
+      const prompt = `You are Captain KPI analyzing the Destiny Springs Healthcare marketing dashboard. Current metrics: ${JSON.stringify(snap)}. Top SEO keywords: ${topKw || 'none yet'}. In 3-5 concise bullet points (use \u2022 as bullet character), give a plain-English state-of-marketing briefing: what is strong, what needs attention, and one specific quick-win action. Be direct and data-driven. No intro or outro, just the bullets.`;
+      const res = await fetch('/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], maxTokens: 500 }),
+      });
+      const d = await res.json();
+      if (d.reply) {
+        const summary = { text: d.reply, generatedAt: new Date().toISOString() };
+        setAiSummary(summary);
+        localStorage.setItem('dmd_ai_summary', JSON.stringify(summary));
+      } else {
+        setAiSummaryError(d.error || 'No response from AI');
+      }
+    } catch(e) { setAiSummaryError(e.message); }
+    setAiSummaryLoading(false);
+  };
+
+  const addGoalFromForm = () => {
+    if (!goalFormState.name.trim() || !goalFormState.target) return;
+    const newGoal = {
+      id: Date.now(),
+      name: goalFormState.name.trim(),
+      target: Number(goalFormState.target),
+      unit: goalFormState.unit.trim() || '',
+      current: Number(goalFormState.current) || 0,
+      deadline: goalFormState.deadline || '',
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...dmdGoals, newGoal];
+    setDmdGoals(updated);
+    localStorage.setItem('dmd_goals', JSON.stringify(updated));
+    setGoalFormState({ name: '', target: '', unit: '', current: '', deadline: '' });
+    setShowGoalForm(false);
+  };
+
   const sendWeeklyDigest = async () => {
     const mc = connections['Mailchimp'];
     if (!mc?.connected || !mc?.apiKey) {
@@ -3697,7 +3757,7 @@ Other rules:
 
   // ─── Drag-and-drop section ordering ─────────────────────────────────────────
   const TAB_SECTIONS = {
-    overview:     ['ov-achievements','ov-action-items','ov-news','ov-destiny','ov-kpis','ov-patient-sat','ov-brand-health','ov-trend','ov-competitor','ov-historical','ov-weekly-brief','ov-nps-wix','ov-ux-content'],
+    overview:     ['ov-achievements','ov-action-items','ov-ai-summary','ov-goals','ov-news','ov-destiny','ov-kpis','ov-patient-sat','ov-brand-health','ov-trend','ov-competitor','ov-historical','ov-weekly-brief','ov-nps-wix','ov-ux-content'],
     social:       ['soc-snapshot','soc-breakdown','soc-intelligence','soc-engagement','soc-content','soc-history','soc-quickadd'],
     seo:          ['seo-kpis','seo-keywords','seo-blog','seo-tiktok','seo-quickadd'],
     ads:          ['ads-kpis','ads-channels','ads-trend','ads-quickadd'],
@@ -4168,6 +4228,18 @@ Other rules:
 
 {activeTab === 'overview' && (
           <div className="flex flex-col">
+            {/* ── Triggered Alerts Banner ───────────────────────────────── */}
+            {activeTriggeredAlerts.length > 0 && !dismissedAlertBanner && (
+              <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl mb-6 border ${darkMode ? 'bg-rose-900/20 border-rose-700/40' : 'bg-rose-50 border-rose-200'}`}>
+                <AlertTriangle size={16} className="text-rose-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black text-rose-500">{activeTriggeredAlerts.length} KPI alert{activeTriggeredAlerts.length > 1 ? 's' : ''} triggered</p>
+                  <p className={`text-xs ${subtl} truncate`}>{activeTriggeredAlerts.map(a => a.name).join(' · ')}</p>
+                </div>
+                <button onClick={() => { setChatOpen(true); setChatTab('alerts'); }} className="shrink-0 px-3 py-1.5 rounded-xl bg-rose-500 text-white text-xs font-black hover:bg-rose-400 transition-colors">View</button>
+                <button onClick={() => setDismissedAlertBanner(true)} className={`shrink-0 ${subtl} hover:text-rose-400 transition-colors`}><X size={14} /></button>
+              </div>
+            )}
             {/* ── Achievements Showcase ─────────────────────────────────── */}
             <DS id="ov-achievements" tab="overview">
             <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
@@ -4299,9 +4371,59 @@ Other rules:
             })()}
             </DS>
 
+            {/* ── AI Marketing Briefing ─────────────────────────────────── */}
+            <DS id="ov-ai-summary" tab="overview">
+            <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#C9A84C] to-[#8B6B0E] flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className={`font-black text-lg ${txt}`}>AI Marketing Briefing</h3>
+                    <p className={`text-xs ${subtl}`}>
+                      {aiSummary?.generatedAt
+                        ? `Last updated ${new Date(aiSummary.generatedAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`
+                        : "One-click snapshot of what's working and what needs attention"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {aiSummary && (
+                    <button onClick={() => { setAiSummary(null); localStorage.removeItem('dmd_ai_summary'); }} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear</button>
+                  )}
+                  <button
+                    onClick={generateAiSummary}
+                    disabled={aiSummaryLoading}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#8B6B0E] to-[#C9A84C] hover:from-[#C9A84C] hover:to-[#D4AF37] text-white text-sm font-black disabled:opacity-40 transition-all"
+                  >
+                    <Zap size={13} className={aiSummaryLoading ? 'animate-pulse' : ''} />
+                    {aiSummaryLoading ? 'Analyzing…' : aiSummary ? 'Refresh' : 'Generate Briefing'}
+                  </button>
+                </div>
+              </div>
+              {aiSummaryError && <p className="text-xs text-rose-400 mb-3">{aiSummaryError}</p>}
+              {aiSummaryLoading && (
+                <div className="flex items-center gap-3 py-4">
+                  <div className="w-5 h-5 border-2 border-[#C9A84C] border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <p className={`text-sm ${subtl}`}>Captain KPI is analyzing your metrics…</p>
+                </div>
+              )}
+              {!aiSummary && !aiSummaryLoading && !aiSummaryError && (
+                <div className="flex flex-col items-center justify-center py-6 gap-2">
+                  <Bot className={`w-10 h-10 ${subtl} opacity-30`} />
+                  <p className={`text-sm ${subtl} text-center max-w-sm`}>Captain KPI will analyze your current data and give you a plain-English status report — what's strong, what's at risk, and one quick win to act on today.</p>
+                </div>
+              )}
+              {aiSummary && !aiSummaryLoading && (
+                <div className={`rounded-2xl p-4 ${darkMode ? 'bg-[#C9A84C]/5 border border-[#C9A84C]/15' : 'bg-amber-50/80 border border-amber-200/60'}`}>
+                  <ChatMarkdown content={aiSummary.text} className={`text-sm ${txt} leading-relaxed`} />
+                </div>
+              )}
+            </div>
+            </DS>
 
             {/* ── Goals Progress ─────────────────────────────────────────── */}
-            {dmdGoals.length > 0 && (
             <DS id="ov-goals" tab="overview">
             <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -4311,11 +4433,45 @@ Other rules:
                   </div>
                   <div>
                     <h3 className={`font-black text-lg ${txt}`}>Goals Progress</h3>
-                    <p className={`text-xs ${subtl}`}>{dmdGoals.length} active goal{dmdGoals.length !== 1 ? 's' : ''} · set via Captain KPI</p>
+                    <p className={`text-xs ${subtl}`}>
+                      {dmdGoals.length > 0 ? `${dmdGoals.length} active goal${dmdGoals.length !== 1 ? 's' : ''}` : 'Track monthly KPI targets with progress bars'}
+                    </p>
                   </div>
                 </div>
-                <button onClick={() => { setChatOpen(true); setChatTab('goals'); }} className={`text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors`}>Manage Goals →</button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowGoalForm(p => !p)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-colors ${showGoalForm ? 'bg-indigo-600 text-white' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-900/60'}`}
+                  ><Plus size={12} />{showGoalForm ? 'Cancel' : 'Add Goal'}</button>
+                  {dmdGoals.length > 0 && <button onClick={() => { setChatOpen(true); setChatTab('goals'); }} className={`text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors`}>Manage →</button>}
+                </div>
               </div>
+              {showGoalForm && (
+                <div className={`mb-5 p-4 rounded-2xl border space-y-3 ${darkMode ? 'bg-indigo-900/10 border-indigo-700/30' : 'bg-indigo-50 border-indigo-100'}`}>
+                  <p className={`text-[11px] font-black uppercase tracking-widest ${subtl}`}>New Goal</p>
+                  <input
+                    type="text" placeholder="Goal name (e.g. Reach 500 Google reviews)"
+                    value={goalFormState.name}
+                    onChange={e => setGoalFormState(p => ({ ...p, name: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && addGoalFromForm()}
+                    className={`w-full px-3 py-2 rounded-xl border text-sm outline-none transition-colors ${darkMode ? 'bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-indigo-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-indigo-400'}`}
+                  />
+                  <div className="flex gap-2 flex-wrap">
+                    <input type="number" placeholder="Target" value={goalFormState.target} onChange={e => setGoalFormState(p => ({ ...p, target: e.target.value }))} className={`flex-1 min-w-[80px] px-3 py-2 rounded-xl border text-sm outline-none ${darkMode ? 'bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-indigo-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-indigo-400'}`} />
+                    <input type="text" placeholder="Unit (reviews, %…)" value={goalFormState.unit} onChange={e => setGoalFormState(p => ({ ...p, unit: e.target.value }))} className={`flex-1 min-w-[120px] px-3 py-2 rounded-xl border text-sm outline-none ${darkMode ? 'bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-indigo-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-indigo-400'}`} />
+                    <input type="number" placeholder="Current" value={goalFormState.current} onChange={e => setGoalFormState(p => ({ ...p, current: e.target.value }))} className={`flex-1 min-w-[80px] px-3 py-2 rounded-xl border text-sm outline-none ${darkMode ? 'bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-indigo-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-indigo-400'}`} />
+                    <input type="date" value={goalFormState.deadline} onChange={e => setGoalFormState(p => ({ ...p, deadline: e.target.value }))} className={`flex-1 min-w-[140px] px-3 py-2 rounded-xl border text-sm outline-none ${darkMode ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-white border-slate-200 text-slate-800 focus:border-indigo-400'}`} />
+                  </div>
+                  <button onClick={addGoalFromForm} disabled={!goalFormState.name.trim() || !goalFormState.target} className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black disabled:opacity-40 transition-colors">Add Goal</button>
+                </div>
+              )}
+              {dmdGoals.length === 0 && !showGoalForm && (
+                <div className="flex flex-col items-center justify-center py-6 gap-2">
+                  <Target className={`w-10 h-10 ${subtl} opacity-30`} />
+                  <p className={`text-sm ${subtl} text-center max-w-sm`}>Set monthly targets for reviews, leads, followers, or any KPI. Click "Add Goal" above, or ask Captain KPI: "Set a goal to reach 500 Google reviews by Q4".</p>
+                </div>
+              )}
+              {dmdGoals.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {dmdGoals.map(g => {
                   const cur = Number(g.current) || 0;
@@ -4326,7 +4482,13 @@ Other rules:
                     <div key={g.id} className={`p-4 rounded-2xl border ${overdue ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/10' : `${brd} bg-slate-50 dark:bg-slate-800/50`}`}>
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <p className={`text-xs font-black ${txt} leading-tight`}>{g.name}</p>
-                        {overdue && <span className="text-[10px] font-black text-rose-500 shrink-0">Overdue</span>}
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {overdue && <span className="text-[10px] font-black text-rose-500">Overdue</span>}
+                          <button
+                            onClick={() => { const upd = dmdGoals.filter(x => x.id !== g.id); setDmdGoals(upd); localStorage.setItem('dmd_goals', JSON.stringify(upd)); }}
+                            className={`${subtl} hover:text-rose-400 transition-colors`}
+                          ><X size={12} /></button>
+                        </div>
                       </div>
                       <div className="flex items-baseline gap-1 mb-2">
                         <span className={`text-2xl font-black ${pct >= 100 ? 'text-emerald-500' : txt}`}>{cur.toLocaleString()}</span>
@@ -4343,9 +4505,9 @@ Other rules:
                   );
                 })}
               </div>
+              )}
             </div>
             </DS>
-            )}
 
             {/* ── News & Insights ─────────────────────────────────────────── */}
             <DS id="ov-news" tab="overview">
@@ -5354,6 +5516,46 @@ Other rules:
                       </table>
                       {competitorData?.fetchedAt && <p className={`text-[10px] ${subtl} mt-3`}>Last scanned: {new Date(competitorData.fetchedAt).toLocaleString()}</p>}
                     </div>
+                    {/* ── Gap vs Leader ── */}
+                    {(() => {
+                      const leader = allProviders.filter(p => !p.isUs && p.avgRating != null).sort((a, b) => b.avgRating - a.avgRating)[0];
+                      const us = allProviders.find(p => p.isUs);
+                      if (!leader || !us) return null;
+                      const ratingGap = leader.avgRating != null && us.avgRating != null ? Number((leader.avgRating - us.avgRating).toFixed(1)) : null;
+                      const dsReviews = us.totalReviews || us.google?.reviewCount || 0;
+                      const leaderReviews = leader.totalReviews || leader.google?.reviewCount || 0;
+                      const reviewGap = dsReviews > 0 && leaderReviews > 0 ? Math.max(0, leaderReviews - dsReviews) : null;
+                      const ratedProviders = allProviders.filter(p => p.avgRating != null);
+                      const dsRankIdx = ratedProviders.findIndex(p => p.isUs);
+                      return (
+                        <div className={`mt-5 pt-5 border-t ${brd}`}>
+                          <p className={`text-[11px] font-black uppercase ${subtl} tracking-widest mb-3`}>Gap vs. Leader — {leader.name}</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {ratingGap != null && (
+                              <div className={`p-3 rounded-2xl ${ratingGap <= 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-rose-50 dark:bg-rose-900/20'}`}>
+                                <p className={`text-[11px] ${subtl} mb-0.5`}>Rating Gap</p>
+                                <p className={`text-xl font-black ${ratingGap <= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{ratingGap <= 0 ? '✓ Ahead' : `-${ratingGap} ★`}</p>
+                                <p className={`text-[10px] ${subtl}`}>You {us.avgRating?.toFixed(1)}★ vs {leader.avgRating?.toFixed(1)}★</p>
+                              </div>
+                            )}
+                            {reviewGap != null && (
+                              <div className={`p-3 rounded-2xl ${reviewGap === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-amber-50 dark:bg-amber-900/20'}`}>
+                                <p className={`text-[11px] ${subtl} mb-0.5`}>Reviews Needed</p>
+                                <p className={`text-xl font-black ${reviewGap === 0 ? 'text-emerald-500' : 'text-amber-500'}`}>{reviewGap === 0 ? '✓ Matched' : `+${reviewGap.toLocaleString()}`}</p>
+                                <p className={`text-[10px] ${subtl}`}>to match {leader.name.split(' ')[0]}</p>
+                              </div>
+                            )}
+                            <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20">
+                              <p className={`text-[11px] ${subtl} mb-0.5`}>Your Rank</p>
+                              <p className="text-xl font-black text-indigo-500">
+                                {dsRankIdx >= 0 ? `#${dsRankIdx + 1} / ${ratedProviders.length}` : '—'}
+                              </p>
+                              <p className={`text-[10px] ${subtl}`}>by Google rating</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                     </>
                   )}
                 </div>
