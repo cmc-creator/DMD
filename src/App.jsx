@@ -282,6 +282,8 @@ const App = () => {
   const [aiTasks, setAiTasks]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_tasks') || '[]'); } catch { return []; } });
   const [newTaskText, setNewTaskText]           = useState('');
   const [cardOverrides, setCardOverrides]       = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_card_overrides') || '{}'); } catch { return {}; } });
+  const [healthOverrides, setHealthOverrides]   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_health_overrides') || '{}'); } catch { return {}; } });
+  const [healthEditField, setHealthEditField]   = useState(null); // key being edited
   const [overridePanelOpen, setOverridePanelOpen] = useState(false);
   const [widgetOrder, setWidgetOrder]           = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_widget_order') || '{}'); } catch { return {}; } });
   const [layoutMode, setLayoutMode]             = useState(false);
@@ -4881,22 +4883,36 @@ Other rules:
             {/* ── Brand Health Score ────────────────────────────────────── */}
             <DS id="ov-brand-health" tab="overview">
             {!overviewHidden.includes('health') && (() => {
-              const dsRating  = destinyData?.google?.rating ?? destinyData?.bestRating?.rating ?? null;
-              const dsReviews = destinyData?.google?.reviewCount ?? destinyData?.bestRating?.reviewCount ?? null;
-              const socials   = ['facebook','instagram','tiktok','linkedin'].filter(p => destinyData?.[p] && !destinyData[p].error).length;
-              const wq        = destinyData?.website?.services?.length || 0;
-              const wc        = destinyData?.website?.wordCount || 0;
+              const dsRating  = healthOverrides.rating   != null ? Number(healthOverrides.rating)  : (destinyData?.google?.rating ?? destinyData?.bestRating?.rating ?? null);
+              const dsReviews = healthOverrides.reviews  != null ? Number(healthOverrides.reviews) : (destinyData?.google?.reviewCount ?? destinyData?.bestRating?.reviewCount ?? null);
+              const socials   = healthOverrides.socials  != null ? Number(healthOverrides.socials)  : ['facebook','instagram','tiktok','linkedin'].filter(p => destinyData?.[p] && !destinyData[p].error).length;
+              const wq        = healthOverrides.services != null ? Number(healthOverrides.services) : (destinyData?.website?.services?.length || 0);
+              const wc        = healthOverrides.words    != null ? Number(healthOverrides.words)    : (destinyData?.website?.wordCount || 0);
               const comps     = competitorData?.competitors || [];
+              const compTotal = healthOverrides.compTotal != null ? Number(healthOverrides.compTotal) : null;
+              const compRank  = healthOverrides.compRank  != null ? Number(healthOverrides.compRank)  : null;
               const allR      = [...comps.map(c => c.avgRating).filter(Boolean), ...(dsRating ? [dsRating] : [])].sort((a,b) => b-a);
-              const dsRank    = dsRating ? (allR.indexOf(dsRating) < 0 ? allR.findIndex(r => r <= dsRating) + 1 : allR.indexOf(dsRating) + 1) || 1 : null;
-              const totalC    = allR.length;
+              const dsRankCalc= dsRating ? (allR.indexOf(dsRating) < 0 ? allR.findIndex(r => r <= dsRating) + 1 : allR.indexOf(dsRating) + 1) || 1 : null;
+              const totalC    = compTotal ?? allR.length;
+              const dsRank    = compRank ?? dsRankCalc;
+              const saveHealthOverride = (key, val) => {
+                const updated = { ...healthOverrides, [key]: val };
+                setHealthOverrides(updated);
+                localStorage.setItem('dmd_health_overrides', JSON.stringify(updated));
+              };
+              const clearHealthOverride = (key) => {
+                const updated = { ...healthOverrides };
+                delete updated[key];
+                setHealthOverrides(updated);
+                localStorage.setItem('dmd_health_overrides', JSON.stringify(updated));
+              };
               const breakdown = [];
               let score = 0;
-              if (dsRating) { const p=Math.round((dsRating/5)*25); score+=p; breakdown.push({label:'Star Rating',pts:p,max:25,detail:`${dsRating}/5.0 ★`,color:'bg-amber-500'}); }
-              if (dsReviews) { const p=Math.min(20,Math.round((Math.min(dsReviews,200)/200)*20)); score+=p; breakdown.push({label:'Review Volume',pts:p,max:20,detail:`${dsReviews.toLocaleString()} reviews`,color:'bg-blue-500'}); }
-              const sp=Math.round((socials/4)*20); score+=sp; breakdown.push({label:'Social Presence',pts:sp,max:20,detail:`${socials}/4 platforms active`,color:'bg-pink-500'});
-              const wp=Math.min(20,Math.round((Math.min(wq,10)/10)*15)+(wc>2000?5:Math.round((wc/2000)*5))); score+=wp; breakdown.push({label:'Website Quality',pts:wp,max:20,detail:`${wq} services detected · ${wc.toLocaleString()} words`,color:'bg-teal-500'});
-              if (dsRank&&totalC>1){const p=Math.round(((totalC-dsRank)/(totalC-1))*15);score+=p;breakdown.push({label:'Competitive Rank',pts:p,max:15,detail:`#${dsRank} of ${totalC} providers`,color:'bg-purple-500'});}
+              if (dsRating) { const p=Math.round((dsRating/5)*25); score+=p; breakdown.push({label:'Star Rating',pts:p,max:25,detail:`${dsRating}/5.0 ★`,color:'bg-amber-500',overrideKey:'rating',overrideVal:healthOverrides.rating,currentRaw:dsRating}); }
+              if (dsReviews) { const p=Math.min(20,Math.round((Math.min(dsReviews,200)/200)*20)); score+=p; breakdown.push({label:'Review Volume',pts:p,max:20,detail:`${dsReviews.toLocaleString()} reviews`,color:'bg-blue-500',overrideKey:'reviews',overrideVal:healthOverrides.reviews,currentRaw:dsReviews}); }
+              const sp=Math.round((socials/4)*20); score+=sp; breakdown.push({label:'Social Presence',pts:sp,max:20,detail:`${socials}/4 platforms active`,color:'bg-pink-500',overrideKey:'socials',overrideVal:healthOverrides.socials,currentRaw:socials});
+              const wp=Math.min(20,Math.round((Math.min(wq,10)/10)*15)+(wc>2000?5:Math.round((wc/2000)*5))); score+=wp; breakdown.push({label:'Website Quality',pts:wp,max:20,detail:`${wq} services detected · ${wc.toLocaleString()} words`,color:'bg-teal-500',overrideKey:'services',overrideVal:healthOverrides.services,currentRaw:wq,overrideKey2:'words',overrideVal2:healthOverrides.words,currentRaw2:wc});
+              if (dsRank&&totalC>1){const p=Math.round(((totalC-dsRank)/(totalC-1))*15);score+=p;breakdown.push({label:'Competitive Rank',pts:p,max:15,detail:`#${dsRank} of ${totalC} providers`,color:'bg-purple-500',overrideKey:'compRank',overrideVal:healthOverrides.compRank,currentRaw:dsRank,overrideKey2:'compTotal',overrideVal2:healthOverrides.compTotal,currentRaw2:totalC});}
               const maxPs = breakdown.reduce((s,b)=>s+b.max,0)||100;
               const healthScore = breakdown.length ? Math.min(100,Math.round((score/maxPs)*100)) : null;
               const grade = healthScore!=null ? (healthScore>=85?'A':healthScore>=70?'B':healthScore>=55?'C':healthScore>=40?'D':'F') : '—';
@@ -4917,6 +4933,9 @@ Other rules:
                       <span className={`text-6xl font-black ${gradeColor} leading-none`}>{grade}</span>
                       {healthScore != null && <span className={`text-2xl font-black ${gradeColor} mt-1`}>{healthScore}<span className={`text-sm font-normal ${subtl}`}>/100</span></span>}
                       <span className={`text-[11px] font-black ${subtl} uppercase tracking-wider mt-2`}>Brand Health</span>
+                      {Object.keys(healthOverrides).length > 0 && (
+                        <button onClick={()=>{setHealthOverrides({});localStorage.removeItem('dmd_health_overrides');}} className="text-[10px] text-rose-400 hover:text-rose-300 mt-2 transition-colors">Clear overrides</button>
+                      )}
                     </div>
                     {/* Breakdown bars */}
                     <div className="flex-1 min-w-0">
@@ -4929,8 +4948,35 @@ Other rules:
                             <div key={b.label}>
                               <div className="flex justify-between items-center mb-1">
                                 <span className={`text-xs font-black ${txt2}`}>{b.label}</span>
-                                <span className={`text-xs font-black ${txt}`}>{b.pts}<span className={`font-normal ${subtl}`}>/{b.max}</span></span>
+                                <div className="flex items-center gap-1.5">
+                                  {b.overrideVal != null && <span className="text-[10px] text-amber-400 font-black">overridden</span>}
+                                  <button onClick={()=>setHealthEditField(healthEditField===b.overrideKey?null:b.overrideKey)} className={`${subtl} hover:text-[#C9A84C] transition-colors`} title="Override value"><Pencil size={11}/></button>
+                                  {b.overrideVal != null && <button onClick={()=>{clearHealthOverride(b.overrideKey);if(b.overrideKey2)clearHealthOverride(b.overrideKey2);}} className="text-rose-400 hover:text-rose-300 transition-colors text-[10px]">✕</button>}
+                                  <span className={`text-xs font-black ${txt}`}>{b.pts}<span className={`font-normal ${subtl}`}>/{b.max}</span></span>
+                                </div>
                               </div>
+                              {healthEditField === b.overrideKey && (
+                                <div className="flex flex-wrap items-center gap-1.5 mb-1.5 p-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                  <span className={`text-[10px] font-black text-amber-600 dark:text-amber-400 w-full mb-0.5`}>Override "{b.label}" inputs:</span>
+                                  <input type="number" step="0.1" className={`px-2 py-1 text-xs rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-24`}
+                                    defaultValue={b.currentRaw}
+                                    placeholder={b.label==='Star Rating'?'Rating (0-5)':b.label==='Review Volume'?'Review count':b.label==='Social Presence'?'Platforms (0-4)':'Services'}
+                                    id={`ho-${b.overrideKey}`} />
+                                  {b.overrideKey2 && (
+                                    <input type="number" className={`px-2 py-1 text-xs rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-28`}
+                                      defaultValue={b.currentRaw2}
+                                      placeholder={b.label==='Website Quality'?'Word count':b.label==='Competitive Rank'?'Total competitors':''}
+                                      id={`ho-${b.overrideKey2}`} />
+                                  )}
+                                  <button onClick={()=>{
+                                    const v1 = document.getElementById(`ho-${b.overrideKey}`)?.value;
+                                    if(v1!=='' && v1!=null) saveHealthOverride(b.overrideKey, v1);
+                                    if(b.overrideKey2){const v2=document.getElementById(`ho-${b.overrideKey2}`)?.value;if(v2!==''&&v2!=null)saveHealthOverride(b.overrideKey2,v2);}
+                                    setHealthEditField(null);
+                                  }} className="px-2 py-1 text-xs font-black rounded-lg bg-[#C9A84C] text-slate-900 hover:bg-amber-400">Apply</button>
+                                  <button onClick={()=>setHealthEditField(null)} className={`px-2 py-1 text-xs font-black rounded-lg ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>Cancel</button>
+                                </div>
+                              )}
                               <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                 <div className={`h-full rounded-full ${b.color}`} style={{ width: `${Math.round((b.pts/b.max)*100)}%`, transition: 'width 0.6s ease' }} />
                               </div>
