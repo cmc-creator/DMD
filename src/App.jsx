@@ -354,6 +354,7 @@ const App = () => {
   const [editingInsightId, setEditingInsightId]   = useState(null);
   const [editingInsightTitle, setEditingInsightTitle] = useState('');
   const [editingInsightBody,  setEditingInsightBody]  = useState('');
+  const [inlineEdit, setInlineEdit] = useState(null); // { dataKey, idx, fields } | { dataKey:'content', idx, fields } | { dataKey:'custom_metric', idx, cat, fields }
   const [customMetrics, setCustomMetrics]         = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_custom_metrics') || '{}'); } catch { return {}; } });
   const [proposedCategory, setProposedCategory]   = useState(null);
   const [triggeredAlerts, setTriggeredAlerts]     = useState([]);
@@ -1219,6 +1220,33 @@ const App = () => {
     setConnectModal(null);
     setConnectFormData({});
     setConnectError(null);
+  };
+
+  // ── Inline row edit save ──────────────────────────────────────────────────
+  const saveInlineEdit = () => {
+    if (!inlineEdit) return;
+    const { dataKey, idx, fields } = inlineEdit;
+    if (dataKey === 'content') {
+      const updated = contentItems.map((c, i) => i === idx ? { ...c, ...fields } : c);
+      setContentItems(updated);
+      localStorage.setItem('dmd_content', JSON.stringify(updated));
+    } else if (dataKey === 'custom_metric') {
+      const { _cat, ...rest } = fields;
+      setCustomMetrics(prev => {
+        const updated = { ...prev, [_cat]: (prev[_cat] || []).map((r, i) => i === idx ? { ...r, ...rest } : r) };
+        localStorage.setItem('dmd_custom_metrics', JSON.stringify(updated));
+        return updated;
+      });
+    } else {
+      setManualData(prev => {
+        const arr = [...(prev[dataKey] || [])];
+        arr[idx] = { ...arr[idx], ...fields };
+        const updated = { ...prev, [dataKey]: arr };
+        localStorage.setItem('dmd_manual', JSON.stringify(updated));
+        return updated;
+      });
+    }
+    setInlineEdit(null);
   };
 
   const saveManualEntry = (type) => {
@@ -5886,22 +5914,38 @@ Other rules:
                       <th className="text-center pb-3 px-4">Rank</th>
                       <th className="text-center pb-3 px-4">Change</th>
                       <th className="text-right pb-3 pl-4">Volume / Mo</th>
+                      <th className="pb-3 pl-2"></th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${divdr}`}>
-                    {seoKeywords.map(kw => (
-                      <tr key={kw.keyword}>
-                        <td className={`py-3 pr-4 text-sm font-bold ${txt}`}>{kw.keyword}</td>
-                        <td className="py-3 px-4 text-center">
-                          <span className="bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-xs font-black px-3 py-1 rounded-full">#{kw.rank}</span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className={`text-xs font-black px-2 py-1 rounded-full ${kw.change > 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'}`}>
-                            {kw.change > 0 ? `? ${kw.change}` : `? ${Math.abs(kw.change)}`}
-                          </span>
-                        </td>
-                        <td className={`py-3 pl-4 text-right text-sm font-bold ${txt2}`}>{kw.volume.toLocaleString()}</td>
-                      </tr>
+                    {seoKeywords.map((kw, i) => (
+                      inlineEdit?.dataKey === 'seo_rankings' && inlineEdit?.idx === i ? (
+                        <tr key={kw.keyword}>
+                          <td colSpan={5} className="py-2 px-1">
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-40`} value={inlineEdit.fields.keyword||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,keyword:e.target.value}}))} placeholder="Keyword" />
+                              <input type="number" className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-16`} value={inlineEdit.fields.rank||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,rank:e.target.value}}))} placeholder="Rank" />
+                              <input type="number" className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-24`} value={inlineEdit.fields.searchVol||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,searchVol:e.target.value}}))} placeholder="Volume" />
+                              <button onClick={saveInlineEdit} className="px-3 py-1 text-xs font-black rounded-lg bg-[#C9A84C] text-slate-900 hover:bg-amber-400">Save</button>
+                              <button onClick={()=>setInlineEdit(null)} className={`px-3 py-1 text-xs font-black rounded-lg ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>Cancel</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={kw.keyword}>
+                          <td className={`py-3 pr-4 text-sm font-bold ${txt}`}>{kw.keyword}</td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-xs font-black px-3 py-1 rounded-full">#{kw.rank}</span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`text-xs font-black px-2 py-1 rounded-full ${kw.change > 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'}`}>
+                              {kw.change > 0 ? `▲ ${kw.change}` : `▼ ${Math.abs(kw.change)}`}
+                            </span>
+                          </td>
+                          <td className={`py-3 pl-4 text-right text-sm font-bold ${txt2}`}>{kw.volume.toLocaleString()}</td>
+                          <td className="py-3 pl-2"><button onClick={()=>setInlineEdit({dataKey:'seo_rankings',idx:i,fields:{keyword:kw.keyword,rank:String(kw.rank),prevRank:String(kw.rank-kw.change),searchVol:String(kw.volume)}})} className={`${subtl} hover:text-[#C9A84C] transition-colors`}><Pencil size={12}/></button></td>
+                        </tr>
+                      )
                     ))}
                   </tbody>
                 </table>
@@ -5994,25 +6038,41 @@ Other rules:
                 <table className="w-full">
                   <thead>
                     <tr className={`text-[13px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
-                      {['Channel','Spend','Impressions','Clicks','Leads','CPL'].map(h => (
+                      {['Channel','Spend','Impressions','Clicks','Leads','CPL',''].map(h => (
                         <th key={h} className={`${h==='Channel'?'text-left':'text-right'} pb-3 px-4`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${divdr}`}>
                     {adPerformance.length === 0 ? (
-                      <tr><td colSpan={6} className="py-8 text-center text-sm text-slate-400">No ad data yet — add an entry below</td></tr>
-                    ) : adPerformance.map(ad => (
-                      <tr key={ad.platform}>
-                        <td className={`py-3 pr-4 text-sm font-bold ${txt}`}>{ad.platform}</td>
-                        <td className={`py-3 px-4 text-right text-sm font-bold ${txt2}`}>${ad.spend.toLocaleString()}</td>
-                        <td className={`py-3 px-4 text-right text-sm font-bold ${txt2}`}>{ad.impressions.toLocaleString()}</td>
-                        <td className={`py-3 px-4 text-right text-sm font-bold ${txt2}`}>{ad.clicks.toLocaleString()}</td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-xs font-black px-3 py-1 rounded-full">{ad.leads}</span>
-                        </td>
-                        <td className={`py-3 pl-4 text-right text-sm font-black ${txt}`}>{ad.cpl}</td>
-                      </tr>
+                      <tr><td colSpan={7} className="py-8 text-center text-sm text-slate-400">No ad data yet — add an entry below</td></tr>
+                    ) : adPerformance.map((ad, i) => (
+                      inlineEdit?.dataKey === 'ad_spend' && inlineEdit?.idx === i ? (
+                        <tr key={ad.platform}>
+                          <td colSpan={7} className="py-2 px-1">
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-32`} value={inlineEdit.fields.platform||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,platform:e.target.value}}))} placeholder="Platform" />
+                              {[['spend','Spend $','w-20'],['impressions','Impressions','w-24'],['clicks','Clicks','w-20'],['leads','Leads','w-16']].map(([k,lbl,w])=>(
+                                <input key={k} type="number" className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] ${w}`} value={inlineEdit.fields[k]||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,[k]:e.target.value}}))} placeholder={lbl} />
+                              ))}
+                              <button onClick={saveInlineEdit} className="px-3 py-1 text-xs font-black rounded-lg bg-[#C9A84C] text-slate-900 hover:bg-amber-400">Save</button>
+                              <button onClick={()=>setInlineEdit(null)} className={`px-3 py-1 text-xs font-black rounded-lg ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>Cancel</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={ad.platform}>
+                          <td className={`py-3 pr-4 text-sm font-bold ${txt}`}>{ad.platform}</td>
+                          <td className={`py-3 px-4 text-right text-sm font-bold ${txt2}`}>${ad.spend.toLocaleString()}</td>
+                          <td className={`py-3 px-4 text-right text-sm font-bold ${txt2}`}>{ad.impressions.toLocaleString()}</td>
+                          <td className={`py-3 px-4 text-right text-sm font-bold ${txt2}`}>{ad.clicks.toLocaleString()}</td>
+                          <td className="py-3 px-4 text-right">
+                            <span className="bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-xs font-black px-3 py-1 rounded-full">{ad.leads}</span>
+                          </td>
+                          <td className={`py-3 pl-4 text-right text-sm font-black ${txt}`}>{ad.cpl}</td>
+                          <td className="py-3 pl-2"><button onClick={()=>setInlineEdit({dataKey:'ad_spend',idx:i,fields:{platform:ad.platform,spend:String(ad.spend),impressions:String(ad.impressions),clicks:String(ad.clicks),leads:String(ad.leads)}})} className={`${subtl} hover:text-[#C9A84C] transition-colors`}><Pencil size={12}/></button></td>
+                        </tr>
+                      )
                     ))}
                   </tbody>
                 </table>
@@ -6129,20 +6189,36 @@ Other rules:
                 <table className="w-full">
                   <thead>
                     <tr className={`text-[13px] font-black ${subtl} uppercase tracking-widest border-b ${brd}`}>
-                      {['Campaign','Sent','Opened','Clicked','Converted'].map(h => (
+                      {['Campaign','Sent','Opened','Clicked','Converted',''].map(h => (
                         <th key={h} className={`${h==='Campaign'?'text-left':'text-right'} pb-3 px-4`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${divdr}`}>
-                    {emailCampaigns.map(c => (
-                      <tr key={c.campaign}>
-                        <td className={`py-3 pr-4 text-sm font-bold ${txt}`}>{c.campaign}</td>
-                        <td className={`py-3 px-4 text-right text-sm font-bold ${txt2}`}>{c.sent.toLocaleString()}</td>
-                        <td className="py-3 px-4 text-right"><span className="text-sm font-bold text-blue-500">{c.opened} <span className={`${subtl} text-xs`}>({Math.round((c.opened/c.sent)*100)}%)</span></span></td>
-                        <td className="py-3 px-4 text-right"><span className="text-sm font-bold text-purple-500">{c.clicked} <span className={`${subtl} text-xs`}>({Math.round((c.clicked/c.sent)*100)}%)</span></span></td>
-                        <td className="py-3 pl-4 text-right"><span className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs font-black px-3 py-1 rounded-full">{c.converted}</span></td>
-                      </tr>
+                    {emailCampaigns.map((c, i) => (
+                      inlineEdit?.dataKey === 'email_stats' && inlineEdit?.idx === i ? (
+                        <tr key={c.campaign}>
+                          <td colSpan={6} className="py-2 px-1">
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-36`} value={inlineEdit.fields.campaign||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,campaign:e.target.value}}))} placeholder="Campaign name" />
+                              {[['sent','Sent','w-20'],['opened','Opened','w-20'],['clicked','Clicked','w-20'],['conversions','Converted','w-24']].map(([k,lbl,w])=>(
+                                <input key={k} type="number" className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] ${w}`} value={inlineEdit.fields[k]||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,[k]:e.target.value}}))} placeholder={lbl} />
+                              ))}
+                              <button onClick={saveInlineEdit} className="px-3 py-1 text-xs font-black rounded-lg bg-[#C9A84C] text-slate-900 hover:bg-amber-400">Save</button>
+                              <button onClick={()=>setInlineEdit(null)} className={`px-3 py-1 text-xs font-black rounded-lg ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>Cancel</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={c.campaign}>
+                          <td className={`py-3 pr-4 text-sm font-bold ${txt}`}>{c.campaign}</td>
+                          <td className={`py-3 px-4 text-right text-sm font-bold ${txt2}`}>{c.sent.toLocaleString()}</td>
+                          <td className="py-3 px-4 text-right"><span className="text-sm font-bold text-blue-500">{c.opened} <span className={`${subtl} text-xs`}>({Math.round((c.opened/c.sent)*100)}%)</span></span></td>
+                          <td className="py-3 px-4 text-right"><span className="text-sm font-bold text-purple-500">{c.clicked} <span className={`${subtl} text-xs`}>({Math.round((c.clicked/c.sent)*100)}%)</span></span></td>
+                          <td className="py-3 pl-4 text-right"><span className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs font-black px-3 py-1 rounded-full">{c.converted}</span></td>
+                          <td className="py-3 pl-2"><button onClick={()=>setInlineEdit({dataKey:'email_stats',idx:i,fields:{campaign:c.campaign,sent:String(c.sent),opened:String(c.opened),clicked:String(c.clicked),conversions:String(c.converted)}})} className={`${subtl} hover:text-[#C9A84C] transition-colors`}><Pencil size={12}/></button></td>
+                        </tr>
+                      )
                     ))}
                   </tbody>
                 </table>
@@ -6691,20 +6767,40 @@ Other rules:
                     const isIso = /^\d{4}-\d{2}-\d{2}$/.test(item.date);
                     const dow   = isIso ? new Date(item.date + 'T12:00:00').toLocaleDateString('default', { weekday: 'short' }) : item.date.split(' ')[0];
                     const dom   = isIso ? new Date(item.date + 'T12:00:00').getDate() : item.date.split(' ')[1];
+                    const calIdx = contentItems.indexOf(item);
+                    const isEditingCal = inlineEdit?.dataKey === 'content' && inlineEdit?.idx === calIdx;
                     return (
-                      <div key={i} className={`flex items-center gap-4 p-4 ${rowCls} rounded-2xl`}>
-                        <div className={`shrink-0 text-center w-12 ${card} px-2 py-1.5 rounded-xl`}>
-                          <div className={`text-[13px] font-black uppercase ${subtl}`}>{dow}</div>
-                          <div className={`text-lg font-black ${txt}`}>{dom}</div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-bold ${txt} truncate`}>{item.title}</p>
-                          <p className={`text-[13px] ${muted} font-medium mt-0.5`}>{item.platform}</p>
-                          {item.notes && <p className={`text-[12px] ${subtl} mt-0.5 truncate`}>{item.notes}</p>}
-                        </div>
-                        <span className={`shrink-0 text-[13px] font-black px-2 py-1 rounded-full ${typeColor[item.type]||''}`}>{item.type}</span>
-                        <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full capitalize ${statusColor[item.status]||''}`}>{item.status}</span>
-                        {item.status !== 'published' && /Facebook|Instagram/i.test(item.platform) && (
+                      <div key={i} className={`flex items-start gap-4 p-4 ${rowCls} rounded-2xl`}>
+                        {!isEditingCal && (
+                          <div className={`shrink-0 text-center w-12 ${card} px-2 py-1.5 rounded-xl`}>
+                            <div className={`text-[13px] font-black uppercase ${subtl}`}>{dow}</div>
+                            <div className={`text-lg font-black ${txt}`}>{dom}</div>
+                          </div>
+                        )}
+                        {isEditingCal ? (
+                          <div className="flex-1 min-w-0 flex flex-wrap gap-2 items-center">
+                            <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] flex-1 min-w-[150px]`} value={inlineEdit.fields.title||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,title:e.target.value}}))} placeholder="Title" />
+                            <select className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C]`} value={inlineEdit.fields.platform||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,platform:e.target.value}}))}>
+                              {['Facebook','Instagram','LinkedIn','TikTok','Email','Website Blog','YouTube'].map(pl=><option key={pl}>{pl}</option>)}
+                            </select>
+                            <input type="date" className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C]`} value={inlineEdit.fields.date||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,date:e.target.value}}))} />
+                            <select className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C]`} value={inlineEdit.fields.status||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,status:e.target.value}}))}>
+                              {['scheduled','draft','published','filming','idea'].map(s=><option key={s}>{s}</option>)}
+                            </select>
+                            <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] flex-1 min-w-[120px]`} value={inlineEdit.fields.notes||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,notes:e.target.value}}))} placeholder="Notes" />
+                            <button onClick={saveInlineEdit} className="px-3 py-1 text-xs font-black rounded-lg bg-[#C9A84C] text-slate-900 hover:bg-amber-400">Save</button>
+                            <button onClick={()=>setInlineEdit(null)} className={`px-3 py-1 text-xs font-black rounded-lg ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>Cancel</button>
+                          </div>
+                        ) : (
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-bold ${txt} truncate`}>{item.title}</p>
+                            <p className={`text-[13px] ${muted} font-medium mt-0.5`}>{item.platform}</p>
+                            {item.notes && <p className={`text-[12px] ${subtl} mt-0.5 truncate`}>{item.notes}</p>}
+                          </div>
+                        )}
+                        {!isEditingCal && <span className={`shrink-0 text-[13px] font-black px-2 py-1 rounded-full ${typeColor[item.type]||''}`}>{item.type}</span>}
+                        {!isEditingCal && <span className={`shrink-0 text-[12px] font-black px-2 py-1 rounded-full capitalize ${statusColor[item.status]||''}`}>{item.status}</span>}
+                        {!isEditingCal && item.status !== 'published' && /Facebook|Instagram/i.test(item.platform) && (
                           <button
                             onClick={() => publishPost(item, i)}
                             disabled={autoPostLoading[i]}
@@ -6712,6 +6808,11 @@ Other rules:
                             className="shrink-0 flex items-center gap-1 text-[11px] font-black px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-40">
                             {autoPostLoading[i] ? <RefreshCw size={10} className="animate-spin" /> : <Send size={10} />}
                             {autoPostLoading[i] ? '…' : 'Publish'}
+                          </button>
+                        )}
+                        {!isEditingCal && (
+                          <button onClick={()=>setInlineEdit({dataKey:'content',idx:calIdx,fields:{title:item.title,platform:item.platform,date:item.date,status:item.status,notes:item.notes||''}})} className={`shrink-0 ${subtl} hover:text-[#C9A84C] transition-colors`} title="Edit">
+                            <Pencil size={13}/>
                           </button>
                         )}
                       </div>
@@ -9479,27 +9580,44 @@ Other rules:
                             </thead>
                             <tbody>
                               {rows.map((row, i) => (
-                                <tr key={i} className={`border-b ${brd} last:border-0`}>
-                                  <td className={`py-2 pr-4 font-bold ${txt}`}>{row.label || '—'}</td>
-                                  <td className={`py-2 pr-4 font-black text-teal-500`}>{row.value != null ? row.value : '—'}</td>
-                                  <td className={`py-2 pr-4 ${subtl}`}>{row.unit || '—'}</td>
-                                  <td className={`py-2 pr-4 ${subtl}`}>{row.period || '—'}</td>
-                                  <td className={`py-2 pr-4 ${subtl} max-w-[200px] truncate`}>{row.notes || '—'}</td>
-                                  <td className={`py-2 pr-4 ${subtl} text-xs`}>{row._savedAt || '—'}</td>
-                                  <td className="py-2">
-                                    <button
-                                      onClick={() => {
-                                        setCustomMetrics(prev => {
-                                          const updated = { ...prev, [cat]: prev[cat].filter((_, j) => j !== i) };
-                                          if (updated[cat].length === 0) delete updated[cat];
-                                          localStorage.setItem('dmd_custom_metrics', JSON.stringify(updated));
-                                          return updated;
-                                        });
-                                      }}
-                                      className="text-rose-400 hover:text-rose-300 transition-colors"
-                                    ><Trash2 size={13} /></button>
-                                  </td>
-                                </tr>
+                                inlineEdit?.dataKey === 'custom_metric' && inlineEdit?.idx === i && inlineEdit?.fields?._cat === cat ? (
+                                  <tr key={i} className={`border-b ${brd} last:border-0`}>
+                                    <td colSpan={7} className="py-2 px-1">
+                                      <div className="flex flex-wrap gap-2 items-center">
+                                        <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-32`} value={inlineEdit.fields.label||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,label:e.target.value}}))} placeholder="Label" />
+                                        <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-24`} value={inlineEdit.fields.value||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,value:e.target.value}}))} placeholder="Value" />
+                                        <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-16`} value={inlineEdit.fields.unit||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,unit:e.target.value}}))} placeholder="Unit" />
+                                        <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] w-24`} value={inlineEdit.fields.period||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,period:e.target.value}}))} placeholder="Period" />
+                                        <input className={`px-2 py-1 text-sm rounded-lg border ${darkMode?'bg-slate-700 border-slate-600 text-white':'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C] flex-1 min-w-[120px]`} value={inlineEdit.fields.notes||''} onChange={e=>setInlineEdit(p=>({...p,fields:{...p.fields,notes:e.target.value}}))} placeholder="Notes" />
+                                        <button onClick={saveInlineEdit} className="px-3 py-1 text-xs font-black rounded-lg bg-[#C9A84C] text-slate-900 hover:bg-amber-400">Save</button>
+                                        <button onClick={()=>setInlineEdit(null)} className={`px-3 py-1 text-xs font-black rounded-lg ${darkMode?'bg-slate-600 text-slate-200':'bg-slate-200 text-slate-700'}`}>Cancel</button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  <tr key={i} className={`border-b ${brd} last:border-0`}>
+                                    <td className={`py-2 pr-4 font-bold ${txt}`}>{row.label || '—'}</td>
+                                    <td className={`py-2 pr-4 font-black text-teal-500`}>{row.value != null ? row.value : '—'}</td>
+                                    <td className={`py-2 pr-4 ${subtl}`}>{row.unit || '—'}</td>
+                                    <td className={`py-2 pr-4 ${subtl}`}>{row.period || '—'}</td>
+                                    <td className={`py-2 pr-4 ${subtl} max-w-[200px] truncate`}>{row.notes || '—'}</td>
+                                    <td className={`py-2 pr-4 ${subtl} text-xs`}>{row._savedAt || '—'}</td>
+                                    <td className="py-2 flex items-center gap-2">
+                                      <button onClick={()=>setInlineEdit({dataKey:'custom_metric',idx:i,fields:{_cat:cat,label:row.label||'',value:String(row.value??''),unit:row.unit||'',period:row.period||'',notes:row.notes||''}})} className={`${subtl} hover:text-[#C9A84C] transition-colors`}><Pencil size={12}/></button>
+                                      <button
+                                        onClick={() => {
+                                          setCustomMetrics(prev => {
+                                            const updated = { ...prev, [cat]: prev[cat].filter((_, j) => j !== i) };
+                                            if (updated[cat].length === 0) delete updated[cat];
+                                            localStorage.setItem('dmd_custom_metrics', JSON.stringify(updated));
+                                            return updated;
+                                          });
+                                        }}
+                                        className="text-rose-400 hover:text-rose-300 transition-colors"
+                                      ><Trash2 size={13} /></button>
+                                    </td>
+                                  </tr>
+                                )
                               ))}
                             </tbody>
                           </table>
