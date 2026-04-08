@@ -16,7 +16,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
   Trash2, Layers, Scale, Tag, Camera, Scan, CheckSquare, AlertTriangle, Paperclip, EyeOff,
-  GripVertical, Sliders, LayoutGrid, BarChart2, ArrowUpRight, ArrowDownRight, Minus,
+  GripVertical, Sliders, LayoutGrid, BarChart2, ArrowUpRight, ArrowDownRight, Minus, List,
 } from 'lucide-react';
 
 const META_AUTO_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
@@ -224,7 +224,7 @@ const DS = ({ id, tab, children }) => {
 
 const App = () => {
   const [activeTab, setActiveTab]               = useState('overview');
-  const [darkMode, setDarkMode]                 = useState(true);
+  const [darkMode, setDarkMode]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_dark') ?? 'true'); } catch { return true; } });
   const [calFilter, setCalFilter]               = useState('All');
   const [calView,     setCalView]               = useState('month');
   const [calViewDate, setCalViewDate]           = useState(() => new Date().toISOString().slice(0, 10));
@@ -351,6 +351,7 @@ const App = () => {
   const [weeklyDigest, setWeeklyDigest]           = useState(null); // { text, generatedAt, metrics }
   const [reportPeriod, setReportPeriod]           = useState(30);  // Report tab period selector
   const [reportSort, setReportSort]               = useState('delta'); // 'delta'|'name'|'status'
+  const [pipelineView, setPipelineView]           = useState('list'); // 'list'|'kanban'
   // ── Captain KPI intelligence state ───────────────────────────────────────
   const [dmdGoals, setDmdGoals]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_goals') || '[]'); } catch { return []; } });
   const [dmdAlerts, setDmdAlerts]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_alerts') || '[]'); } catch { return []; } });
@@ -394,6 +395,7 @@ const App = () => {
   });
 
   useEffect(() => {
+    localStorage.setItem('dmd_dark', JSON.stringify(darkMode));
     if (darkMode) document.documentElement.classList.add('dark');
     else          document.documentElement.classList.remove('dark');
   }, [darkMode]);
@@ -6040,7 +6042,7 @@ Other rules:
                 return obj;
               });
               const activePlats = socPlatforms.filter(p => socChartData.some(d => d[p] !== undefined));
-              const sortedHistory = [...socHistory].sort((a,b) => (b.month||'').localeCompare(a.month||''));
+              const sortedHistory = socHistory.map((row, origIdx) => ({ ...row, _origIdx: origIdx })).sort((a,b) => (b.month||'').localeCompare(a.month||''));
               return (
                 <DS id="soc-history" tab="social">
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
@@ -6077,7 +6079,8 @@ Other rules:
                           <th className="text-right pb-2 px-3">Reach</th>
                           <th className="text-right pb-2 px-3">Impressions</th>
                           <th className="text-right pb-2 px-3">Engagement</th>
-                          <th className="text-right pb-2 pl-3">Clicks</th>
+                          <th className="text-right pb-2 px-3">Clicks</th>
+                          <th className="pb-2 pl-3 w-6"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -6093,7 +6096,18 @@ Other rules:
                             <td className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">{row.reach ? Number(row.reach).toLocaleString() : '—'}</td>
                             <td className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">{row.impressions ? Number(row.impressions).toLocaleString() : '—'}</td>
                             <td className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">{row.engagement ? row.engagement + '%' : '—'}</td>
-                            <td className="py-2 pl-3 text-right text-slate-700 dark:text-slate-300">{row.clicks ? Number(row.clicks).toLocaleString() : '—'}</td>
+                            <td className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">{row.clicks ? Number(row.clicks).toLocaleString() : '—'}</td>
+                            <td className="py-2 pl-3 text-right">
+                              <button
+                                onClick={() => setManualData(prev => {
+                                  const updated = { ...prev, social_metrics: prev.social_metrics.filter((_, idx) => idx !== row._origIdx) };
+                                  localStorage.setItem('dmd_manual', JSON.stringify(updated));
+                                  return updated;
+                                })}
+                                className={`${subtl} hover:text-rose-400 transition-colors`}
+                                title="Delete entry"
+                              ><X size={13} /></button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -6279,6 +6293,16 @@ Other rules:
         {/* ══════════════════ PAID ADS ══════════════════ */}
         {activeTab === 'ads' && (
           <div className="flex flex-col">
+            {adPerformance.length === 0 && !liveData?.['Meta Ads'] && !liveData?.['Google Ads'] && (
+              <div className="mb-6 flex items-start gap-4 p-5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800">
+                <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/60 rounded-xl shrink-0"><Target size={18} className="text-indigo-500" /></div>
+                <div className="flex-1">
+                  <p className="text-sm font-black text-indigo-700 dark:text-indigo-300">No ad data connected yet</p>
+                  <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">Connect Meta Ads or Google Ads, or manually add spend entries below to populate this tab.</p>
+                </div>
+                <button onClick={() => setActiveTab('import')} className="shrink-0 text-xs font-black px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">Connect Ads</button>
+              </div>
+            )}
             <DS id="ads-kpis" tab="ads">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Total Ad Spend"    value={_totalSpend > 0 ? '$'+_totalSpend.toLocaleString() : '---'}  trend={null} icon={Target}      color="bg-indigo-600" sub="Monthly Budget"      onClick={() => setActiveTab('import')} />
@@ -6386,6 +6410,16 @@ Other rules:
         {/* ══════════════════ EMAIL ══════════════════ */}
         {activeTab === 'email' && (
           <div className="flex flex-col">
+            {!_mailLive.recentCampaigns?.length && emailCampaigns.length === 0 && (
+              <div className="mb-6 flex items-start gap-4 p-5 rounded-2xl bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800">
+                <div className="p-2.5 bg-yellow-100 dark:bg-yellow-900/60 rounded-xl shrink-0"><Mail size={18} className="text-yellow-500" /></div>
+                <div className="flex-1">
+                  <p className="text-sm font-black text-yellow-700 dark:text-yellow-300">No email data connected yet</p>
+                  <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-0.5">Connect Mailchimp or import a campaign CSV to see open rates, subscriber counts, and campaign performance.</p>
+                </div>
+                <button onClick={() => setActiveTab('import')} className="shrink-0 text-xs font-black px-3 py-1.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-white transition-colors">Connect Mailchimp</button>
+              </div>
+            )}
             <DS id="email-kpis" tab="email">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 [&>*]:min-w-0">
               <StatCard title="Avg Open Rate"  value={_mailLive.openRate  || metrics.emailOpenRate} trend={null} icon={Mail}         color="bg-teal-600"   sub={_mailLive.listName ? `${_mailLive.listName} · Mailchimp` : 'All Campaigns'} />
@@ -6553,16 +6587,28 @@ Other rules:
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
               <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
                 <SectionHeader icon={CheckCircle} color="text-teal-500" title="Action Pipeline" subtitle="Tasks from Action Items — set priority & due date here" />
-                {aiTasks.some(t => t.done) && (
-                  <button onClick={() => setAiTasks(prev => prev.filter(t => !t.done))} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear done</button>
-                )}
+                <div className="flex items-center gap-2">
+                  {aiTasks.some(t => t.done) && (
+                    <button onClick={() => setAiTasks(prev => prev.filter(t => !t.done))} className={`text-xs ${subtl} hover:text-rose-400 transition-colors`}>Clear done</button>
+                  )}
+                  <div className={`flex rounded-xl overflow-hidden border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                    <button onClick={() => setPipelineView('list')} title="List view"
+                      className={`p-1.5 transition-colors ${pipelineView === 'list' ? 'bg-teal-600 text-white' : `${darkMode ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-white text-slate-400 hover:text-slate-700'}`}`}>
+                      <List size={14} />
+                    </button>
+                    <button onClick={() => setPipelineView('kanban')} title="Kanban view"
+                      className={`p-1.5 transition-colors ${pipelineView === 'kanban' ? 'bg-teal-600 text-white' : `${darkMode ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-white text-slate-400 hover:text-slate-700'}`}`}>
+                      <LayoutGrid size={14} />
+                    </button>
+                  </div>
+                </div>
               </div>
               {pipeline.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 gap-3">
                   <CheckCircle className={`w-10 h-10 ${subtl} opacity-20`} />
                   <p className={`text-sm ${subtl} text-center max-w-sm`}>No pending tasks. Add one below or create tasks from the Action Items panel on the Overview tab.</p>
                 </div>
-              ) : (
+              ) : pipelineView === 'list' ? (
                 <div className="space-y-2 mb-6">
                   {pipeline.map((item) => (
                     <div key={item.id} className={`flex items-center gap-3 p-3.5 ${rowCls} rounded-2xl`}>
@@ -6593,6 +6639,48 @@ Other rules:
                       <button onClick={() => setAiTasks(prev => prev.filter(t => t.id !== item.id))} className={`${subtl} hover:text-rose-400 transition-colors shrink-0`}><X size={14} /></button>
                     </div>
                   ))}
+                </div>
+              ) : (
+                /* Kanban view */
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {[
+                    { key: 'high',   label: 'High Priority',   dot: 'bg-rose-500',  border: 'border-rose-300 dark:border-rose-800',  badge: 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400' },
+                    { key: 'medium', label: 'Medium Priority', dot: 'bg-amber-500', border: 'border-amber-300 dark:border-amber-800', badge: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400' },
+                    { key: 'low',    label: 'Low Priority',    dot: 'bg-slate-400', border: 'border-slate-200 dark:border-slate-700', badge: 'bg-slate-100 dark:bg-slate-800 text-slate-500' },
+                  ].map(col => {
+                    const colTasks = pipeline.filter(t => t.priority === col.key);
+                    return (
+                      <div key={col.key} className={`rounded-2xl border ${col.border} ${darkMode ? 'bg-slate-800/50' : 'bg-slate-50'} p-3`}>
+                        <div className="flex items-center gap-2 mb-3 px-1">
+                          <div className={`h-2.5 w-2.5 rounded-full ${col.dot}`} />
+                          <span className={`text-[11px] font-black uppercase tracking-widest ${subtl}`}>{col.label}</span>
+                          <span className={`ml-auto text-[10px] font-black px-1.5 py-0.5 rounded-full ${col.badge}`}>{colTasks.length}</span>
+                        </div>
+                        {colTasks.length === 0 ? (
+                          <p className={`text-xs ${subtl} italic text-center py-4`}>No tasks</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {colTasks.map(item => (
+                              <div key={item.id} className={`${card} p-3 rounded-xl shadow-sm`}>
+                                <div className="flex items-start gap-2">
+                                  <button
+                                    onClick={() => setAiTasks(prev => prev.map(t => t.id === item.id ? { ...t, done: true } : t))}
+                                    title="Mark done"
+                                    className={`h-4 w-4 mt-0.5 rounded border-2 flex items-center justify-center shrink-0 border-slate-400 hover:border-teal-500 transition-colors`}
+                                  />
+                                  <p className={`text-xs font-bold ${txt} flex-1 leading-relaxed`}>{item.task}</p>
+                                  <button onClick={() => setAiTasks(prev => prev.filter(t => t.id !== item.id))} className={`${subtl} hover:text-rose-400 transition-colors shrink-0 mt-0.5`}><X size={12} /></button>
+                                </div>
+                                {item.due && item.due !== '—' && (
+                                  <p className={`text-[10px] ${subtl} mt-1.5 ml-6`}>Due {new Date(item.due + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               {/* Add new task form */}
@@ -7533,6 +7621,22 @@ Other rules:
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white transition-colors">
                     <RefreshCw size={11} className={historyLoading ? 'animate-spin' : ''} />
                     Refresh
+                  </button>
+                  <button onClick={() => {
+                    const exportRows = sorted.map(r => ({
+                      Metric: r.label,
+                      Category: r.category,
+                      Current: r.curr != null ? r.format(r.curr) : '',
+                      [`Prior ${periodLabel}`]: r.prev != null ? r.format(r.prev) : '',
+                      'Change %': r.pct != null ? (r.pct > 0 ? '+' : '') + r.pct.toFixed(1) + '%' : '',
+                      Trend: r.up === true ? '↑ Win' : r.up === false ? '↓ Gap' : '→ Stable',
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(exportRows);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Report');
+                    XLSX.writeFile(wb, `DMD-Report-${periodLabel.replace(' ','')}–${new Date().toISOString().split('T')[0]}.xlsx`);
+                  }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
+                    <Download size={11} /> Export
                   </button>
                 </div>
               </div>
