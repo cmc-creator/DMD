@@ -9418,6 +9418,15 @@ Other rules:
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
+                  onPaste={e => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    const imageItems = Array.from(items).filter(it => it.kind === 'file' && it.type.startsWith('image/'));
+                    if (imageItems.length === 0) return;
+                    e.preventDefault();
+                    const files = imageItems.map(it => it.getAsFile()).filter(Boolean);
+                    if (files.length > 0) handleChatFilesSelect(files);
+                  }}
                 />
                 <button
                   onClick={() => sendChatMessage()}
