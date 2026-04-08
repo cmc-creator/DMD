@@ -398,6 +398,17 @@ const App = () => {
     localStorage.setItem('dmd_content', JSON.stringify(contentItems));
   }, [contentItems]);
 
+  // ── Strips conversational Captain KPI filler from insight titles ───────────
+  const cleanInsightTitle = (raw) => {
+    if (!raw) return '';
+    // Remove filler opener phrases like "Alright, Captain!", "My apologies,...", etc.
+    const cleaned = raw
+      .replace(/^(alright[,!]?|great[,!]?|absolutely[,!]?|certainly[,!]?|of course[,!]?|sure[,!]?|my apolog\w*[,!]?|i hear you[^.!]*[.!]?|roger that[,!]?|aye aye[,!]?|on it[,!]?)\s*(captain[,!]?|destiny springs[\w\s]*[,!]?)*/i, '')
+      .replace(/^(captain|destiny springs)[\w\s,!]*?[.!]\s*/i, '')
+      .trim();
+    return (cleaned || raw).slice(0, 90).trim();
+  };
+
   // ── Cloud sync: pull shared data from Vercel KV ──────────────────────────────
   const pullFromCloud = () => {
     setCloudSynced('loading');
@@ -2503,7 +2514,7 @@ Other rules:
             });
             if (isReceipt) return;
             setDmdInsights(prev => {
-              const newItems = entries.map(e => ({ ...e, id: Date.now() + Math.random(), createdAt: new Date().toISOString() }));
+              const newItems = entries.map(e => ({ ...e, title: cleanInsightTitle(e.title), id: Date.now() + Math.random(), createdAt: new Date().toISOString() }));
               const updated = [...newItems, ...prev].slice(0, 20); // keep latest 20
               localStorage.setItem('dmd_insights', JSON.stringify(updated));
               return updated;
@@ -9205,9 +9216,12 @@ Other rules:
                         title="Pin to Highlights on Overview"
                         onClick={() => {
                           const content = m.content || '';
-                          const headlineMatch = content.match(/^\*\*([^*]+)\*\*/);
-                          const title = headlineMatch ? headlineMatch[1].trim() : content.split('\n')[0].replace(/^[#*]+\s*/, '').slice(0, 80).trim();
-                          const body = content.replace(/^\*\*[^*]+\*\*\n?/, '').replace(/\*\*/g, '').slice(0, 400).trim();
+                          // Find first non-empty, non-filler line to use as title
+                          const lines = content.split('\n').map(l => l.replace(/^[#*>\-]+\s*/, '').trim()).filter(Boolean);
+                          const fillerRe = /^(alright|great|absolutely|certainly|of course|sure|my apolog|i hear you|roger|aye aye|on it|captain[,! ]|destiny springs)/i;
+                          const titleLine = lines.find(l => !fillerRe.test(l)) || lines[0] || '';
+                          const title = cleanInsightTitle(titleLine);
+                          const body = content.replace(/\*\*/g, '').slice(0, 400).trim();
                           const newInsight = { id: Date.now() + Math.random(), title, body, tag: 'analysis', source: 'Captain KPI', createdAt: new Date().toISOString(), hidden: false, pinned: true };
                           setDmdInsights(prev => {
                             const updated = [newInsight, ...prev].slice(0, 20);
