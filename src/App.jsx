@@ -1301,7 +1301,17 @@ const App = () => {
   const saveManualEntry = (type) => {
     const key  = type.replace(/\s+/g, '_').toLowerCase();
     const entry = { ...manualForm, _savedAt: new Date().toLocaleString() };
-    const updated = { ...manualData, [key]: [...(manualData[key] || []), entry] };
+    const existing = manualData[key] || [];
+    // Per-type deduplication
+    const lc = s => String(s || '').trim().toLowerCase();
+    let isDupe = false;
+    if (key === 'reviews')        isDupe = existing.some(e => lc(e.name) === lc(entry.name) && e.date === entry.date && lc(e.platform) === lc(entry.platform));
+    else if (key === 'social_metrics') isDupe = existing.some(e => lc(e.platform) === lc(entry.platform) && e.month === entry.month);
+    else if (key === 'ad_spend')   isDupe = existing.some(e => lc(e.platform) === lc(entry.platform) && e.month === entry.month);
+    else if (key === 'email_stats') isDupe = existing.some(e => lc(e.campaign) === lc(entry.campaign) && e.date === entry.date);
+    else if (key === 'seo_rankings') isDupe = existing.some(e => lc(e.keyword) === lc(entry.keyword));
+    if (isDupe) { setManualForm({}); return; }
+    const updated = { ...manualData, [key]: [...existing, entry] };
     setManualData(updated);
     localStorage.setItem('dmd_manual', JSON.stringify(updated));
     // Feed TikTok post entries into liveData so Social tab updates
@@ -2925,7 +2935,7 @@ Other rules:
     if (!fetchedAt || (Date.now() - fetchedAt) > STALE_MS || hasFacilityProfiles) fetchCompetitors();
     const timer = setInterval(fetchCompetitors, STALE_MS);
     return () => clearInterval(timer);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps ─────────────────────────────────────────────────────────────
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const grid     = darkMode ? '#1e293b' : '#f1f5f9';
   const tick     = darkMode ? '#94a3b8' : '#64748b';
   const tipStyle = {
