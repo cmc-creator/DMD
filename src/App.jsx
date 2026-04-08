@@ -349,6 +349,8 @@ const App = () => {
   const [dmdGoals, setDmdGoals]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_goals') || '[]'); } catch { return []; } });
   const [dmdAlerts, setDmdAlerts]                 = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_alerts') || '[]'); } catch { return []; } });
   const [dmdInsights, setDmdInsights]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_insights') || '[]'); } catch { return []; } });
+  const [editingInsightId, setEditingInsightId]   = useState(null);
+  const [editingInsightTitle, setEditingInsightTitle] = useState('');
   const [customMetrics, setCustomMetrics]         = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_custom_metrics') || '{}'); } catch { return {}; } });
   const [proposedCategory, setProposedCategory]   = useState(null);
   const [triggeredAlerts, setTriggeredAlerts]     = useState([]);
@@ -4188,10 +4190,36 @@ Other rules:
                             {isHidden && <span className="text-[10px] text-slate-400 italic">hidden from overview</span>}
                             <span className={`text-[10px] ${subtl} ml-auto`}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : ''}</span>
                           </div>
-                          {item.title && <p className={`text-sm font-bold ${txt} mb-0.5`}>{item.title}</p>}
+                          {item.title && (
+                            editingInsightId === item.id ? (
+                              <input
+                                autoFocus
+                                className={`text-sm font-bold w-full mb-0.5 px-1 py-0.5 rounded border ${darkMode ? 'bg-slate-700 border-slate-500 text-white' : 'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C]`}
+                                value={editingInsightTitle}
+                                onChange={e => setEditingInsightTitle(e.target.value)}
+                                onBlur={() => {
+                                  const updated = dmdInsights.map(i => i.id === item.id ? { ...i, title: editingInsightTitle.trim() || i.title } : i);
+                                  setDmdInsights(updated);
+                                  localStorage.setItem('dmd_insights', JSON.stringify(updated));
+                                  setEditingInsightId(null);
+                                }}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') e.target.blur();
+                                  if (e.key === 'Escape') { setEditingInsightId(null); }
+                                }}
+                              />
+                            ) : (
+                              <p className={`text-sm font-bold ${txt} mb-0.5`}>{item.title}</p>
+                            )
+                          )}
                           {item.body && <p className={`text-sm ${subtl} leading-relaxed`}>{item.body}</p>}
                         </div>
                         <div className="flex flex-col gap-1 flex-shrink-0">
+                          <button
+                            title="Edit title"
+                            onClick={() => { setEditingInsightId(item.id); setEditingInsightTitle(item.title || ''); }}
+                            className={`${subtl} hover:text-[#C9A84C] transition-colors`}
+                          ><Pencil className="w-3.5 h-3.5" /></button>
                           <button
                             title={isHidden ? 'Show on Overview' : 'Hide from Overview'}
                             onClick={() => {
