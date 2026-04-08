@@ -353,6 +353,7 @@ const App = () => {
   const [dmdInsights, setDmdInsights]             = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_insights') || '[]'); } catch { return []; } });
   const [editingInsightId, setEditingInsightId]   = useState(null);
   const [editingInsightTitle, setEditingInsightTitle] = useState('');
+  const [editingInsightBody,  setEditingInsightBody]  = useState('');
   const [customMetrics, setCustomMetrics]         = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_custom_metrics') || '{}'); } catch { return {}; } });
   const [proposedCategory, setProposedCategory]   = useState(null);
   const [triggeredAlerts, setTriggeredAlerts]     = useState([]);
@@ -4194,34 +4195,50 @@ Other rules:
                             {isHidden && <span className="text-[10px] text-slate-400 italic">hidden from overview</span>}
                             <span className={`text-[10px] ${subtl} ml-auto`}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : ''}</span>
                           </div>
-                          {item.title && (
-                            editingInsightId === item.id ? (
+                          {editingInsightId === item.id ? (
+                            <div className="flex flex-col gap-2">
                               <input
                                 autoFocus
-                                className={`text-sm font-bold w-full mb-0.5 px-1 py-0.5 rounded border ${darkMode ? 'bg-slate-700 border-slate-500 text-white' : 'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C]`}
+                                className={`text-sm font-bold w-full px-2 py-1 rounded-lg border ${darkMode ? 'bg-slate-700 border-slate-500 text-white' : 'bg-white border-slate-300 text-slate-800'} outline-none focus:border-[#C9A84C]`}
                                 value={editingInsightTitle}
                                 onChange={e => setEditingInsightTitle(e.target.value)}
-                                onBlur={() => {
-                                  const updated = dmdInsights.map(i => i.id === item.id ? { ...i, title: editingInsightTitle.trim() || i.title } : i);
-                                  setDmdInsights(updated);
-                                  localStorage.setItem('dmd_insights', JSON.stringify(updated));
-                                  setEditingInsightId(null);
-                                }}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter') e.target.blur();
-                                  if (e.key === 'Escape') { setEditingInsightId(null); }
-                                }}
+                                placeholder="Title"
+                                onKeyDown={e => { if (e.key === 'Escape') setEditingInsightId(null); }}
                               />
-                            ) : (
-                              <p className={`text-sm font-bold ${txt} mb-0.5`}>{item.title}</p>
-                            )
+                              <textarea
+                                className={`text-sm w-full px-2 py-1.5 rounded-lg border resize-y min-h-[80px] ${darkMode ? 'bg-slate-700 border-slate-500 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400'} outline-none focus:border-[#C9A84C] leading-relaxed`}
+                                value={editingInsightBody}
+                                onChange={e => setEditingInsightBody(e.target.value)}
+                                placeholder="Body text (leave blank to clear)"
+                                onKeyDown={e => { if (e.key === 'Escape') setEditingInsightId(null); }}
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    const updated = dmdInsights.map(i => i.id === item.id ? { ...i, title: editingInsightTitle.trim() || i.title, body: editingInsightBody.trim() } : i);
+                                    setDmdInsights(updated);
+                                    localStorage.setItem('dmd_insights', JSON.stringify(updated));
+                                    setEditingInsightId(null);
+                                  }}
+                                  className="px-3 py-1 text-xs font-black rounded-lg bg-[#C9A84C] text-slate-900 hover:bg-amber-400 transition-colors"
+                                >Save</button>
+                                <button
+                                  onClick={() => setEditingInsightId(null)}
+                                  className={`px-3 py-1 text-xs font-black rounded-lg ${darkMode ? 'bg-slate-600 text-slate-200 hover:bg-slate-500' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'} transition-colors`}
+                                >Cancel</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              {item.title && <p className={`text-sm font-bold ${txt} mb-0.5`}>{item.title}</p>}
+                              {item.body && <p className={`text-sm ${subtl} leading-relaxed`}>{item.body}</p>}
+                            </>
                           )}
-                          {item.body && <p className={`text-sm ${subtl} leading-relaxed`}>{item.body}</p>}
                         </div>
                         <div className="flex flex-col gap-1 flex-shrink-0">
                           <button
-                            title="Edit title"
-                            onClick={() => { setEditingInsightId(item.id); setEditingInsightTitle(item.title || ''); }}
+                            title="Edit card"
+                            onClick={() => { setEditingInsightId(item.id); setEditingInsightTitle(item.title || ''); setEditingInsightBody(item.body || ''); }}
                             className={`${subtl} hover:text-[#C9A84C] transition-colors`}
                           ><Pencil className="w-3.5 h-3.5" /></button>
                           <button
