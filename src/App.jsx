@@ -354,6 +354,8 @@ const App = () => {
   const [weeklyDigest, setWeeklyDigest]           = useState(null); // { text, generatedAt, metrics }
   const [reportPeriod, setReportPeriod]           = useState(30);  // Report tab period selector
   const [reportSort, setReportSort]               = useState('delta'); // 'delta'|'name'|'status'
+  const [reportNarrative, setReportNarrative]     = useState('');
+  const [reportNarrLoading, setReportNarrLoading] = useState(false);
   const [pipelineView, setPipelineView]           = useState('list'); // 'list'|'kanban'
   const [showSeoQuickAdd, setShowSeoQuickAdd]     = useState(false);
   const [seoQuickAddForm, setSeoQuickAddForm]     = useState({ keyword: '', rank: '', change: '', volume: '' });
@@ -922,6 +924,7 @@ const App = () => {
         body: JSON.stringify({
           apiKey: mc.apiKey,
           listId: mc.listId,
+          digestText: weeklyDigest?.text || null,
           stats: {
             openRate: _mailLive.openRate,
             subscribers: _mailLive.subscribers,
@@ -4417,6 +4420,22 @@ Other rules:
                 <button onClick={() => setDismissedAlertBanner(true)} className={`shrink-0 ${subtl} hover:text-rose-400 transition-colors`}><X size={14} /></button>
               </div>
             )}
+            {/* ── Data freshness indicator ── */}
+            {(() => {
+              const ts = liveData?.social_fetchedAt;
+              if (!ts) return null;
+              const ageMs = Date.now() - new Date(ts).getTime();
+              const ageH  = ageMs / (1000 * 60 * 60);
+              const label = ageH < 1 ? 'just now' : ageH < 24 ? `${Math.floor(ageH)}h ago` : `${Math.floor(ageH / 24)}d ago`;
+              const cls   = ageH < 24 ? 'text-emerald-400 bg-emerald-500/10' : ageH < 48 ? 'text-amber-400 bg-amber-500/10' : 'text-rose-400 bg-rose-500/10';
+              return (
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl mb-4 text-xs font-bold w-fit ${cls}`}>
+                  <Clock size={11} />
+                  Data last refreshed {label}
+                </div>
+              );
+            })()}
+
             {/* ── Achievements Showcase ─────────────────────────────────── */}
             <DS id="ov-achievements" tab="overview">
             <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
@@ -8175,6 +8194,30 @@ Other rules:
           const prevLabel   = `Prior ${periodLabel}`;
           const hasHistory  = curr.length > 0;
 
+          const generateNarrative = async () => {
+            setReportNarrLoading(true);
+            setReportNarrative('');
+            const dataLines = rows.filter(r => r.curr != null).map(r => {
+              const trend = r.up === true ? '▲' : r.up === false ? '▼' : '→';
+              const pct = r.pct != null ? ` (${r.pct > 0 ? '+' : ''}${r.pct.toFixed(1)}%)` : '';
+              return `${r.label}: ${r.format(r.curr)}${pct} ${trend}`;
+            }).join('\n');
+            try {
+              const resp = await fetch('/api/chat', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  messages: [{ role: 'user', content: `Write a plain-English performance narrative for Destiny Springs Healthcare based on the last ${periodLabel} of marketing data. Use short paragraphs, call out specific wins and gaps with numbers, and end with 2-3 actionable priorities for next week. Keep it under 300 words.\n\nMetrics:\n${dataLines}` }],
+                  systemPrompt: 'You are a sharp digital marketing analyst writing a client performance summary. Be concise, specific, and actionable. No bullet lists — use short paragraphs with clear subheadings.',
+                  enableSearch: false,
+                  maxTokens: 500,
+                }),
+              });
+              const d = await resp.json();
+              setReportNarrative(d.reply || '');
+            } catch { setReportNarrative('Failed to generate narrative.'); }
+            setReportNarrLoading(false);
+          };
+
           return (
             <div className="flex flex-col">
               {/* ── Period selector ── */}
@@ -8235,9 +8278,29 @@ Other rules:
                   }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-slate-600 hover:bg-slate-500 text-white transition-colors" title="Copy plain-text summary to clipboard">
                     <Clipboard size={11} /> Copy
                   </button>
+                  <button onClick={generateNarrative} disabled={reportNarrLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white transition-colors" title="Generate AI narrative for this period">
+                    <Zap size={11} className={reportNarrLoading ? 'animate-pulse' : ''} /> AI Summary
+                  </button>
                 </div>
               </div>
               </DS>
+
+              {/* ── AI Narrative ── */}
+              {reportNarrative && (
+                <DS id="rep-narrative" tab="report">
+                <div className={`${card} p-6 rounded-[2rem] mb-6 border-l-4 border-violet-500`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Zap size={14} className="text-violet-400" />
+                      <span className="font-black text-sm text-violet-400">AI Performance Narrative</span>
+                    </div>
+                    <button onClick={() => setReportNarrative('')} className={`${subtl} hover:text-rose-400 transition-colors`}><X size={13} /></button>
+                  </div>
+                  <p className={`text-sm ${txt} whitespace-pre-wrap leading-relaxed`}>{reportNarrative}</p>
+                </div>
+                </DS>
+              )}
 
               {/* ── Wins / Gaps summary cards ── */}
               <DS id="rep-wins" tab="report">
