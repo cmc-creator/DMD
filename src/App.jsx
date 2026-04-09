@@ -277,7 +277,7 @@ const App = () => {
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [chatOpen, setChatOpen]                 = useState(false);
   const [chatMinimized, setChatMinimized]       = useState(false);
-  const [chatMessages, setChatMessages]         = useState([{ role: 'assistant', content: "Reporting for duty! 🫡 I'm **Captain KPI**, your marketing analytics officer. Fire away — ask me about the data, what to post, how to get more reviews, or why your bounce rate looks like a trampoline." }]);
+  const [chatMessages, setChatMessages]         = useState(() => { try { const saved = JSON.parse(localStorage.getItem('dmd_chat_history') || 'null'); if (Array.isArray(saved) && saved.length > 0) return saved; } catch {} return [{ role: 'assistant', content: "Reporting for duty! 🫡 I'm **Captain KPI**, your marketing analytics officer. Fire away — ask me about the data, what to post, how to get more reviews, or why your bounce rate looks like a trampoline." }]; });
   const [chatInput, setChatInput]               = useState('');
   const [chatLoading, setChatLoading]           = useState(false);
   const [aiTasks, setAiTasks]                   = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_tasks') || '[]'); } catch { return []; } });
@@ -301,8 +301,8 @@ const App = () => {
   const [surveySearch, setSurveySearch]           = useState('');
   // ── Intel tab state ──────────────────────────────────────────────────────────
   const [intelSubTab, setIntelSubTab]           = useState('news');
-  const [newsQuery, setNewsQuery]               = useState('mental health Arizona');
-  const [newsItems, setNewsItems]               = useState([]);
+  const [newsQuery, setNewsQuery]               = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_news_cache') || 'null')?.query || 'mental health Arizona'; } catch { return 'mental health Arizona'; } });
+  const [newsItems, setNewsItems]               = useState(() => { try { const c = JSON.parse(localStorage.getItem('dmd_news_cache') || 'null'); return Array.isArray(c?.articles) ? c.articles : []; } catch { return []; } });
   const [newsLoading, setNewsLoading]           = useState(false);
   const [newsError, setNewsError]               = useState('');
   const [scraperUrl, setScraperUrl]             = useState('');
@@ -547,9 +547,13 @@ const App = () => {
   useEffect(() => { localStorage.setItem('dmd_card_overrides', JSON.stringify(cardOverrides)); }, [cardOverrides]);
   useEffect(() => { localStorage.setItem('dmd_widget_order', JSON.stringify(widgetOrder)); }, [widgetOrder]);
 
-  // Auto-scroll chatbot to latest message
+  // Auto-scroll chatbot to latest message + persist history
   useEffect(() => {
     if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Persist last 30 messages to localStorage (skip if only the welcome message)
+    if (chatMessages.length > 1) {
+      try { localStorage.setItem('dmd_chat_history', JSON.stringify(chatMessages.slice(-30))); } catch {}
+    }
   }, [chatMessages, chatOpen]);
 
   // ── Check alerts when key data changes ───────────────────────────────────
@@ -849,6 +853,10 @@ const App = () => {
       const fbF = socialAnalytics.find(s => s.platform === 'Facebook')?.followers  || 0;
       const igF = socialAnalytics.find(s => s.platform === 'Instagram')?.followers || 0;
       const ttF = socialAnalytics.find(s => s.platform === 'TikTok')?.followers    || 0;
+      // Enriched context: top competitor, recent reviews, active alerts
+      const topComp = [...(competitorData?.competitors || [])].sort((a, b) => (b.googleRating || 0) - (a.googleRating || 0))[0];
+      const recentReviews = (_reviews || []).slice(-5).map(r => `${r.rating}\u2605 ${(r.comment || '').slice(0, 60)}`).join('; ');
+      const alertsSummary = (dmdAlerts || []).slice(0, 3).map(a => a.message || a.text || String(a)).join('; ');
       const snap = {
         googleRating:    metrics.googleScore,
         websiteSessions: metrics.wixSessions,
@@ -860,12 +868,16 @@ const App = () => {
         fbFollowers: fbF, igFollowers: igF, ttFollowers: ttF,
         reviewCount:     _reviews.length,
         activeGoals:     dmdGoals.length,
+        goalsNotComplete: (dmdGoals || []).filter(g => !g.completed).length,
+        topCompetitor:   topComp ? `${topComp.name} (${topComp.googleRating}\u2605, ${topComp.reviewCount || 0} reviews)` : null,
+        recentReviewSentiment: recentReviews || null,
+        activeAlerts:    alertsSummary || null,
       };
       const topKw = seoKeywords.slice(0, 5).map(k => `${k.keyword} #${k.pos}`).join(', ');
-      const prompt = `You are Captain KPI analyzing the Destiny Springs Healthcare marketing dashboard. Current metrics: ${JSON.stringify(snap)}. Top SEO keywords: ${topKw || 'none yet'}. In 3-5 concise bullet points (use \u2022 as bullet character), give a plain-English state-of-marketing briefing: what is strong, what needs attention, and one specific quick-win action. Be direct and data-driven. No intro or outro, just the bullets.`;
+      const prompt = `You are Captain KPI analyzing the Destiny Springs Healthcare LLC marketing dashboard. Current metrics: ${JSON.stringify(snap)}. Top SEO keywords: ${topKw || 'none yet'}. In 3-5 concise bullet points (use \u2022 as bullet character), give a plain-English state-of-marketing briefing: what is strong, what needs attention, and one specific quick-win action. Be direct and data-driven. No intro or outro, just the bullets.`;
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], maxTokens: 500 }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], maxTokens: 500, enableSearch: true }),
       });
       const d = await res.json();
       if (d.reply) {
@@ -965,7 +977,9 @@ const App = () => {
       const res    = await fetch(`/api/news?action=news&q=${q}&pageSize=15${keyPart}`);
       const data   = await res.json();
       if (!data.ok) { setNewsError(data.error || 'News fetch failed'); setNewsLoading(false); return; }
-      setNewsItems(data.articles || []);
+      const articles = data.articles || [];
+      setNewsItems(articles);
+      localStorage.setItem('dmd_news_cache', JSON.stringify({ articles, query: query || 'mental health Arizona', fetchedAt: new Date().toISOString() }));
     } catch (e) { setNewsError(e.message); }
     setNewsLoading(false);
   };
@@ -1043,8 +1057,9 @@ const App = () => {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           maxTokens: 1600,
-          messages: [{ role: 'user', content: 'Deep competitive intelligence analysis between two healthcare facilities. Cover SEO strategy, services, digital footprint, contact accessibility, brand positioning, schema signals.\n\n=== FACILITY A ===\n' + sum(profA) + '\n\n=== FACILITY B ===\n' + sum(profB) + '\n\nGive specific, actionable recommendations for Destiny Springs Healthcare to outcompete Facility B.' }],
+          messages: [{ role: 'user', content: 'Deep competitive intelligence analysis between two healthcare facilities. Cover SEO strategy, services, digital footprint, contact accessibility, brand positioning, schema signals.\n\n=== FACILITY A ===\n' + sum(profA) + '\n\n=== FACILITY B ===\n' + sum(profB) + '\n\nGive specific, actionable recommendations for Destiny Springs Healthcare LLC to outcompete Facility B.' }],
           systemPrompt: 'You are Captain KPI -- a competitive intelligence analyst specializing in behavioral healthcare. Format with headers: ## Overall Verdict, ## SEO & Content Strategy, ## Services Coverage, ## Digital & Social Presence, ## Contact Accessibility, ## Tech Stack Insights, ## Tactical Recommendations. Use bullet points, be specific and data-driven.',
+          enableSearch: true,
         }),
       });
       const data = await res.json();
