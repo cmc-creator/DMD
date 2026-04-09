@@ -2221,7 +2221,7 @@ const App = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          systemPrompt: 'You are Captain KPI 🫡 — a witty but sharp marketing analytics assistant for Destiny Springs Healthcare (mental health clinic, Scottsdale AZ). Analyze the dashboard data and provide 5-7 concise bullet-point insights with specific, actionable recommendations. Be direct and occasionally funny but genuinely useful. Use bullet points (•) for each insight.',
+          systemPrompt: 'You are Captain KPI 🫡 — a witty but sharp marketing analytics assistant for Destiny Springs Healthcare LLC (behavioral health / mental health clinic, Scottsdale/Surprise AZ). Analyze the dashboard data and provide 5-7 concise bullet-point insights with specific, actionable recommendations. Be direct and occasionally funny but genuinely useful. Use bullet points (•) for each insight.',
           messages: [{ role: 'user', content: `Here is the current Destiny Springs Healthcare marketing dashboard data:\n\n${summary}\n\nProvide your analysis of what's working, what needs attention, and your top action items.` }],
         }),
       });
@@ -2410,7 +2410,7 @@ RULES:
 - After ALL blocks, write exactly one word: Saved.
 - No listing, no apologies, no explanation. Just blocks then: Saved.`;
 
-    const chatPrompt = `You are Captain KPI 🫡 — a dynamic, intelligent marketing analytics assistant for Destiny Springs Healthcare (behavioral health / mental health clinic, Scottsdale/Surprise AZ). You are witty, sharp, and occasionally hilarious — but always helpful, specific, and professional. Keep responses under 300 words unless the user asks for more. Use bullet points for lists. Always end with 1-3 clear, specific action items.
+    const chatPrompt = `You are Captain KPI 🫡 — a dynamic, intelligent marketing analytics assistant for Destiny Springs Healthcare LLC (behavioral health / mental health clinic, Scottsdale/Surprise AZ). You are witty, sharp, and occasionally hilarious — but always helpful, specific, and professional. Keep responses under 300 words unless the user asks for more. Use bullet points for lists. Always end with 1-3 clear, specific action items.
 
 ══ GOALS & KPI TRACKING ══
 ${goalsStr}
@@ -2520,13 +2520,15 @@ You are equipped with real-time Google Search grounding. This is ACTIVE RIGHT NO
 - NEVER say "I don't have access to the internet" or "I can't look that up" — you CAN and MUST search
 - When you search and find ratings, proactively offer to save them with a <DMD_UPDATE> block so they appear on the dashboard
 
-For Destiny Springs Healthcare specifically, always know (and keep current via search):
-- Yelp: search "Destiny Springs Healthcare Yelp"
-- Healthgrades: search "Destiny Springs Healthcare Healthgrades"
-- Google Maps rating: search "Destiny Springs Healthcare Google reviews"
-- Facebook rating: search "Destiny Springs Healthcare Facebook"
-- Psychology Today listing: search "Destiny Springs Healthcare Psychology Today"
-- Zocdoc: search "Destiny Springs Healthcare Zocdoc"
+For Destiny Springs Healthcare LLC specifically, always know (and keep current via search):
+- Yelp: search "Destiny Springs Healthcare LLC Yelp"
+- Healthgrades: search "Destiny Springs Healthcare LLC Healthgrades"
+- Google Maps rating: search "Destiny Springs Healthcare LLC Google reviews"
+- Facebook rating: search "Destiny Springs Healthcare LLC Facebook"
+- Psychology Today listing: search "Destiny Springs Healthcare LLC Psychology Today"
+- Zocdoc: search "Destiny Springs Healthcare LLC Zocdoc"
+- US News: search "Destiny Springs Healthcare LLC US News Health"
+- Vitals: search "Destiny Springs Healthcare LLC Vitals"
 
 ══ RESPONSE FORMATTING FOR ANALYSIS QUESTIONS ══
 When a user asks an analysis question (performance review, monthly comparison, what to focus on, leadership summary, funnel analysis, growth forecast, etc.), always start your response with a single bold headline on its own line, e.g.: **Q1 2026: Strong NPS, Social Lagging**
@@ -10851,11 +10853,11 @@ Other rules:
               {chatMessages.filter(m => m.role === 'user').length === 0 && (
                 <div className="flex flex-wrap gap-1.5 pb-1">
                   {[
-                    { label: '⭐ All Ratings', prompt: 'Search the web and find the current ratings for Destiny Springs Healthcare on every platform: Yelp, Healthgrades, Google Maps, Facebook, Psychology Today, Zocdoc, Vitals, and any others you can find. List them all with review counts, then offer to save any that are missing from my dashboard.' },
-                    { label: '🔍 Competitor Scan', prompt: 'Search the web and find current Google ratings, Yelp ratings, and Healthgrades scores for all of my tracked competitors. Compare them to Destiny Springs Healthcare and tell me where we rank and where we have an opportunity to close the gap.' },
-                    { label: '📰 News & Trends', prompt: 'Search for the latest news about Destiny Springs Healthcare and the Arizona behavioral health / mental health industry in 2026. What are the current trends, regulatory changes, or market developments I should know about?' },
+                    { label: '⭐ All Ratings', prompt: 'Search the web and find the current ratings for Destiny Springs Healthcare LLC on every platform: Yelp, Healthgrades, Google Maps, Facebook, Psychology Today, Zocdoc, Vitals, US News, and any others you can find. List them all with review counts, then offer to save any that are missing from my dashboard.' },
+                    { label: '🔍 Competitor Scan', prompt: 'Search the web and find current Google ratings, Yelp ratings, and Healthgrades scores for all of my tracked competitors. Compare them to Destiny Springs Healthcare LLC and tell me where we rank and where we have an opportunity to close the gap.' },
+                    { label: '📰 News & Trends', prompt: 'Search for the latest news about Destiny Springs Healthcare LLC and the Arizona behavioral health / mental health industry in 2026. What are the current trends, regulatory changes, or market developments I should know about?' },
                     { label: '📊 Monthly Summary', prompt: 'Give me a full monthly performance summary for Destiny Springs Healthcare based on all available dashboard data. Highlight wins, concerns, and your top 3 priority actions for next month.' },
-                    { label: '💡 Growth Ideas', prompt: 'Based on our current metrics and competitive landscape, what are the 5 highest-impact growth opportunities for Destiny Springs Healthcare right now? Be specific and search for any supporting data.' },
+                    { label: '💡 Growth Ideas', prompt: 'Based on our current metrics and competitive landscape, what are the 5 highest-impact growth opportunities for Destiny Springs Healthcare LLC right now? Be specific and search for any supporting data.' },
                   ].map(({ label, prompt }) => (
                     <button
                       key={label}
