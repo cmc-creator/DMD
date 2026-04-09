@@ -377,6 +377,8 @@ const App = () => {
   const [aiSummaryError, setAiSummaryError]     = useState('');
   const [showGoalForm, setShowGoalForm]         = useState(false);
   const [goalFormState, setGoalFormState]       = useState({ name: '', target: '', unit: '', current: '', deadline: '' });
+  const [goalEditId, setGoalEditId]             = useState(null);
+  const [goalEditVal, setGoalEditVal]           = useState('');
   const [dismissedAlertBanner, setDismissedAlertBanner] = useState(false);
   const [chatFeedback, setChatFeedback]           = useState({});
   const [chatTab, setChatTab]                     = useState('chat');
@@ -4117,6 +4119,27 @@ Other rules:
   ];
 
   // ── Render ────────────────────────────────────────────────────────────────────
+
+  // Auto-match goal current values from live metrics (render-time, no state mutation)
+  const resolveGoalCurrent = (g) => {
+    const n = (g.name + ' ' + (g.unit || '')).toLowerCase();
+    const fbF = socialAnalytics.find(s => s.platform === 'Facebook')?.followers || 0;
+    const igF = socialAnalytics.find(s => s.platform === 'Instagram')?.followers || 0;
+    const ttF = socialAnalytics.find(s => s.platform === 'TikTok')?.followers || 0;
+    const gRating  = _avgRating ? Number(_avgRating) : 0;
+    const sessions = metrics.wixSessions !== '\u2014' ? Number(String(metrics.wixSessions).replace(/,/g, '')) : 0;
+    const subs     = toNum(_mailLive.subscribers) || 0;
+    if (/instagram|\big\b.*follow/.test(n) && igF > 0)           return { val: igF,              live: true };
+    if (/facebook|\bfb\b.*follow/.test(n) && fbF > 0)            return { val: fbF,              live: true };
+    if (/tiktok|\btt\b.*follow/.test(n) && ttF > 0)              return { val: ttF,              live: true };
+    if (/google.*review|review.*(count|total)|total.*review/.test(n) && _totalReviewCount > 0) return { val: _totalReviewCount, live: true };
+    if (/rating/.test(n) && gRating > 0)                          return { val: gRating,          live: true };
+    if (/session|visitor|traffic/.test(n) && sessions > 0)       return { val: sessions,         live: true };
+    if (/lead/.test(n) && _totalLeads > 0)                        return { val: _totalLeads,      live: true };
+    if (/subscriber|email.sub/.test(n) && subs > 0)              return { val: subs,             live: true };
+    return { val: Number(g.current) || 0, live: false };
+  };
+
   return (
     <DragCtx.Provider value={{ sectionCSSOrder, makeDrag, layoutMode, sectionDragOver }}>
     <div className="dashboard-shell font-sans">
@@ -4429,9 +4452,21 @@ Other rules:
               const label = ageH < 1 ? 'just now' : ageH < 24 ? `${Math.floor(ageH)}h ago` : `${Math.floor(ageH / 24)}d ago`;
               const cls   = ageH < 24 ? 'text-emerald-400 bg-emerald-500/10' : ageH < 48 ? 'text-amber-400 bg-amber-500/10' : 'text-rose-400 bg-rose-500/10';
               return (
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl mb-4 text-xs font-bold w-fit ${cls}`}>
-                  <Clock size={11} />
-                  Data last refreshed {label}
+                <div className="flex items-center gap-2 mb-4">
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold ${cls}`}>
+                    <Clock size={11} />
+                    Data last refreshed {label}
+                  </div>
+                  <button onClick={async () => {
+                    try {
+                      const r = await fetch('/api/admin/sync', { method: 'POST' });
+                      const d = await r.json();
+                      if (d.ok) { setTimeout(pullFromCloud, 4000); }
+                      else alert('Sync failed: ' + (d.error || 'unknown'));
+                    } catch(err) { alert('Sync error: ' + err.message); }
+                  }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 ${subtl} hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors`}>
+                    <RefreshCw size={11} /> Sync Now
+                  </button>
                 </div>
               );
             })()}
@@ -4670,31 +4705,52 @@ Other rules:
               {dmdGoals.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {dmdGoals.map(g => {
-                  const cur = Number(g.current) || 0;
+                  const { val: cur, live: isLive } = resolveGoalCurrent(g);
                   const tgt = Number(g.target) || 1;
                   const pct = Math.min(100, Math.round((cur / tgt) * 100));
                   const overdue = g.deadline && new Date(g.deadline) < new Date() && pct < 100;
+                  const isEditing = goalEditId === g.id;
                   return (
                     <div key={g.id} className={`p-4 rounded-2xl border ${overdue ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/10' : `${brd} bg-slate-50 dark:bg-slate-800/50`}`}>
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <p className={`text-xs font-black ${txt} leading-tight`}>{g.name}</p>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {overdue && <span className="text-[10px] font-black text-rose-500">Overdue</span>}
+                          {isLive && <span className="text-[10px] font-black text-sky-400" title="Auto-matched from live data">{'📡'}</span>}
+                          <button onClick={() => { setGoalEditId(isEditing ? null : g.id); setGoalEditVal(String(g.current || '')); }} className={`${subtl} hover:text-indigo-400 transition-colors`}><Pencil size={11} /></button>
                           <button
                             onClick={() => { const upd = dmdGoals.filter(x => x.id !== g.id); setDmdGoals(upd); localStorage.setItem('dmd_goals', JSON.stringify(upd)); }}
                             className={`${subtl} hover:text-rose-400 transition-colors`}
                           ><X size={12} /></button>
                         </div>
                       </div>
-                      <div className="flex items-baseline gap-1 mb-2">
-                        <span className={`text-2xl font-black ${pct >= 100 ? 'text-emerald-500' : txt}`}>{cur.toLocaleString()}</span>
-                        <span className={`text-xs ${subtl}`}>/ {Number(g.target).toLocaleString()}{g.unit ? ' ' + g.unit : ''}</span>
-                      </div>
+                      {isEditing ? (
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <input
+                            autoFocus
+                            type="number"
+                            value={goalEditVal}
+                            onChange={e => setGoalEditVal(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') { const upd = dmdGoals.map(x => x.id === g.id ? { ...x, current: Number(goalEditVal) } : x); setDmdGoals(upd); localStorage.setItem('dmd_goals', JSON.stringify(upd)); setGoalEditId(null); }
+                              if (e.key === 'Escape') setGoalEditId(null);
+                            }}
+                            className={`w-24 px-2 py-1 rounded-lg border text-sm font-black outline-none ${darkMode ? 'bg-slate-700 border-slate-500 text-white' : 'bg-white border-slate-300 text-slate-800'} focus:border-indigo-400`}
+                          />
+                          <button onClick={() => { const upd = dmdGoals.map(x => x.id === g.id ? { ...x, current: Number(goalEditVal) } : x); setDmdGoals(upd); localStorage.setItem('dmd_goals', JSON.stringify(upd)); setGoalEditId(null); }} className="px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Save</button>
+                          <button onClick={() => setGoalEditId(null)} className={`px-2 py-1 rounded-lg text-xs ${subtl} hover:text-rose-400`}>Cancel</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-baseline gap-1 mb-2">
+                          <span className={`text-2xl font-black ${pct >= 100 ? 'text-emerald-500' : txt}`}>{typeof cur === 'number' && !Number.isInteger(cur) ? cur.toFixed(1) : Number(cur).toLocaleString()}</span>
+                          <span className={`text-xs ${subtl}`}>/ {Number(g.target).toLocaleString()}{g.unit ? ' ' + g.unit : ''}</span>
+                        </div>
+                      )}
                       <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                         <div className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-emerald-500' : pct >= 60 ? 'bg-indigo-500' : pct >= 30 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{ width: `${pct}%` }} />
                       </div>
                       <div className="flex items-center justify-between mt-1.5">
-                        <span className={`text-[11px] font-black ${pct >= 100 ? 'text-emerald-500' : subtl}`}>{pct}%{pct >= 100 ? ' ✓' : ''}</span>
+                        <span className={`text-[11px] font-black ${pct >= 100 ? 'text-emerald-500' : subtl}`}>{pct}%{pct >= 100 ? ' \u2713' : ''}</span>
                         {g.deadline && <span className={`text-[10px] ${subtl}`}>{new Date(g.deadline).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>}
                       </div>
                     </div>
@@ -5565,7 +5621,8 @@ Other rules:
               return (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
-                    <SectionHeader icon={Scale} color="text-purple-500" title="Competitor Intelligence" subtitle={`Live ratings vs. ${comps.length} local behavioral health providers`} />
+                    <SectionHeader icon={Scale} color="text-purple-500" title="Competitor Intelligence"
+                      subtitle={`Live ratings vs. ${comps.length} local behavioral health providers${competitorData?.fetchedAt ? ' \u00b7 scanned ' + (() => { const h = (Date.now() - new Date(competitorData.fetchedAt).getTime()) / 3600000; return h < 1 ? 'just now' : h < 24 ? Math.floor(h) + 'h ago' : Math.floor(h / 24) + 'd ago'; })() : ''}`} />
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => {
