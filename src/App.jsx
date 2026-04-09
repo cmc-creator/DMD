@@ -454,7 +454,13 @@ const App = () => {
         if (data.dmd_wix)              { setWixData(data.dmd_wix);                         ls('dmd_wix',               data.dmd_wix); }
         if (data.dmd_livedata)         { setLiveData(data.dmd_livedata);                   ls('dmd_livedata',          data.dmd_livedata); }
         if (data.dmd_competitors)          { setCompetitorData(data.dmd_competitors);           ls('dmd_competitors',           data.dmd_competitors); }
-        if (data.dmd_custom_competitors)   { setCustomCompetitors(data.dmd_custom_competitors); ls('dmd_custom_competitors',    data.dmd_custom_competitors); }
+        if (data.dmd_custom_competitors) {
+          // Reset if it's the old system-generated defaults so facilityProfiles fallback kicks in
+          const OLD_DEFAULTS = new Set(['Springboard Recovery', 'The Meadows', 'Aurora Behavioral Health System', 'Banner Behavioral Health Hospital', 'Terros Health', 'Southwest Behavioral & Health Services']);
+          const isOldDefaults = Array.isArray(data.dmd_custom_competitors) && data.dmd_custom_competitors.length === 6 && data.dmd_custom_competitors.every(c => OLD_DEFAULTS.has(c.name));
+          const toSet = isOldDefaults ? [] : data.dmd_custom_competitors;
+          setCustomCompetitors(toSet); ls('dmd_custom_competitors', toSet);
+        }
         if (data.dmd_overview_hidden)      { setOverviewHidden(data.dmd_overview_hidden);       ls('dmd_overview_hidden',       data.dmd_overview_hidden); }
         if (data.dmd_review_overrides) { setReviewOverrides(data.dmd_review_overrides);     ls('dmd_review_overrides',  data.dmd_review_overrides); }
         if (data.dmd_connections)      { setConnections(data.dmd_connections);              ls('dmd_connections',        data.dmd_connections); }
@@ -2271,7 +2277,11 @@ const App = () => {
 
     // Competitor / referral intel
     const competitors = (competitorData?.competitors || []).slice(0, 5).map(c => c.name || c.url).join(', ');
-    const myCompetitorList = customCompetitors.length > 0 ? customCompetitors.map(c => `${c.name} (${c.url})`).join(', ') : 'not set';
+    const myCompetitorList = customCompetitors.length > 0
+      ? customCompetitors.map(c => `${c.name} (${c.url})`).join(', ')
+      : facilityProfiles.length > 0
+        ? facilityProfiles.map(p => `${p.label || p.name || p.url} (${p.url})`).join(', ')
+        : 'not set';
     const savedUrlsStr = (savedUrls || []).slice(0, 8).map(u => u.url || u).join(', ');
 
     // Reviews breakdown
@@ -2446,7 +2456,7 @@ EMAIL (Mailchimp):
 - Connected: ${connections['Mailchimp']?.connected ? 'yes' : 'no'}
 
 YOUTUBE: subscribers ${_yt.subscribers || '—'}, views ${_yt.totalViews || '—'}
-YELP: ${_yelp.rating ? `${_yelp.rating}★ (${_yelp.reviewCount || '?'} reviews)` : 'not connected'}
+YELP: ${_yelp.rating ? `${_yelp.rating}★ (${_yelp.reviewCount || '?'} reviews)` : 'not connected — use Google Search to find current Destiny Springs Healthcare Yelp rating'}
 GOOGLE BUSINESS: searches ${_gb.searches || '—'}, direction requests ${_gb.directionRequests || '—'}
 
 PAID ADS: ${adSpend.length} records, total $${totalSpend.toFixed(0)} spend, ${totalLeads} leads${totalLeads > 0 ? `, CPL $${(totalSpend/totalLeads).toFixed(0)}` : ''}
@@ -5389,14 +5399,7 @@ Other rules:
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => {
-                          const defaults = customCompetitors.length > 0 ? [...customCompetitors] : [
-                            { name: 'Springboard Recovery',               url: 'https://springboardrecovery.com' },
-                            { name: 'The Meadows',                        url: 'https://www.themeadows.com' },
-                            { name: 'Aurora Behavioral Health System',    url: 'https://www.auroraarizona.com' },
-                            { name: 'Banner Behavioral Health Hospital',  url: 'https://www.bannerhealth.com/services/behavioral-health' },
-                            { name: 'Terros Health',                      url: 'https://terroshealth.org' },
-                            { name: 'Southwest Behavioral & Health Services', url: 'https://www.sbhservices.org' },
-                          ];
+                          const defaults = customCompetitors.length > 0 ? [...customCompetitors] : [{ name: '', url: '' }];
                           setCompetitorEditorDraft(defaults);
                           setShowCompetitorEditor(p => !p);
                         }}
