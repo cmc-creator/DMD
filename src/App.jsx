@@ -2456,7 +2456,7 @@ EMAIL (Mailchimp):
 - Connected: ${connections['Mailchimp']?.connected ? 'yes' : 'no'}
 
 YOUTUBE: subscribers ${_yt.subscribers || '—'}, views ${_yt.totalViews || '—'}
-YELP: ${_yelp.rating ? `${_yelp.rating}★ (${_yelp.reviewCount || '?'} reviews)` : 'not connected — use Google Search to find current Destiny Springs Healthcare Yelp rating'}
+YELP: ${_yelp.rating ? `${_yelp.rating}★ (${_yelp.reviewCount || '?'} reviews)` : 'not connected — search Google for current rating'}
 GOOGLE BUSINESS: searches ${_gb.searches || '—'}, direction requests ${_gb.directionRequests || '—'}
 
 PAID ADS: ${adSpend.length} records, total $${totalSpend.toFixed(0)} spend, ${totalLeads} leads${totalLeads > 0 ? `, CPL $${(totalSpend/totalLeads).toFixed(0)}` : ''}
@@ -2510,6 +2510,23 @@ POTENTIAL REFERRAL SOURCES (suggest proactively when lead volume is discussed):
 - Insurance case managers: BCBS AZ, Mercy Care, UHC Community Plan
 
 Always give actionable, specific suggestions. You HAVE the data above — use it. Never say you lack access to it.
+
+══ GOOGLE SEARCH — YOU HAVE LIVE WEB ACCESS ══
+You are equipped with real-time Google Search grounding. This is ACTIVE RIGHT NOW. Use it proactively — do not wait to be asked:
+- ANY time a rating or score is missing from the dashboard data above, SEARCH FOR IT immediately (Yelp, Healthgrades, Google Maps, Facebook, Zocdoc, Psychology Today, US News, Vitals, WebMD, etc.)
+- ANY time a user asks about competitors, search for their current ratings, reviews, and web presence
+- ANY time a user asks about industry benchmarks, search for current behavioral health / mental health industry data
+- ANY time you are asked about news, trends, or recent events — search first, then answer
+- NEVER say "I don't have access to the internet" or "I can't look that up" — you CAN and MUST search
+- When you search and find ratings, proactively offer to save them with a <DMD_UPDATE> block so they appear on the dashboard
+
+For Destiny Springs Healthcare specifically, always know (and keep current via search):
+- Yelp: search "Destiny Springs Healthcare Yelp"
+- Healthgrades: search "Destiny Springs Healthcare Healthgrades"
+- Google Maps rating: search "Destiny Springs Healthcare Google reviews"
+- Facebook rating: search "Destiny Springs Healthcare Facebook"
+- Psychology Today listing: search "Destiny Springs Healthcare Psychology Today"
+- Zocdoc: search "Destiny Springs Healthcare Zocdoc"
 
 ══ RESPONSE FORMATTING FOR ANALYSIS QUESTIONS ══
 When a user asks an analysis question (performance review, monthly comparison, what to focus on, leadership summary, funnel analysis, growth forecast, etc.), always start your response with a single bold headline on its own line, e.g.: **Q1 2026: Strong NPS, Social Lagging**
@@ -10830,6 +10847,24 @@ Other rules:
             {/* Input — shown on Chat tab only */}
             {chatTab === 'chat' && (
             <div className={`flex flex-col gap-1.5 p-3 flex-shrink-0 ${darkMode ? 'border-t border-white/[0.06] bg-[#0D0D12]' : 'border-t border-[#E8D5B0]/50 bg-white'}`}>
+              {/* Quick-action research pills — only show when no messages or chat is fresh */}
+              {chatMessages.filter(m => m.role === 'user').length === 0 && (
+                <div className="flex flex-wrap gap-1.5 pb-1">
+                  {[
+                    { label: '⭐ All Ratings', prompt: 'Search the web and find the current ratings for Destiny Springs Healthcare on every platform: Yelp, Healthgrades, Google Maps, Facebook, Psychology Today, Zocdoc, Vitals, and any others you can find. List them all with review counts, then offer to save any that are missing from my dashboard.' },
+                    { label: '🔍 Competitor Scan', prompt: 'Search the web and find current Google ratings, Yelp ratings, and Healthgrades scores for all of my tracked competitors. Compare them to Destiny Springs Healthcare and tell me where we rank and where we have an opportunity to close the gap.' },
+                    { label: '📰 News & Trends', prompt: 'Search for the latest news about Destiny Springs Healthcare and the Arizona behavioral health / mental health industry in 2026. What are the current trends, regulatory changes, or market developments I should know about?' },
+                    { label: '📊 Monthly Summary', prompt: 'Give me a full monthly performance summary for Destiny Springs Healthcare based on all available dashboard data. Highlight wins, concerns, and your top 3 priority actions for next month.' },
+                    { label: '💡 Growth Ideas', prompt: 'Based on our current metrics and competitive landscape, what are the 5 highest-impact growth opportunities for Destiny Springs Healthcare right now? Be specific and search for any supporting data.' },
+                  ].map(({ label, prompt }) => (
+                    <button
+                      key={label}
+                      onClick={() => sendChatMessage(prompt)}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors ${darkMode ? 'bg-white/10 text-[#E8D5A3] hover:bg-[#C9A84C]/20 hover:text-[#C9A84C]' : 'bg-[#FBF5E0] text-[#8B6B0E] hover:bg-[#F5ECC8]'}`}
+                    >{label}</button>
+                  ))}
+                </div>
+              )}
               {/* Proposed new tracking category from Captain KPI */}
               {proposedCategory && (
                 <div className={`p-2.5 rounded-xl border border-[#C9A84C]/40 ${darkMode ? 'bg-[#3D2210]/30' : 'bg-[#FBF5E0]'}`}>
