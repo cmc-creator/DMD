@@ -380,6 +380,8 @@ const App = () => {
   const [goalEditId, setGoalEditId]             = useState(null);
   const [goalEditVal, setGoalEditVal]           = useState('');
   const [dismissedAlertBanner, setDismissedAlertBanner] = useState(false);
+  const [toasts, setToasts]                     = useState([]);
+  const [syncingNow, setSyncingNow]             = useState(false);
   const [chatFeedback, setChatFeedback]           = useState({});
   const [chatTab, setChatTab]                     = useState('chat');
 
@@ -480,6 +482,10 @@ const App = () => {
         if (data.dmd_snoozed_alerts)   { setSnoozedAlerts(data.dmd_snoozed_alerts);             ls('dmd_snoozed_alerts',  data.dmd_snoozed_alerts); }
         if (data.dmd_ai_summary)       { setAiSummary(data.dmd_ai_summary);                     ls('dmd_ai_summary',      data.dmd_ai_summary); }
         if (data.dmd_custom_metrics)   { setCustomMetrics(data.dmd_custom_metrics);             ls('dmd_custom_metrics',  data.dmd_custom_metrics); }
+        if (data.dmd_news_cache && Array.isArray(data.dmd_news_cache.articles) && data.dmd_news_cache.articles.length > 0) {
+          setNewsItems(data.dmd_news_cache.articles);
+          localStorage.setItem('dmd_news_cache', JSON.stringify(data.dmd_news_cache));
+        }
         cloudLoadedRef.current = true;
         setCloudSynced('ok');
         setTimeout(() => { skipNextPushRef.current = false; }, 600);
@@ -825,7 +831,7 @@ const App = () => {
   const publishPost = async (item, idx) => {
     const metaCreds = connections['Meta Business Suite'];
     if (!metaCreds?.connected || !metaCreds?.accessToken || !metaCreds?.pageId) {
-      alert('Connect Meta Business Suite with a Page Access Token first (Settings → Integrations).');
+      showToast('Connect Meta Business Suite with a Page Access Token first (Settings → Integrations)', 'error');
       return;
     }
     setAutoPostLoading(l => ({ ...l, [idx]: true }));
@@ -842,11 +848,11 @@ const App = () => {
       const d = await res.json();
       if (d.ok) {
         setContentItems(prev => prev.map((c, i) => i === idx ? { ...c, status: 'published', postId: d.postId } : c));
-        alert(`✅ Published! Post ID: ${d.postId}`);
+        showToast(`Published! Post ID: ${d.postId}`, 'success');
       } else {
-        alert(`❌ Publish failed: ${d.error}`);
+        showToast(`Publish failed: ${d.error}`, 'error');
       }
-    } catch (e) { alert(`❌ Error: ${e.message}`); }
+    } catch (e) { showToast(`Publish error: ${e.message}`, 'error'); }
     setAutoPostLoading(l => ({ ...l, [idx]: false }));
   };
 
@@ -916,7 +922,7 @@ const App = () => {
   const sendWeeklyDigest = async () => {
     const mc = connections['Mailchimp'];
     if (!mc?.connected || !mc?.apiKey) {
-      alert('Connect Mailchimp with an API Key first (Settings → Integrations).');
+      showToast('Connect Mailchimp with an API Key first (Settings → Integrations)', 'error');
       return;
     }
     setDigestSending(true); setDigestResult('');
@@ -4120,6 +4126,13 @@ Other rules:
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
+  // Toast helper — show a small notification for 4.5 s
+  const showToast = (message, type = 'success') => {
+    const id = Date.now() + Math.random();
+    setToasts(t => [...t, { id, message, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 4500);
+  };
+
   // Auto-match goal current values from live metrics (render-time, no state mutation)
   const resolveGoalCurrent = (g) => {
     const n = (g.name + ' ' + (g.unit || '')).toLowerCase();
@@ -4451,21 +4464,34 @@ Other rules:
               const ageH  = ageMs / (1000 * 60 * 60);
               const label = ageH < 1 ? 'just now' : ageH < 24 ? `${Math.floor(ageH)}h ago` : `${Math.floor(ageH / 24)}d ago`;
               const cls   = ageH < 24 ? 'text-emerald-400 bg-emerald-500/10' : ageH < 48 ? 'text-amber-400 bg-amber-500/10' : 'text-rose-400 bg-rose-500/10';
+              const clsBorder = ageH < 24 ? 'border-emerald-500/20' : ageH < 48 ? 'border-amber-500/20' : 'border-rose-500/20';
               return (
-                <div className="flex items-center gap-2 mb-4">
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold ${cls}`}>
+                <div className={`flex items-center gap-2 mb-4 px-4 py-2.5 rounded-2xl border ${clsBorder} ${darkMode ? 'bg-slate-800/40' : 'bg-slate-50'} w-fit`}>
+                  <div className={`flex items-center gap-1.5 text-xs font-bold ${cls}`}>
                     <Clock size={11} />
                     Data last refreshed {label}
                   </div>
-                  <button onClick={async () => {
-                    try {
-                      const r = await fetch('/api/admin/sync', { method: 'POST' });
-                      const d = await r.json();
-                      if (d.ok) { setTimeout(pullFromCloud, 4000); }
-                      else alert('Sync failed: ' + (d.error || 'unknown'));
-                    } catch(err) { alert('Sync error: ' + err.message); }
-                  }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 ${subtl} hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors`}>
-                    <RefreshCw size={11} /> Sync Now
+                  <span className={`text-xs ${subtl} select-none`}>·</span>
+                  <button
+                    disabled={syncingNow}
+                    onClick={async () => {
+                      if (syncingNow) return;
+                      setSyncingNow(true);
+                      try {
+                        const r = await fetch('/api/admin/sync', { method: 'POST' });
+                        const d = await r.json();
+                        if (d.ok) {
+                          showToast('Sync started \u2014 data will refresh shortly', 'success');
+                          setTimeout(() => { pullFromCloud(); setSyncingNow(false); }, 4000);
+                        } else {
+                          showToast('Sync failed: ' + (d.error || 'unknown error'), 'error');
+                          setSyncingNow(false);
+                        }
+                      } catch(err) { showToast('Sync error: ' + err.message, 'error'); setSyncingNow(false); }
+                    }}
+                    className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${syncingNow ? 'text-indigo-400' : `${subtl} hover:text-indigo-400`}`}>
+                    <RefreshCw size={11} className={syncingNow ? 'animate-spin' : ''} />
+                    {syncingNow ? 'Syncing\u2026' : 'Sync Now'}
                   </button>
                 </div>
               );
@@ -4665,7 +4691,10 @@ Other rules:
                   <div>
                     <h3 className={`font-black text-lg ${txt}`}>Goals Progress</h3>
                     <p className={`text-xs ${subtl}`}>
-                      {dmdGoals.length > 0 ? `${dmdGoals.length} active goal${dmdGoals.length !== 1 ? 's' : ''}` : 'Track monthly KPI targets with progress bars'}
+                      {dmdGoals.length > 0
+                        ? `${dmdGoals.length} active goal${dmdGoals.length !== 1 ? 's' : ''} \u00b7 `
+                        : 'Track monthly KPI targets with progress bars'}
+                      {dmdGoals.length > 0 && <span className="text-sky-400" title="Goals with a 📡 icon auto-update from your connected integrations">📡 live auto-match on</span>}
                     </p>
                   </div>
                 </div>
@@ -4711,7 +4740,10 @@ Other rules:
                   const overdue = g.deadline && new Date(g.deadline) < new Date() && pct < 100;
                   const isEditing = goalEditId === g.id;
                   return (
-                    <div key={g.id} className={`p-4 rounded-2xl border ${overdue ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/10' : `${brd} bg-slate-50 dark:bg-slate-800/50`}`}>
+                    <div key={g.id} className={`p-4 rounded-2xl border transition-all ${
+                      pct >= 100  ? 'border-emerald-300 dark:border-emerald-600/60 bg-emerald-50 dark:bg-emerald-900/10' :
+                      overdue     ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/10' :
+                                    `${brd} bg-slate-50 dark:bg-slate-800/50`}`}>
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <p className={`text-xs font-black ${txt} leading-tight`}>{g.name}</p>
                         <div className="flex items-center gap-1 flex-shrink-0">
@@ -5808,6 +5840,40 @@ Other rules:
               );
             })()}
             </DS>
+
+            {/* ── Industry News ─────────────────────────────────────────────── */}
+            {newsItems.length > 0 && (
+            <DS id="ov-news" tab="overview">
+            <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
+              <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-sky-600 flex items-center justify-center flex-shrink-0">
+                    <Newspaper className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className={`font-black text-lg ${txt}`}>Industry News</h3>
+                    <p className={`text-xs ${subtl}`}>Mental health headlines auto-fetched daily by cron</p>
+                  </div>
+                </div>
+                <button onClick={() => setActiveTab('intel')} className="text-xs font-bold text-sky-400 hover:text-sky-300 transition-colors">View All &rarr;</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {newsItems.slice(0, 6).map((article, i) => (
+                  <a key={i} href={article.url} target="_blank" rel="noreferrer"
+                    className={`group flex flex-col gap-2 p-4 rounded-2xl border ${brd} bg-slate-50 dark:bg-slate-800/50 hover:border-sky-400 dark:hover:border-sky-500 transition-all no-underline`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 truncate max-w-[130px]">{article.source || 'News'}</span>
+                      <span className={`text-[10px] ${subtl} flex-shrink-0`}>{article.publishedAt ? new Date(article.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
+                    </div>
+                    <p className={`text-xs font-black ${txt} line-clamp-3 group-hover:text-sky-500 transition-colors leading-snug`}>{article.title}</p>
+                    {article.description && <p className={`text-[11px] ${subtl} line-clamp-2 leading-snug`}>{article.description}</p>}
+                    <span className="text-[10px] font-bold text-sky-500 mt-auto">Read &rarr;</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+            </DS>
+            )}
 
             {/* ── Historical Trends ─────────────────────────────────────────── */}
             <DS id="ov-historical" tab="overview">
@@ -11302,6 +11368,19 @@ Other rules:
           </div>
         );
       })()}
+      {/* ── Toast Notifications ──────────────────────────────────────────── */}
+      {toasts.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2 max-w-xs sm:max-w-sm pointer-events-none">
+          {toasts.map(t => (
+            <div key={t.id} className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold pointer-events-auto
+              ${t.type === 'success' ? 'bg-emerald-600 text-white' : t.type === 'error' ? 'bg-rose-600 text-white' : t.type === 'loading' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-white'}`}>
+              {t.type === 'success' ? <CheckCircle size={15} className="flex-shrink-0" /> : t.type === 'error' ? <AlertTriangle size={15} className="flex-shrink-0" /> : t.type === 'loading' ? <RefreshCw size={15} className="animate-spin flex-shrink-0" /> : <Info size={15} className="flex-shrink-0" />}
+              <span className="flex-1 leading-snug">{t.message}</span>
+              <button onClick={() => setToasts(ts => ts.filter(x => x.id !== t.id))} className="opacity-60 hover:opacity-100 ml-1 flex-shrink-0"><X size={13} /></button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
     </DragCtx.Provider>
   );
