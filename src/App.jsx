@@ -16,7 +16,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
   Trash2, Layers, Scale, Tag, Camera, Scan, CheckSquare, AlertTriangle, Paperclip, EyeOff,
-  GripVertical, Sliders, LayoutGrid, BarChart2, ArrowUpRight, ArrowDownRight, Minus, List, BellOff, Clipboard, Info, Database,
+  GripVertical, Sliders, LayoutGrid, BarChart2, ArrowUpRight, ArrowDownRight, Minus, List, BellOff, Clipboard, Info, Database, RotateCcw,
 } from 'lucide-react';
 
 const META_AUTO_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
@@ -931,7 +931,17 @@ const App = () => {
         }),
       });
       const d = await res.json();
-      setDigestResult(d.ok ? `✅ Digest campaign created! ${d.campaignId ? 'ID: ' + d.campaignId : ''}` : `❌ ${d.error || 'Failed to create digest'}`);
+      if (d.ok) {
+        setDigestResult(`✅ Digest campaign created! ${d.campaignId ? 'ID: ' + d.campaignId : ''}`);
+        // Pull latest weekly digest from cloud so the Overview panel refreshes
+        try {
+          const pull = await fetch('/api/data');
+          const pd   = await pull.json();
+          if (pd.dmd_weekly_digest) setWeeklyDigest(pd.dmd_weekly_digest);
+        } catch { /* non-critical */ }
+      } else {
+        setDigestResult(`❌ ${d.error || 'Failed to create digest'}`);
+      }
     } catch (e) { setDigestResult(`❌ Error: ${e.message}`); }
     setDigestSending(false);
   };
@@ -4311,6 +4321,7 @@ Other rules:
                             dmd_tasks:             'AI Tasks',
                             dmd_snoozed_alerts:    'Snoozed Alerts',
                             dmd_ai_summary:        'AI Marketing Briefing',
+                            dmd_weekly_digest:     'AI Weekly Brief (cron)',
                             dmd_custom_metrics:    'Custom Metrics',
                             dmd_custom_competitors:'Competitor List (My List)',
                             dmd_competitors:       'Competitor Scan Results',
@@ -4323,6 +4334,7 @@ Other rules:
                             dmd_saved_urls:        'Saved Intel URLs',
                             dmd_content:           'Content Calendar',
                             dmd_history:           'Metrics History',
+                            dmd_destiny:           'Destiny Springs Profile (cron)',
                             dmd_overview_hidden:   'Hidden Overview Sections',
                           };
                           const stored = dbDiag.hash_fields || [];
@@ -10699,6 +10711,7 @@ Other rules:
                 <p className="text-sm font-black text-white leading-tight">Captain KPI 🫡</p>
                 <p className="text-[10px] text-[#C9A84C]/70">AI Marketing Officer · Powered by Gemini</p>
               </div>
+              <button onClick={() => { if (window.confirm('Start a new conversation? Current chat will be cleared.')) { const welcome = [{ role: 'assistant', content: "Reporting for duty! 🫡 I'm **Captain KPI**, your marketing analytics officer. Fire away — ask me about the data, what to post, how to get more reviews, or why your bounce rate looks like a trampoline." }]; setChatMessages(welcome); localStorage.removeItem('dmd_chat_history'); } }} title="New chat" className="text-white/40 hover:text-white/80 transition-colors flex-shrink-0"><RotateCcw size={13} /></button>
               <button onClick={() => setChatMinimized(m => !m)} title={chatMinimized ? 'Restore' : 'Minimize'} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><ChevronDown size={16} className={`transition-transform duration-200 ${chatMinimized ? 'rotate-180' : ''}`} /></button>
               <button onClick={() => setChatOpen(false)} className="text-white/60 hover:text-white transition-colors flex-shrink-0"><X size={16} /></button>
             </div>

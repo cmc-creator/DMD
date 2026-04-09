@@ -125,6 +125,7 @@ Write the digest now:`;
       body: JSON.stringify({
         contents:         [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.6, maxOutputTokens: 600 },
+        tools:            [{ googleSearch: {} }],
       }),
     });
 
