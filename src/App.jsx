@@ -16,7 +16,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Upload, Plus, Download, ExternalLink, Bot, X,
   Newspaper, Rss, Link2, Youtube, Building2, Menu,
   Trash2, Layers, Scale, Tag, Camera, Scan, CheckSquare, AlertTriangle, Paperclip, EyeOff,
-  GripVertical, Sliders, LayoutGrid, BarChart2, ArrowUpRight, ArrowDownRight, Minus, List, BellOff, Clipboard,
+  GripVertical, Sliders, LayoutGrid, BarChart2, ArrowUpRight, ArrowDownRight, Minus, List, BellOff, Clipboard, Info, Database,
 } from 'lucide-react';
 
 const META_AUTO_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
@@ -1211,25 +1211,37 @@ const App = () => {
   const fetchCompetitors = async (listOverride) => {
     setCompetitorLoading(true);
     try {
-      let res;
-      const useList = listOverride ?? customCompetitors;
-      if (useList.length > 0) {
-        // User's directly-entered competitor list takes priority
-        res = await fetch('/api/competitors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ competitors: useList }),
-        });
-      } else if (facilityProfiles.length > 0) {
-        // Fall back to facility library from Intelligence tab
-        res = await fetch('/api/competitors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ competitors: facilityProfiles }),
-        });
-      } else {
-        res = await fetch('/api/competitors');
+      const customList = listOverride ?? customCompetitors;
+      // Priority: custom list > facility library > nothing (don't fall back to hardcoded defaults)
+      const activeList = customList.length > 0
+        ? customList
+        : facilityProfiles.length > 0
+          ? facilityProfiles.map(p => {
+              let hostname = '';
+              try { hostname = new URL(p.url || p.web || '').hostname.replace(/^www\./, ''); } catch {}
+              const label = p.label || p.name || hostname;
+              return {
+                name:    label,
+                url:     p.url || p.web || '',
+                query:   `"${label}" ${hostname} behavioral health mental health reviews`.trim(),
+                hgQuery: label,
+              };
+            })
+          : null;
+
+      if (!activeList) {
+        // No competitors configured — clear stale data, show empty state
+        setCompetitorData(null);
+        localStorage.removeItem('dmd_competitors');
+        setCompetitorLoading(false);
+        return;
       }
+
+      const res = await fetch('/api/competitors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ competitors: activeList }),
+      });
       const data = await res.json();
       if (data.ok) {
         setCompetitorData(data);
@@ -2565,6 +2577,7 @@ Supported save types:
 - "ad_spend": { month, platform, spend, leads, impressions, clicks }
 - "email_stats": { month, subject, recipients, opens, clicks, openRate, clickRate }
 - "review": { platform, rating, count }
+- "competitor_rating": { name, googleRating, reviewCount, yelpRating, hgRating } — updates a competitor's live ratings in the Competitor card. "name" must match a competitor in MY TRACKED COMPETITORS. Use this EVERY TIME you find a competitor's rating via web search so it persists on the dashboard.
 - "wix": { sessions, bounceRate, organic, social, direct, referral }
 - "custom_metric": { category, label, value, unit, period, notes } — for ANY metric not covered above
 - "goal": { name, metric, target, unit, deadline, notes } — creates a tracked KPI goal
@@ -2607,6 +2620,7 @@ Other rules:
             messages: updatedMsgs.slice(-12),
             ...(pendingAttachments.length > 0 ? { files: pendingAttachments.map(a => ({ base64: a.base64, text: a.text, mimeType: a.mimeType, name: a.name })) } : {}),
             maxTokens: pendingAttachments.length > 0 ? 12000 : 3000,
+            enableSearch: pendingAttachments.length === 0,
           }),
         });
       } finally {
@@ -2662,6 +2676,34 @@ Other rules:
               setReviewPlatformData(prev => {
                 const updated = { ...prev, [key]: { ...prev[key], rating: entry.rating ?? prev[key]?.rating, count: entry.count ?? prev[key]?.count, fetchedAt: new Date().toISOString(), source: 'captain_kpi' } };
                 localStorage.setItem('dmd_review_platforms', JSON.stringify(updated));
+                return updated;
+              });
+            });
+          } else if (type === 'competitor_rating') {
+            // Update a competitor's ratings in the competitor card from KPI web search results
+            entries.forEach(entry => {
+              if (!entry.name && !entry.id) return;
+              setCompetitorData(prev => {
+                if (!prev?.competitors) return prev;
+                const updated = {
+                  ...prev,
+                  competitors: prev.competitors.map(c => {
+                    const nameMatch = entry.id
+                      ? c.id === entry.id
+                      : (c.name || '').toLowerCase().includes((entry.name || '').toLowerCase());
+                    if (!nameMatch) return c;
+                    return {
+                      ...c,
+                      googleRating: entry.googleRating ?? c.googleRating,
+                      reviewCount:  entry.reviewCount  ?? c.reviewCount,
+                      yelpRating:   entry.yelpRating   ?? c.yelpRating,
+                      hgRating:     entry.hgRating     ?? c.hgRating,
+                      source:       'captain_kpi',
+                      updatedAt:    new Date().toISOString(),
+                    };
+                  }),
+                };
+                localStorage.setItem('dmd_competitors', JSON.stringify(updated));
                 return updated;
               });
             });
@@ -2742,6 +2784,7 @@ Other rules:
           ad_spend: 'Ad Spend',
           email_stats: 'Email Marketing',
           review: 'Review Platforms',
+          competitor_rating: 'Competitor Ratings',
           wix: 'Website Traffic',
           seo_rankings: 'SEO Rankings',
           survey_quality: 'Survey Dashboard',
@@ -4162,7 +4205,21 @@ Other rules:
               <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
             </button>
             {cloudSynced === 'loading'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Connecting</span></div>}
-            {cloudSynced === 'ok'       && <button onClick={pullFromCloud} className="topbar-live cursor-pointer hover:opacity-80 transition-opacity" title="Pull latest data from database"><div className="live-dot" /><span>Synced — click to pull</span></button>}
+            {cloudSynced === 'ok' && (
+              <div className="flex items-center gap-1">
+                <button onClick={pullFromCloud} className="topbar-live cursor-pointer hover:opacity-80 transition-opacity" title="Pull latest data from database"><div className="live-dot" /><span>Synced — click to pull</span></button>
+                <button
+                  onClick={async () => {
+                    setShowDbDiag(true); setDbDiag(null); setDbDiagLoading(true);
+                    try { const r = await fetch('/api/data?action=status'); setDbDiag(await r.json()); }
+                    catch (e) { setDbDiag({ status: 'fetch_failed', error: e.message }); }
+                    setDbDiagLoading(false);
+                  }}
+                  className="p-1 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors"
+                  title="View what data is saved in the cloud"
+                ><Info size={11} /></button>
+              </div>
+            )}
             {cloudSynced === 'syncing'  && <div className="topbar-live" style={{borderColor:'rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.07)',color:'#818cf8'}}><RefreshCw size={10} className="animate-spin" /><span>Saving…</span></div>}
             {(cloudSynced === 'error' || cloudSynced === 'offline') && (
               <button
@@ -4194,7 +4251,7 @@ Other rules:
               <div className="fixed inset-0 z-[999] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.7)'}} onClick={() => setShowDbDiag(false)}>
                 <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 max-w-lg w-full shadow-2xl" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-white font-black text-lg">Database Connection</h2>
+                    <div className="flex items-center gap-2"><Database size={18} className="text-indigo-400" /><h2 className="text-white font-black text-lg">Cloud Sync Status</h2></div>
                     <button onClick={() => setShowDbDiag(false)} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
                   </div>
                   {dbDiagLoading && <p className="text-slate-400 text-sm">Running diagnostics…</p>}
@@ -4230,13 +4287,61 @@ Other rules:
                             </ol>
                           </div>
                         )}
-                        {connected && (
-                          <div className="text-xs text-slate-400">
-                            <p>Stored keys: {dbDiag.hash_fields?.length ? dbDiag.hash_fields.join(', ') : 'none yet'}</p>
-                            <p>Legacy data: {dbDiag.legacy_exists ? 'found (will be merged on next load)' : 'none'}</p>
-                            {dbDiag.resolved_url_prefix && <p className="font-mono">URL: {dbDiag.envCheck?.resolved_url_prefix}</p>}
-                          </div>
-                        )}
+                        {connected && (() => {
+                          const KEY_LABELS = {
+                            dmd_manual:            'Manual Data (social, ads, email)',
+                            dmd_goals:             'Goals',
+                            dmd_alerts:            'Alerts',
+                            dmd_insights:          'News & Insights',
+                            dmd_tasks:             'AI Tasks',
+                            dmd_snoozed_alerts:    'Snoozed Alerts',
+                            dmd_ai_summary:        'AI Marketing Briefing',
+                            dmd_custom_metrics:    'Custom Metrics',
+                            dmd_custom_competitors:'Competitor List (My List)',
+                            dmd_competitors:       'Competitor Scan Results',
+                            dmd_facility_profiles: 'Facility Library',
+                            dmd_connections:       'Integration Settings',
+                            dmd_livedata:          'Live Integration Data',
+                            dmd_wix:               'Wix Traffic Data',
+                            dmd_review_platforms:  'Platform Ratings',
+                            dmd_review_overrides:  'Review Overrides',
+                            dmd_saved_urls:        'Saved Intel URLs',
+                            dmd_content:           'Content Calendar',
+                            dmd_history:           'Metrics History',
+                            dmd_overview_hidden:   'Hidden Overview Sections',
+                          };
+                          const stored = dbDiag.hash_fields || [];
+                          const present = stored.filter(k => KEY_LABELS[k]);
+                          const missing = Object.keys(KEY_LABELS).filter(k => !stored.includes(k));
+                          return (
+                            <div className="space-y-3 max-h-72 overflow-y-auto">
+                              <p className="text-xs font-black text-slate-300">{stored.length} keys in cloud</p>
+                              {present.length > 0 && (
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-black text-green-400 uppercase tracking-wider">Saved ({present.length})</p>
+                                  {present.map(k => (
+                                    <div key={k} className="flex items-center justify-between text-[11px]">
+                                      <span className="text-slate-300">{KEY_LABELS[k]}</span>
+                                      <span className="text-green-400">✓</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {missing.length > 0 && (
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mt-2">Not yet saved ({missing.length})</p>
+                                  {missing.map(k => (
+                                    <div key={k} className="flex items-center justify-between text-[11px]">
+                                      <span className="text-slate-500">{KEY_LABELS[k]}</span>
+                                      <span className="text-slate-600">—</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {dbDiag.legacy_exists && <p className="text-[10px] text-amber-400 mt-1">Legacy data found — will merge on next pull.</p>}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })()}
