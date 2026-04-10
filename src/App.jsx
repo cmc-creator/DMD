@@ -382,6 +382,7 @@ const App = () => {
   const [dismissedAlertBanner, setDismissedAlertBanner] = useState(false);
   const [toasts, setToasts]                     = useState([]);
   const [syncingNow, setSyncingNow]             = useState(false);
+  const [hiddenCompetitorIds, setHiddenCompetitorIds] = useState(() => { try { return JSON.parse(localStorage.getItem('dmd_hidden_competitors') || '[]'); } catch { return []; } });
   const [chatFeedback, setChatFeedback]           = useState({});
   const [chatTab, setChatTab]                     = useState('chat');
 
@@ -4488,7 +4489,7 @@ Other rules:
                         const d = await r.json();
                         if (d.ok) {
                           showToast('Sync started \u2014 data will refresh shortly', 'success');
-                          setTimeout(() => { pullFromCloud(); setSyncingNow(false); }, 4000);
+                          setTimeout(async () => { await pullFromCloud(); appendCurrentSnapshot(); setSyncingNow(false); }, 4000);
                         } else {
                           showToast('Sync failed: ' + (d.error || 'unknown error'), 'error');
                           setSyncingNow(false);
@@ -4646,7 +4647,7 @@ Other rules:
                     <h3 className={`font-black text-lg ${txt}`}>AI Marketing Briefing</h3>
                     <p className={`text-xs ${subtl}`}>
                       {aiSummary?.generatedAt
-                        ? `Last updated ${new Date(aiSummary.generatedAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`
+                        ? <>{`Last updated ${new Date(aiSummary.generatedAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`}{liveData?.social_fetchedAt && new Date(liveData.social_fetchedAt) > new Date(aiSummary.generatedAt) && <span className="ml-1.5 text-amber-500 font-black">· new data — refresh?</span>}</>
                         : "One-click snapshot of what's working and what needs attention"}
                     </p>
                   </div>
@@ -5638,7 +5639,8 @@ Other rules:
                   services:    destinyData?.website?.services?.length || 0,
                 },
                 ...comps,
-              ].sort((a, b) => {
+              ].filter(p => p.isUs || !hiddenCompetitorIds.includes(p.id ?? p.name))
+              .sort((a, b) => {
                 if (a.avgRating == null && b.avgRating == null) return 0;
                 if (a.avgRating == null) return 1;
                 if (b.avgRating == null) return -1;
@@ -5765,7 +5767,8 @@ Other rules:
                             <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Provider</th>
                             <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Google Rating</th>
                             <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Reviews</th>
-                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider`}>Services</th>
+                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider pr-4`}>Services</th>
+                            <th className={`pb-3 text-[11px] font-black ${subtl} uppercase tracking-wider`}></th>
                           </tr>
                         </thead>
                         <tbody className={`divide-y ${divdr}`}>
@@ -5789,10 +5792,25 @@ Other rules:
                                   ? <span className={`text-xs font-bold ${txt2}`}>{(p.totalReviews || p.google?.reviewCount || 0).toLocaleString()}</span>
                                   : <span className={`text-[11px] ${subtl}`}>—</span>}
                               </td>
-                              <td className="py-3">
+                              <td className="py-3 pr-4">
                                 {(p.services || p.website?.services?.length)
                                   ? <span className={`text-xs font-bold ${txt2}`}>{p.services || p.website?.services?.length} detected</span>
                                   : <span className={`text-[11px] ${subtl}`}>—</span>}
+                              </td>
+                              <td className="py-3 text-right">
+                                {!p.isUs && (
+                                  <button
+                                    onClick={() => {
+                                      const key = p.id ?? p.name;
+                                      const next = [...hiddenCompetitorIds, key];
+                                      setHiddenCompetitorIds(next);
+                                      localStorage.setItem('dmd_hidden_competitors', JSON.stringify(next));
+                                    }}
+                                    title="Remove competitor"
+                                    className={`p-1 rounded-lg ${subtl} hover:text-rose-400 hover:bg-rose-500/10 transition-colors`}>
+                                    <X size={13} />
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           ))}
