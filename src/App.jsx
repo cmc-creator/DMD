@@ -557,6 +557,12 @@ const App = () => {
   useEffect(() => { localStorage.setItem('dmd_card_overrides', JSON.stringify(cardOverrides)); }, [cardOverrides]);
   useEffect(() => { localStorage.setItem('dmd_widget_order', JSON.stringify(widgetOrder)); }, [widgetOrder]);
 
+  // Auto-load historical trends on mount so charts are never empty on first open
+  useEffect(() => { loadMetricsHistory(90); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-load historical trends on mount (silent — no spinner shown to user)
+  useEffect(() => { loadMetricsHistory(90); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-scroll chatbot to latest message + persist history
   useEffect(() => {
     if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -943,7 +949,7 @@ const App = () => {
       });
       const d = await res.json();
       if (d.ok) {
-        setDigestResult(`✅ Digest campaign created! ${d.campaignId ? 'ID: ' + d.campaignId : ''}`);
+        showToast(`Digest campaign created!${d.campaignId ? ' ID: ' + d.campaignId : ''}`, 'success');
         // Pull latest weekly digest from cloud so the Overview panel refreshes
         try {
           const pull = await fetch('/api/data');
@@ -951,9 +957,9 @@ const App = () => {
           if (pd.dmd_weekly_digest) setWeeklyDigest(pd.dmd_weekly_digest);
         } catch { /* non-critical */ }
       } else {
-        setDigestResult(`❌ ${d.error || 'Failed to create digest'}`);
+        showToast(d.error || 'Failed to create digest', 'error');
       }
-    } catch (e) { setDigestResult(`❌ Error: ${e.message}`); }
+    } catch (e) { showToast(`Digest error: ${e.message}`, 'error'); }
     setDigestSending(false);
   };
 
@@ -7140,11 +7146,6 @@ Other rules:
                     </button>
                   </div>
                 </div>
-                {digestResult && (
-                  <div className={`mb-4 px-4 py-2.5 rounded-xl text-xs font-bold ${digestResult.startsWith('\u2705') ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'}`}>
-                    {digestResult}
-                  </div>
-                )}
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -8942,7 +8943,7 @@ Other rules:
               {intelSubTab === 'news' && (
                 <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
                   <SectionHeader icon={Newspaper} color="text-sky-500" title="Industry News Feed" subtitle="Real-time news pulled from newsapi.org" />
-                  {!newsApiCreds?.apiKey && (
+                  {!newsApiCreds?.apiKey && newsItems.length === 0 && (
                     <div className="mb-5 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-start gap-3">
                       <Bell size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
                       <p className="text-sm text-amber-700 dark:text-amber-300">
