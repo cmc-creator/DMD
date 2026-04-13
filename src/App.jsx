@@ -22,7 +22,7 @@ import {
 const META_AUTO_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
 
 // Guard against transient layout states where Recharts measures -1 x -1.
-const ResponsiveContainer = ({ minWidth = 0, minHeight = 1, ...props }) => (
+const ResponsiveContainer = ({ minWidth = 1, minHeight = 1, ...props }) => (
   <RechartsResponsiveContainer minWidth={minWidth} minHeight={minHeight} {...props} />
 );
 
