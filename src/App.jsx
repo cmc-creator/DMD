@@ -26,6 +26,14 @@ const ResponsiveContainer = ({ minWidth = 0, minHeight = 1, ...props }) => (
   <RechartsResponsiveContainer minWidth={minWidth} minHeight={minHeight} {...props} />
 );
 
+// Catch render errors in individual dashboard cards without blanking the whole app.
+class ChartErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(e) { console.error('[card error]', e); }
+  render() { return this.state.hasError ? null : this.props.children; }
+}
+
 // ─── Captain KPI avatar — precision targeting reticle ──────────────────────
 const CaptainKPI = ({ size = 28 }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -204,9 +212,10 @@ const sanitizeManualDataForSurvey = (rawManual) => {
 const DragCtx = React.createContext(null);
 const DS = ({ id, tab, children }) => {
   const ctx = React.useContext(DragCtx);
-  if (!ctx) return <div>{children}</div>;
+  if (!ctx) return <ChartErrorBoundary><div>{children}</div></ChartErrorBoundary>;
   const { sectionCSSOrder, makeDrag, layoutMode, sectionDragOver } = ctx;
   return (
+    <ChartErrorBoundary>
     <div
       style={sectionCSSOrder(tab, id)}
       className={layoutMode ? `relative group${sectionDragOver === id ? ' outline outline-2 outline-[#C9A84C]/60 rounded-[2.5rem]' : ''}` : ''}
@@ -219,6 +228,7 @@ const DS = ({ id, tab, children }) => {
       )}
       {children}
     </div>
+    </ChartErrorBoundary>
   );
 };
 
@@ -3722,7 +3732,7 @@ Other rules:
     _roiHistMap[key].spend += Number(e.spend || 0);
     _roiHistMap[key].leads += Number(e.leads || 0);
   });
-  [...metricsHistory].forEach(h => {
+  (Array.isArray(metricsHistory) ? metricsHistory : []).forEach(h => {
     const key = (h.date || '').slice(0, 7);
     if (!key) return;
     if (!_roiHistMap[key]) _roiHistMap[key] = { month: key, spend: 0, revenue: 0, leads: 0 };
