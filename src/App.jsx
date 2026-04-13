@@ -4507,16 +4507,18 @@ Other rules:
             {/* ── Biweekly Meeting Summary ──────────────────────────────── */}
             <DS id="ov-biweekly" tab="overview">
             {(() => {
+              try {
               const DAY   = 24 * 60 * 60 * 1000;
               const now   = Date.now();
               const curStart  = new Date(now - 14 * DAY);
               const prevStart = new Date(now - 28 * DAY);
-              const curSlice  = metricsHistory.filter(h => h.date && new Date(h.date) >= curStart).sort((a,b)=>a.date.localeCompare(b.date));
-              const prevSlice = metricsHistory.filter(h => h.date && new Date(h.date) >= prevStart && new Date(h.date) < curStart).sort((a,b)=>a.date.localeCompare(b.date));
-              const avg  = (arr, key) => { const v = arr.map(h=>h[key]).filter(x=>x!=null); return v.length ? v.reduce((s,x)=>s+x,0)/v.length : null; };
+              const safeHistory = Array.isArray(metricsHistory) ? metricsHistory : [];
+              const safeGoals   = Array.isArray(dmdGoals)       ? dmdGoals       : [];
+              const curSlice  = safeHistory.filter(h => h.date && new Date(h.date) >= curStart).sort((a,b)=>a.date.localeCompare(b.date));
+              const prevSlice = safeHistory.filter(h => h.date && new Date(h.date) >= prevStart && new Date(h.date) < curStart).sort((a,b)=>a.date.localeCompare(b.date));
+              const avg  = (arr, key) => { const v = arr.map(h=>h[key]).filter(x=>x!=null&&Number.isFinite(+x)); return v.length ? v.reduce((s,x)=>s+(+x),0)/v.length : null; };
               const last = (arr, key) => { const v = arr.filter(h=>h[key]!=null); return v.length ? v[v.length-1][key] : null; };
               const first= (arr, key) => { const v = arr.filter(h=>h[key]!=null); return v.length ? v[0][key] : null; };
-              const fmt  = (v, digits=0) => v == null ? null : digits > 0 ? v.toFixed(digits) : Math.round(v).toLocaleString();
 
               const comparisons = [
                 { label:'Google Rating', icon:'⭐', cur:avg(curSlice,'googleRating'),  prev:avg(prevSlice,'googleRating'),  format:v=>v?v.toFixed(2)+' ★':null, higherBetter:true, unit:'avg' },
@@ -4530,7 +4532,7 @@ Other rules:
 
               const wins  = comparisons.filter(c=>c.prev!=null && c.cur-c.prev > 0);
               const watch = comparisons.filter(c=>c.prev!=null && c.cur-c.prev < 0);
-              const goalRows = dmdGoals.filter(g=>g.name&&g.target);
+              const goalRows = safeGoals.filter(g=>g.name&&g.target);
               const periodLabel = `${curStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
               const prevLabel   = `${prevStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${curStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
 
@@ -4704,6 +4706,7 @@ Other rules:
                   </div>
                 </div>
               );
+              } catch(e) { console.error('[biweekly card]', e); return null; }
             })()}
             </DS>
 
