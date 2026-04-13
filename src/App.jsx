@@ -10747,7 +10747,7 @@ Other rules:
               {(() => {
                 const allEntries = Object.entries(manualData)
                   .flatMap(([key, rows]) =>
-                    (rows || []).map(row => ({
+                    (Array.isArray(rows) ? rows : []).map(row => ({
                       type: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                       savedAt: row._savedAt || '—',
                       summary: Object.entries(row).filter(([k]) => !k.startsWith('_')).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join('  ·  '),
