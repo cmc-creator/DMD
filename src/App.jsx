@@ -6832,7 +6832,14 @@ Other rules:
             </DS>
             <DS id="seo-keywords" tab="seo">
             <div className={`${card} p-6 md:p-8 rounded-[2.5rem] mb-8`}>
-              <SectionHeader icon={Search} color="text-blue-500" title="Keyword Rankings" subtitle="Top AZ Healthcare Keywords" />
+              <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+                <SectionHeader icon={Search} color="text-blue-500" title="Keyword Rankings" subtitle="Top AZ Healthcare Keywords" />
+                {seoKeywords.length > 0 && (
+                  <button
+                    onClick={() => { if (window.confirm('Clear all keyword rankings?')) { setManualData(prev => { const updated = { ...prev, seo_rankings: [] }; localStorage.setItem('dmd_manual', JSON.stringify(updated)); return updated; }); } }}
+                    className={`text-xs font-bold ${subtl} hover:text-rose-400 transition-colors`}>Clear All</button>
+                )}
+              </div>
               {seoKeywords.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 gap-3">
                   <Search className={`w-10 h-10 ${subtl} opacity-20`} />
@@ -6848,7 +6855,7 @@ Other rules:
                       <th className="text-center pb-3 px-4">Rank</th>
                       <th className="text-center pb-3 px-4">Change</th>
                       <th className="text-right pb-3 pl-4">Volume / Mo</th>
-                      <th className="pb-3 pl-2"></th>
+                      <th className="pb-3 pl-2" colSpan={2}></th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${divdr}`}>
@@ -6878,6 +6885,7 @@ Other rules:
                           </td>
                           <td className={`py-3 pl-4 text-right text-sm font-bold ${txt2}`}>{kw.volume.toLocaleString()}</td>
                           <td className="py-3 pl-2"><button onClick={()=>setInlineEdit({dataKey:'seo_rankings',idx:i,fields:{keyword:kw.keyword,rank:String(kw.rank),prevRank:String(kw.rank-kw.change),searchVol:String(kw.volume)}})} className={`${subtl} hover:text-[#C9A84C] transition-colors`}><Pencil size={12}/></button></td>
+                          <td className="py-3 pl-1"><button onClick={()=>{ setManualData(prev => { const updated = { ...prev, seo_rankings: (prev.seo_rankings||[]).filter((_,j)=>j!==i) }; localStorage.setItem('dmd_manual', JSON.stringify(updated)); return updated; }); }} className={`${subtl} hover:text-rose-400 transition-colors`}><X size={12}/></button></td>
                         </tr>
                       )
                     ))}
