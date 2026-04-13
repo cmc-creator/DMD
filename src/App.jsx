@@ -474,7 +474,7 @@ const App = () => {
         if (data.dmd_saved_urls)       { setSavedUrls(data.dmd_saved_urls);                 ls('dmd_saved_urls',        data.dmd_saved_urls); }
         if (data.dmd_facility_profiles){ setFacilityProfiles(data.dmd_facility_profiles);   ls('dmd_facility_profiles', data.dmd_facility_profiles); }
         if (data.dmd_content)          { setContentItems(data.dmd_content);                   ls('dmd_content',           data.dmd_content); }
-        if (data.dmd_history)          { setMetricsHistory(data.dmd_history);                 }
+        if (data.dmd_history)          { setMetricsHistory(Array.isArray(data.dmd_history) ? data.dmd_history : []);                 }
         if (data.dmd_weekly_digest)    { setWeeklyDigest(data.dmd_weekly_digest);              }
         if (data.dmd_goals)            { setDmdGoals(data.dmd_goals);                           ls('dmd_goals',           data.dmd_goals); }
         if (data.dmd_alerts)           { setDmdAlerts(data.dmd_alerts);                         ls('dmd_alerts',          data.dmd_alerts); }
@@ -3166,12 +3166,12 @@ Other rules:
   };
 
   // ── Derived data from manual entries & live integrations ─────────────────────
-  const _reviews    = manualData.reviews       || [];
-  const _socialMet  = manualData.social_metrics || [];
-  const _adSpend    = manualData.ad_spend       || [];
-  const _emailStats = manualData.email_stats    || [];
-  const _seoData    = manualData.seo_rankings   || [];
-  const _tiktokPosts= manualData.tiktok_posts   || [];
+  const _reviews    = Array.isArray(manualData.reviews)        ? manualData.reviews        : [];
+  const _socialMet  = Array.isArray(manualData.social_metrics) ? manualData.social_metrics : [];
+  const _adSpend    = Array.isArray(manualData.ad_spend)       ? manualData.ad_spend       : [];
+  const _emailStats = Array.isArray(manualData.email_stats)    ? manualData.email_stats    : [];
+  const _seoData    = Array.isArray(manualData.seo_rankings)   ? manualData.seo_rankings   : [];
+  const _tiktokPosts= Array.isArray(manualData.tiktok_posts)   ? manualData.tiktok_posts   : [];
   const _metaLive   = liveData['Meta Business Suite'] || {};
   const _wixLive    = (wixData && wixData.sessions) ? wixData : (liveData['Wix Analytics'] || {});
   const _tikLive    = liveData['TikTok for Business'] || {};
@@ -6108,8 +6108,10 @@ Other rules:
             {/* ── Historical Trends ─────────────────────────────────────────── */}
             <DS id="ov-historical" tab="overview">
             {(() => {
+              try {
               const cutoff   = new Date(Date.now() - historyPeriod * 24 * 60 * 60 * 1000);
-              const sliced   = metricsHistory
+              const safeHistory = Array.isArray(metricsHistory) ? metricsHistory : [];
+              const sliced   = safeHistory
                 .filter(h => h.date && new Date(h.date) >= cutoff)
                 .sort((a, b) => a.date.localeCompare(b.date))
                 .slice(-60);
@@ -6298,12 +6300,13 @@ Other rules:
 
                       <p className={`text-[10px] ${subtl} text-right`}>
                         {sliced.length} data point{sliced.length !== 1 ? 's' : ''} · last {historyPeriod === 365 ? '365' : historyPeriod} days
-                        {metricsHistory.length > sliced.length ? ` (${metricsHistory.length} total in archive)` : ''}
+                        {safeHistory.length > sliced.length ? ` (${safeHistory.length} total in archive)` : ''}
                       </p>
                     </div>
                   )}
                 </div>
               );
+              } catch(e) { console.error('[historical trends]', e); return null; }
             })()}
             </DS>
 
