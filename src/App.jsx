@@ -4504,6 +4504,209 @@ Other rules:
               );
             })()}
 
+            {/* ── Biweekly Meeting Summary ──────────────────────────────── */}
+            <DS id="ov-biweekly" tab="overview">
+            {(() => {
+              const DAY   = 24 * 60 * 60 * 1000;
+              const now   = Date.now();
+              const curStart  = new Date(now - 14 * DAY);
+              const prevStart = new Date(now - 28 * DAY);
+              const curSlice  = metricsHistory.filter(h => h.date && new Date(h.date) >= curStart).sort((a,b)=>a.date.localeCompare(b.date));
+              const prevSlice = metricsHistory.filter(h => h.date && new Date(h.date) >= prevStart && new Date(h.date) < curStart).sort((a,b)=>a.date.localeCompare(b.date));
+              const avg  = (arr, key) => { const v = arr.map(h=>h[key]).filter(x=>x!=null); return v.length ? v.reduce((s,x)=>s+x,0)/v.length : null; };
+              const last = (arr, key) => { const v = arr.filter(h=>h[key]!=null); return v.length ? v[v.length-1][key] : null; };
+              const first= (arr, key) => { const v = arr.filter(h=>h[key]!=null); return v.length ? v[0][key] : null; };
+              const fmt  = (v, digits=0) => v == null ? null : digits > 0 ? v.toFixed(digits) : Math.round(v).toLocaleString();
+
+              const comparisons = [
+                { label:'Google Rating', icon:'⭐', cur:avg(curSlice,'googleRating'),  prev:avg(prevSlice,'googleRating'),  format:v=>v?v.toFixed(2)+' ★':null, higherBetter:true, unit:'avg' },
+                { label:'Web Sessions',  icon:'🌐', cur:last(curSlice,'sessions'),      prev:last(prevSlice,'sessions'),      format:v=>v?Math.round(v).toLocaleString():null, higherBetter:true },
+                { label:'Total Leads',   icon:'🎯', cur:last(curSlice,'totalLeads'),    prev:last(prevSlice,'totalLeads'),    format:v=>v?Math.round(v).toLocaleString():null, higherBetter:true },
+                { label:'IG Followers',  icon:'📸', cur:last(curSlice,'igFollowers'),   prev:first(curSlice,'igFollowers') ?? last(prevSlice,'igFollowers'), format:v=>v?Math.round(v).toLocaleString():null, higherBetter:true },
+                { label:'FB Followers',  icon:'👍', cur:last(curSlice,'fbFollowers'),   prev:first(curSlice,'fbFollowers') ?? last(prevSlice,'fbFollowers'), format:v=>v?Math.round(v).toLocaleString():null, higherBetter:true },
+                { label:'TikTok',        icon:'🎵', cur:last(curSlice,'ttFollowers'),   prev:first(curSlice,'ttFollowers') ?? last(prevSlice,'ttFollowers'), format:v=>v?Math.round(v).toLocaleString():null, higherBetter:true },
+                { label:'Email Subs',    icon:'📧', cur:last(curSlice,'emailSubs'),     prev:last(prevSlice,'emailSubs'),     format:v=>v?Math.round(v).toLocaleString():null, higherBetter:true },
+              ].filter(c => c.cur != null);
+
+              const wins  = comparisons.filter(c=>c.prev!=null && c.cur-c.prev > 0);
+              const watch = comparisons.filter(c=>c.prev!=null && c.cur-c.prev < 0);
+              const goalRows = dmdGoals.filter(g=>g.name&&g.target);
+              const periodLabel = `${curStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
+              const prevLabel   = `${prevStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${curStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
+
+              return (
+                <div className={`${card} rounded-[2.5rem] mb-8 overflow-hidden`}>
+                  {/* Gold header */}
+                  <div className="bg-gradient-to-r from-[#7A5C0A] to-[#C9A84C] p-6 md:p-8">
+                    <div className="flex items-start justify-between flex-wrap gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-2xl">📋</span>
+                          <h2 className="text-xl font-black text-white tracking-tight">Biweekly Meeting Summary</h2>
+                        </div>
+                        <p className="text-amber-100/80 text-xs font-bold">
+                          {periodLabel} &nbsp;·&nbsp; compared to {prevLabel}
+                        </p>
+                        <p className="text-amber-100/60 text-[11px] mt-0.5">
+                          {new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => window.print()}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-xs font-black rounded-xl transition-colors border border-white/20">
+                        🖨 Print / Share
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-6 md:p-8 space-y-8">
+
+                    {/* Period comparison tiles */}
+                    {comparisons.length === 0 ? (
+                      <div className="text-center py-8 space-y-2">
+                        <p className={`text-sm font-black ${txt}`}>No comparison data yet</p>
+                        <p className={`text-xs ${subtl} max-w-sm mx-auto`}>
+                          Period-over-period stats appear after 14+ days of daily snapshots. Use Sync Now each day to build history.
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className={`text-[11px] font-black ${subtl} uppercase tracking-widest mb-4`}>Current 14 Days vs. Prior 14 Days</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+                          {comparisons.map(c => {
+                            const diff = c.prev != null ? c.cur - c.prev : null;
+                            const absDiff = diff != null ? Math.abs(diff) : null;
+                            const pct  = c.prev && c.prev !== 0 ? Math.abs((diff / c.prev) * 100).toFixed(1) : null;
+                            const isPos = diff != null && diff > 0;
+                            const isNeg = diff != null && diff < 0;
+                            return (
+                              <div key={c.label} className={`p-4 rounded-2xl border-2 flex flex-col gap-1
+                                ${isPos ? 'border-emerald-400/30 bg-emerald-50 dark:bg-emerald-900/20'
+                                : isNeg ? 'border-rose-400/30 bg-rose-50 dark:bg-rose-900/20'
+                                : `border-transparent ${darkMode?'bg-slate-800/50':'bg-slate-50'}`}`}>
+                                <span className="text-2xl leading-none">{c.icon}</span>
+                                <span className={`text-xl font-black mt-1 ${isPos?'text-emerald-600 dark:text-emerald-400':isNeg?'text-rose-600 dark:text-rose-400':txt}`}>
+                                  {c.format(c.cur) ?? '—'}
+                                </span>
+                                {diff != null && diff !== 0 && (
+                                  <span className={`text-xs font-black ${isPos?'text-emerald-500':'text-rose-500'}`}>
+                                    {isPos?'▲':'▼'} {absDiff < 1 ? absDiff.toFixed(2) : Math.round(absDiff).toLocaleString()}
+                                    {pct && ` · ${pct}%`}
+                                  </span>
+                                )}
+                                {c.prev != null && (
+                                  <span className={`text-[10px] ${subtl}`}>prev: {c.format(c.prev) ?? '—'}</span>
+                                )}
+                                <span className={`text-[10px] font-black ${subtl} uppercase tracking-wider mt-auto pt-1`}>{c.label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Goals progress */}
+                    {goalRows.length > 0 && (
+                      <div>
+                        <p className={`text-[11px] font-black ${subtl} uppercase tracking-widest mb-4`}>Goals Progress</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {goalRows.map((g, i) => {
+                            const cur = Number(g.current || 0);
+                            const tgt = Number(g.target  || 1);
+                            const pct = Math.min(100, Math.round((cur / tgt) * 100));
+                            const done = pct >= 100;
+                            return (
+                              <div key={i} className={`p-4 rounded-2xl ${done?'bg-emerald-50 dark:bg-emerald-900/20':darkMode?'bg-slate-800/50':'bg-slate-50'}`}>
+                                <div className="flex items-center justify-between mb-2 gap-2">
+                                  <span className={`text-sm font-black ${done?'text-emerald-600 dark:text-emerald-400':txt} truncate`}>
+                                    {done ? '✅ ' : ''}{g.name}
+                                  </span>
+                                  <span className={`text-xs font-black shrink-0 ${done?'text-emerald-500':txt2}`}>
+                                    {cur}{g.unit||''} / {tgt}{g.unit||''} &middot; {pct}%
+                                  </span>
+                                </div>
+                                <div className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-700 ${done?'bg-emerald-500':pct>=75?'bg-amber-400':'bg-[#C9A84C]'}`}
+                                    style={{ width:`${pct}%` }} />
+                                </div>
+                                {g.deadline && <p className={`text-[10px] ${subtl} mt-1`}>Due: {g.deadline}</p>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Wins + Needs Attention */}
+                    {(wins.length > 0 || watch.length > 0) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {wins.length > 0 && (
+                          <div>
+                            <p className="text-[11px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-3">✅ Wins This Period</p>
+                            <div className="space-y-2">
+                              {wins.map(c => {
+                                const diff = c.cur - c.prev;
+                                const pct  = c.prev ? Math.abs((diff/c.prev)*100).toFixed(1) : null;
+                                return (
+                                  <div key={c.label} className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20">
+                                    <span className="text-lg">{c.icon}</span>
+                                    <span className={`text-sm font-bold ${txt} flex-1`}>{c.label}</span>
+                                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                      ▲ {pct ? pct + '%' : (Math.abs(diff)<1?Math.abs(diff).toFixed(2):Math.round(Math.abs(diff)).toLocaleString())}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {watch.length > 0 && (
+                          <div>
+                            <p className="text-[11px] font-black text-rose-500 uppercase tracking-widest mb-3">⚠️ Needs Attention</p>
+                            <div className="space-y-2">
+                              {watch.map(c => {
+                                const diff = c.cur - c.prev;
+                                const pct  = c.prev ? Math.abs((diff/c.prev)*100).toFixed(1) : null;
+                                return (
+                                  <div key={c.label} className="flex items-center gap-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20">
+                                    <span className="text-lg">{c.icon}</span>
+                                    <span className={`text-sm font-bold ${txt} flex-1`}>{c.label}</span>
+                                    <span className="text-sm font-black text-rose-500">
+                                      ▼ {pct ? pct + '%' : (Math.abs(diff)<1?Math.abs(diff).toFixed(2):Math.round(Math.abs(diff)).toLocaleString())}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Current snapshot row — always visible even without history */}
+                    {comparisons.length === 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                          { label:'Google Rating',  val: metrics.googleScore,  icon:'⭐' },
+                          { label:'Web Sessions',   val: metrics.wixSessions,  icon:'🌐' },
+                          { label:'Total Leads',    val: String(metrics.totalLeads||'—'), icon:'🎯' },
+                          { label:'NPS Score',      val: metrics.nps,          icon:'💬' },
+                        ].filter(r=>r.val&&r.val!=='—').map(r=>(
+                          <div key={r.label} className={`p-4 rounded-2xl text-center ${darkMode?'bg-slate-800/50':'bg-slate-50'}`}>
+                            <div className="text-2xl mb-1">{r.icon}</div>
+                            <div className={`text-xl font-black ${txt}`}>{r.val}</div>
+                            <div className={`text-[11px] font-black ${subtl} uppercase tracking-wider mt-1`}>{r.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+            </DS>
+
             {/* ── Achievements Showcase ─────────────────────────────────── */}
             <DS id="ov-achievements" tab="overview">
             <div className={`${card} p-6 rounded-[2.5rem] mb-8`}>
