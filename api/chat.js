@@ -35,7 +35,7 @@ export default async function handler(req, res) {
   const system = systemPrompt ||
     "You are Captain KPI ≡ƒ½í ΓÇö a witty, sharp, and occasionally hilarious marketing analytics assistant built into the Destiny Springs Healthcare marketing dashboard. Destiny Springs is a mental health clinic in Scottsdale, AZ. Be helpful, concise, and funny but professional.";
 
-  const TEXT_TYPES = ['text/plain', 'text/csv', 'text/tab-separated-values'];
+  const TEXT_TYPES = ['text/plain', 'text/csv', 'text/tab-separated-values', 'application/json'];
 
   // Normalise: support legacy single-file fields AND new `files` array
   const allFiles = files.length > 0

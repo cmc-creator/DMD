@@ -2943,18 +2943,35 @@ Other rules:
 
   const handleChatFilesSelect = (fileList) => {
     if (!fileList || fileList.length === 0) return;
-    const textTypes   = ['text/plain', 'text/csv', 'text/tab-separated-values'];
+    const textTypes   = ['text/plain', 'text/csv', 'text/tab-separated-values', 'application/json'];
     const binaryTypes = ['image/png','image/jpeg','image/webp','image/gif','application/pdf'];
     const xlsExts     = ['.xls', '.xlsx', '.xlsm', '.xlsb'];
-    const isXls = (file) => xlsExts.some(ext => file.name.toLowerCase().endsWith(ext));
+    const isXls  = (file) => xlsExts.some(ext => file.name.toLowerCase().endsWith(ext));
+    const isJson = (file) => file.name.toLowerCase().endsWith('.json');
     const allowed     = [...textTypes, ...binaryTypes];
     Array.from(fileList).forEach(file => {
-      if (!allowed.includes(file.type) && !isXls(file)) {
-        setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ "${file.name}" is an unsupported type. Attach images, PDFs, CSV, or Excel files.` }]);
+      if (!allowed.includes(file.type) && !isXls(file) && !isJson(file)) {
+        setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ "${file.name}" is an unsupported type. Attach images, PDFs, CSV, Excel, or JSON files.` }]);
         return;
       }
       if (file.size > 15 * 1024 * 1024) {
         setChatMessages(m => [...m, { role: 'assistant', content: `⚠️ "${file.name}" is over 15 MB — please use a smaller file.` }]);
+        return;
+      }
+      if (isJson(file) && !textTypes.includes(file.type)) {
+        // Handle .json files that browsers may report with a blank/wrong MIME type
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const parsed = JSON.parse(e.target.result);
+            const pretty = JSON.stringify(parsed, null, 2);
+            setChatAttachments(prev => [...prev, { text: pretty, mimeType: 'application/json', name: file.name }]);
+          } catch {
+            // Not valid JSON — send as plain text anyway
+            setChatAttachments(prev => [...prev, { text: e.target.result, mimeType: 'text/plain', name: file.name }]);
+          }
+        };
+        reader.readAsText(file);
         return;
       }
       if (isXls(file)) {
@@ -2983,6 +3000,14 @@ Other rules:
       const reader = new FileReader();
       if (textTypes.includes(file.type)) {
         reader.onload = (e) => {
+          // Pretty-print JSON for better model readability
+          if (file.type === 'application/json' || file.name.toLowerCase().endsWith('.json')) {
+            try {
+              const pretty = JSON.stringify(JSON.parse(e.target.result), null, 2);
+              setChatAttachments(prev => [...prev, { text: pretty, mimeType: 'application/json', name: file.name }]);
+              return;
+            } catch { /* fall through to plain text */ }
+          }
           setChatAttachments(prev => [...prev, { text: e.target.result, mimeType: file.type, name: file.name }]);
         };
         reader.readAsText(file);
